@@ -109,14 +109,31 @@ export function LocationsManager({ isOpen, onClose }: LocationsManagerProps) {
                   <p className="text-cyan-300 font-medium">{location.name}</p>
                   <p className="text-gray-400 text-sm">{location.address}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(location.id)}
-                  className="text-red-400 hover:text-red-300"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() =>
+                      window.open(
+                        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.address)}`,
+                        "_blank",
+                      )
+                    }
+                    className="text-blue-400 hover:text-blue-300"
+                    title="Ver en Google Maps"
+                  >
+                    <MapPin className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(location.id)}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                    title="Eliminar ubicación"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))
           )}
