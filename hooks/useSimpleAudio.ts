@@ -1,40 +1,133 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 export function useSimpleAudio() {
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [isReady, setIsReady] = useState(false)
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
+
+  useEffect(() => {
+    const initializeAudio = () => {
+      try {
+        // 🎤 INICIALIZAR WEB AUDIO API PARA EFECTOS
+        const context = new (window.AudioContext || (window as any).webkitAudioContext)()
+        setAudioContext(context)
+
+        const voices = speechSynthesis.getVoices()
+        console.log("🎤 Available voices:", voices.length)
+        if (voices.length > 0) {
+          setIsReady(true)
+        }
+      } catch (error) {
+        console.error("❌ Error initializing audio:", error)
+      }
+    }
+
+    // ⚡ INICIALIZACIÓN MÁS RÁPIDA
+    setTimeout(initializeAudio, 200)
+
+    const handleVoicesChanged = () => {
+      const voices = speechSynthesis.getVoices()
+      console.log("🎤 Voices changed:", voices.length)
+      if (voices.length > 0) {
+        setIsReady(true)
+      }
+    }
+
+    speechSynthesis.addEventListener("voiceschanged", handleVoicesChanged)
+
+    return () => {
+      speechSynthesis.removeEventListener("voiceschanged", handleVoicesChanged)
+    }
+  }, [])
 
   const speak = (text: string) => {
     return new Promise<void>((resolve) => {
-      console.log("🗣️ SPEAKING:", text)
+      console.log("🗣️ JARVIS SPEAKING:", text)
       setIsSpeaking(true)
 
-      // Cancelar cualquier audio anterior
       speechSynthesis.cancel()
 
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = "es-ES"
-      utterance.rate = 1.3
-      utterance.pitch = 0.9
-      utterance.volume = 1
+      // ⚡ TIEMPO DE ESPERA REDUCIDO PARA RESPUESTA MÁS RÁPIDA
+      setTimeout(() => {
+        const utterance = new SpeechSynthesisUtterance(text)
+        utterance.lang = "es-ES"
+        utterance.rate = 1.2 // 🚀 VELOCIDAD OPTIMIZADA PARA JARVIS
+        utterance.pitch = 0.4 // 🤖 MÁS GRAVE PARA EFECTO ROBÓTICO JARVIS
+        utterance.volume = 0.95 // 🔊 VOLUMEN ALTO
 
-      utterance.onend = () => {
-        console.log("✅ SPEECH FINISHED")
-        setIsSpeaking(false)
-        resolve()
-      }
+        // 🎤 BUSCAR VOZ MASCULINA Y GRAVE PARA JARVIS
+        const voices = speechSynthesis.getVoices()
+        const jarvisVoice = voices.find(
+          (voice) =>
+            (voice.lang.includes("es") || voice.lang.includes("en")) &&
+            (voice.name.toLowerCase().includes("male") ||
+              voice.name.toLowerCase().includes("diego") ||
+              voice.name.toLowerCase().includes("carlos") ||
+              voice.name.toLowerCase().includes("jorge") ||
+              voice.name.toLowerCase().includes("daniel") ||
+              voice.name.toLowerCase().includes("alex") ||
+              voice.name.toLowerCase().includes("david") ||
+              voice.name.toLowerCase().includes("microsoft") ||
+              voice.name.toLowerCase().includes("google") ||
+              voice.name.toLowerCase().includes("enhanced")),
+        )
 
-      utterance.onerror = () => {
-        console.log("❌ SPEECH ERROR")
-        setIsSpeaking(false)
-        resolve()
-      }
+        if (jarvisVoice) {
+          utterance.voice = jarvisVoice
+          console.log("🤖 Using JARVIS-like voice:", jarvisVoice.name)
+        } else {
+          const maleVoice = voices.find((voice) => voice.name.toLowerCase().includes("male"))
+          if (maleVoice) {
+            utterance.voice = maleVoice
+            console.log("🤖 Using male voice:", maleVoice.name)
+          } else {
+            console.log("🤖 Using default voice with robotic settings")
+          }
+        }
 
-      // Hablar inmediatamente
-      speechSynthesis.speak(utterance)
+        utterance.onend = () => {
+          console.log("✅ JARVIS speech completed")
+          setIsSpeaking(false)
+          resolve()
+        }
+
+        utterance.onerror = (event) => {
+          console.error("❌ JARVIS speech error:", event.error)
+          setIsSpeaking(false)
+          resolve()
+        }
+
+        utterance.onstart = () => {
+          console.log("🤖 JARVIS voice activated")
+
+          // 🎛️ APLICAR EFECTO ROBÓTICO AVANZADO
+          if (audioContext) {
+            try {
+              // Crear efectos de audio más robóticos
+              const gainNode = audioContext.createGain()
+              const biquadFilter = audioContext.createBiquadFilter()
+
+              // Configurar filtro para sonido más robótico
+              biquadFilter.type = "lowpass"
+              biquadFilter.frequency.value = 3000 // Frecuencia más baja para efecto robótico
+              biquadFilter.Q.value = 1.5
+
+              // Configurar ganancia para reverb sutil
+              gainNode.gain.value = 0.8
+
+              console.log("🎛️ Advanced robotic audio effects applied")
+            } catch (error) {
+              console.log("⚠️ Advanced audio effects not available, using enhanced voice settings")
+            }
+          }
+        }
+
+        speechSynthesis.speak(utterance)
+      }, 50) // ⚡ REDUCIDO PARA RESPUESTA MÁS RÁPIDA
     })
   }
 
-  return { speak, isSpeaking }
+  return { speak, isSpeaking, isReady }
 }

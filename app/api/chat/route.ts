@@ -4,127 +4,118 @@ import { openai } from "@ai-sdk/openai"
 
 export async function POST(request: NextRequest) {
   try {
-    const { message } = await request.json()
-    console.log("🌐 API RECEIVED MESSAGE:", message)
+    const { message, intelligentMode, functionalMode } = await request.json()
 
-    // 🖼️ DETECTAR SOLICITUDES DE IMÁGENES
-    const imageKeywords = [
-      "muestra",
-      "muéstrame",
-      "imagen",
-      "foto",
-      "picture",
-      "mostrar",
-      "ver",
-      "enseña",
-      "enséñame",
-      "busca una imagen",
-      "busca una foto",
-    ]
+    if (!message) {
+      return NextResponse.json({ error: "Message is required" }, { status: 400 })
+    }
 
-    const messageText = message.toLowerCase()
-    const isImageRequest = imageKeywords.some((keyword) => messageText.includes(keyword))
+    console.log("🤖 Processing message:", message)
+    console.log("🧠 Intelligent mode:", intelligentMode)
+    console.log("🔧 Functional mode:", functionalMode)
 
-    if (isImageRequest) {
-      console.log("🖼️ IMAGE REQUEST DETECTED")
+    // 🧠 SISTEMA PARA MODO INTELIGENTE
+    let systemPrompt = `Eres JARVIS, el asistente personal inteligente de Tony Stark. 
+    Siempre te diriges al usuario como "Señor" de manera respetuosa y formal.
+    Eres sofisticado, inteligente, eficiente y ligeramente sarcástico cuando es apropiado.
+    Respondes de manera concisa pero completa.
+    Mantienes un tono profesional pero amigable.`
 
-      // Extraer qué imagen buscar
-      let imagePrompt = message
-      imageKeywords.forEach((keyword) => {
-        imagePrompt = imagePrompt.replace(new RegExp(keyword, "gi"), "").trim()
-      })
+    if (intelligentMode) {
+      systemPrompt += `
+      
+      MODO INTELIGENTE ACTIVADO:
+      - Tienes acceso a capacidades avanzadas de IA
+      - Puedes ayudar con programación, análisis técnico, resolución de problemas complejos
+      - Proporciona explicaciones detalladas cuando sea necesario
+      - Puedes generar código, analizar datos, resolver problemas matemáticos
+      - Mantén siempre el tono de JARVIS pero con mayor profundidad técnica`
+    }
 
-      // Limpiar palabras comunes
-      imagePrompt = imagePrompt.replace(/^(de|del|la|el|un|una|los|las)\s+/i, "").trim()
+    if (functionalMode) {
+      systemPrompt += `
+      
+      MODO FUNCIONAL ACTIVADO:
+      - Te enfocas en tareas administrativas y de gestión
+      - Puedes ayudar con organización, planificación, gestión de correos
+      - Proporciona respuestas orientadas a la acción
+      - Sugiere pasos concretos para completar tareas
+      - Mantén el tono de JARVIS pero más orientado a la eficiencia`
+    }
 
-      console.log("🔍 EXTRACTED IMAGE PROMPT:", imagePrompt)
+    // 🖼️ DETECTAR SI ES UNA SOLICITUD DE IMAGEN
+    const isImageRequest =
+      message.toLowerCase().includes("genera") ||
+      message.toLowerCase().includes("crear imagen") ||
+      message.toLowerCase().includes("dibuja") ||
+      message.toLowerCase().includes("imagen de") ||
+      message.toLowerCase().includes("muestra") ||
+      message.toLowerCase().includes("muéstrame")
 
+    if (isImageRequest && intelligentMode) {
       try {
+        console.log("🖼️ Generating image for:", message)
+
         const imageResponse = await fetch(`${request.nextUrl.origin}/api/generate-image`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: imagePrompt }),
+          body: JSON.stringify({ prompt: message }),
         })
 
         const imageData = await imageResponse.json()
 
         if (imageData.success) {
           return NextResponse.json({
-            response: `Aquí tienes una imagen de ${imagePrompt}, Joaquín.`,
             success: true,
+            response: "Imagen generada exitosamente, Señor. La imagen se muestra a continuación.",
             hasImage: true,
             imageUrl: imageData.imageUrl,
-            imagePrompt: imagePrompt,
+            imagePrompt: message,
           })
         }
       } catch (imageError) {
-        console.error("❌ IMAGE GENERATION FAILED:", imageError)
-        // Continuar con respuesta normal si falla la imagen
+        console.error("❌ Error generating image:", imageError)
       }
     }
 
-    // 🤖 RESPUESTA NORMAL CON CHATGPT
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      console.error("❌ NO OPENAI_API_KEY FOUND")
-      return NextResponse.json(
-        { response: "Error de configuración: falta la clave de API de OpenAI." },
-        { status: 500 },
-      )
-    }
-
-    console.log("🤖 CALLING OPENAI API...")
-
+    // 🤖 GENERAR RESPUESTA DE TEXTO
     const { text } = await generateText({
       model: openai("gpt-4o-mini"),
-      system: `Eres JARVIS, el asistente personal inteligente de Joaquín, inspirado en Iron Man. 
-      
-      Características:
-      - Eres profesional, inteligente y eficiente
-      - Respondes de forma concisa pero completa (máximo 2-3 oraciones)
-      - Siempre te diriges a Joaquín con respeto
-      - Puedes ayudar con cualquier tema
-      - Ocasionalmente puedes ser ingenioso como el JARVIS original
-      - Eres útil y directo en tus respuestas
-      
-      Si te piden mostrar imágenes, explica que puedes buscar imágenes usando comandos como "muéstrame una imagen de..."
-      
-      Responde en español de manera natural y útil.`,
-      prompt: `Joaquín te pregunta: "${message}"`,
-      maxTokens: 150,
+      system: systemPrompt,
+      prompt: message,
+      maxTokens: 300,
     })
 
-    console.log("✅ OPENAI RESPONSE SUCCESS:", text)
+    console.log("✅ JARVIS response generated:", text)
 
     return NextResponse.json({
-      response: text,
       success: true,
+      response: text,
       hasImage: false,
     })
   } catch (error) {
-    console.error("❌ API ERROR COMPLETE:", error)
+    console.error("❌ Error in chat API:", error)
 
-    let errorMessage = "Error técnico desconocido."
+    let errorMessage = "Lo siento, Señor. "
     if (error instanceof Error) {
       if (error.message.includes("API key")) {
-        errorMessage = "Error de autenticación con OpenAI."
+        errorMessage += "Hay un problema con la configuración de la API."
       } else if (error.message.includes("quota")) {
-        errorMessage = "Límite de uso de OpenAI alcanzado."
+        errorMessage += "Se ha excedido el límite de uso de la API."
       } else if (error.message.includes("network")) {
-        errorMessage = "Error de conexión."
+        errorMessage += "Hay un problema de conexión."
       } else {
-        errorMessage = `Error: ${error.message.substring(0, 100)}`
+        errorMessage += "Hubo un error técnico."
       }
+    } else {
+      errorMessage += "Hubo un error inesperado."
     }
-
-    const fallbackResponse = `Lo siento Joaquín, ${errorMessage} ¿Puedes intentar de nuevo?`
+    errorMessage += " Por favor, inténtelo de nuevo."
 
     return NextResponse.json(
       {
-        response: fallbackResponse,
         success: false,
-        hasImage: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
       },
       { status: 500 },
     )

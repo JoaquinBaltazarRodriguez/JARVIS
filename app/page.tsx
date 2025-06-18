@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Power, Volume2, Loader2, Lock, Unlock, ImageIcon, Phone, MapPin, Music } from "lucide-react"
+import { Power, Volume2, Loader2, Lock, Unlock, ImageIcon, Phone, MapPin, Music, Brain, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useSimpleAudio } from "@/hooks/useSimpleAudio"
@@ -23,6 +23,8 @@ type AppState =
   | "spotify_mode"
   | "music_playing"
   | "map_active"
+  | "intelligent_mode"
+  | "functional_mode"
 
 interface Message {
   text: string
@@ -94,7 +96,9 @@ export default function AdvancedJarvis() {
       appState === "waiting_password" ||
       appState === "active" ||
       appState === "navigation_mode" ||
-      appState === "spotify_mode"
+      appState === "spotify_mode" ||
+      appState === "intelligent_mode" ||
+      appState === "functional_mode"
     ) {
       if (!isPlayingMusic && !isMapActive && !isListening && !isSpeaking && !isProcessing) {
         console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE")
@@ -160,7 +164,7 @@ export default function AdvancedJarvis() {
           handleSpotifyPlaylistSelection(text)
         }
       } else if (appState === "music_playing") {
-        // 🎵 CONTROLES DE SPOTIFY POR VOZ - NUEVO
+        // 🎵 CONTROLES DE SPOTIFY POR VOZ
         if (CommandDetector.isSpotifyControlCommand(text)) {
           console.log("🎵 SPOTIFY CONTROL COMMAND DETECTED")
           handleSpotifyControlCommand(text)
@@ -188,7 +192,7 @@ export default function AdvancedJarvis() {
         } else {
           console.log("🗺️ IGNORING NON-MAP COMMAND WHILE MAP ACTIVE")
         }
-      } else if (appState === "active") {
+      } else if (appState === "active" || appState === "intelligent_mode" || appState === "functional_mode") {
         if (CommandDetector.isCancelCommand(text)) {
           console.log("❌ CANCEL COMMAND DETECTED")
           handleCancelAction()
@@ -198,6 +202,21 @@ export default function AdvancedJarvis() {
         } else if (text.includes("jarvis") && (text.includes("apágate") || text.includes("apagate"))) {
           console.log("🔌 SHUTDOWN COMMAND DETECTED")
           handleShutdown()
+        }
+        // 🧠 COMANDOS DE MODO INTELIGENTE
+        else if (text.includes("modo inteligente") || text.includes("activación inteligente")) {
+          console.log("🧠 INTELLIGENT MODE COMMAND DETECTED")
+          handleIntelligentMode()
+        }
+        // 🔧 COMANDOS DE MODO FUNCIONAL
+        else if (text.includes("modo funcional") || text.includes("activación funcional")) {
+          console.log("🔧 FUNCTIONAL MODE COMMAND DETECTED")
+          handleFunctionalMode()
+        }
+        // 🔄 VOLVER AL MODO NORMAL
+        else if (text.includes("modo normal") || text.includes("salir del modo")) {
+          console.log("🔄 NORMAL MODE COMMAND DETECTED")
+          handleNormalMode()
         } else if (CommandDetector.isAgendaCommand(text)) {
           console.log("📱 AGENDA COMMAND DETECTED")
           handleAgendaCommand()
@@ -221,13 +240,45 @@ export default function AdvancedJarvis() {
     }
   }, [transcript, appState, isProcessing])
 
+  // 🧠 MANEJAR MODO INTELIGENTE
+  const handleIntelligentMode = async () => {
+    setAppState("intelligent_mode")
+    const intelligentMsg =
+      "Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle?"
+    setCurrentText(intelligentMsg)
+    setMessages((prev) => [...prev, { text: intelligentMsg, type: "jarvis" }])
+    await speak(intelligentMsg)
+    setCurrentText("")
+  }
+
+  // 🔧 MANEJAR MODO FUNCIONAL
+  const handleFunctionalMode = async () => {
+    setAppState("functional_mode")
+    const functionalMsg =
+      "Modo funcional activado, Señor. Puedo gestionar correos electrónicos, WhatsApp, aplicaciones y realizar tareas administrativas. ¿Qué función necesita que ejecute?"
+    setCurrentText(functionalMsg)
+    setMessages((prev) => [...prev, { text: functionalMsg, type: "jarvis" }])
+    await speak(functionalMsg)
+    setCurrentText("")
+  }
+
+  // 🔄 VOLVER AL MODO NORMAL
+  const handleNormalMode = async () => {
+    setAppState("active")
+    const normalMsg = "Volviendo al modo normal, Señor. ¿En qué más puedo asistirle?"
+    setCurrentText(normalMsg)
+    setMessages((prev) => [...prev, { text: normalMsg, type: "jarvis" }])
+    await speak(normalMsg)
+    setCurrentText("")
+  }
+
   // 📱 MANEJAR COMANDO DE LLAMADA
   const handleCallCommand = async (text: string) => {
     const contactName = CommandDetector.extractContactName(text)
     console.log("📱 EXTRACTED CONTACT NAME:", contactName)
 
     if (!contactName) {
-      const msg = "¿A quién deseas llamar, Joaquín?"
+      const msg = "¿A quién desea llamar, Señor?"
       setCurrentText(msg)
       await speak(msg)
       setCurrentText("")
@@ -239,12 +290,12 @@ export default function AdvancedJarvis() {
       setPendingCall({ name: contact.name, phone: contact.phone })
       setAppState("calling_confirmation")
 
-      const confirmMsg = `¿Deseas llamar a ${contact.name}?`
+      const confirmMsg = `¿Desea llamar a ${contact.name}, Señor?`
       setCurrentText(confirmMsg)
       await speak(confirmMsg)
       setCurrentText("")
     } else {
-      const notFoundMsg = `No encontré a ${contactName} en tu agenda, Joaquín. ¿Quieres que abra el gestor de contactos?`
+      const notFoundMsg = `No encontré a ${contactName} en su agenda, Señor. ¿Desea que abra el gestor de contactos?`
       setCurrentText(notFoundMsg)
       await speak(notFoundMsg)
       setCurrentText("")
@@ -255,7 +306,7 @@ export default function AdvancedJarvis() {
   const handleCallConfirmation = async (text: string) => {
     if (text.includes("sí") || text.includes("si") || text.includes("confirmo") || text.includes("llama")) {
       if (pendingCall) {
-        const callingMsg = `Llamando a ${pendingCall.name}...`
+        const callingMsg = `Llamando a ${pendingCall.name}, Señor...`
         setCurrentText(callingMsg)
         await speak(callingMsg)
         setCurrentText("")
@@ -266,7 +317,7 @@ export default function AdvancedJarvis() {
         setAppState("active")
       }
     } else if (text.includes("no") || text.includes("cancela") || text.includes("cancelar")) {
-      const cancelMsg = "Llamada cancelada."
+      const cancelMsg = "Llamada cancelada, Señor."
       setCurrentText(cancelMsg)
       await speak(cancelMsg)
       setCurrentText("")
@@ -281,7 +332,7 @@ export default function AdvancedJarvis() {
     setAppState("navigation_mode")
     setIsNavigating(true)
 
-    const navMsg = "Claro Joaquín, ¿a dónde deseas ir?"
+    const navMsg = "Por supuesto, Señor. ¿A dónde desea dirigirse?"
     setCurrentText(navMsg)
     await speak(navMsg)
     setCurrentText("")
@@ -293,7 +344,7 @@ export default function AdvancedJarvis() {
     console.log("🗺️ EXTRACTED LOCATION NAME:", locationName)
 
     if (!locationName) {
-      const msg = "¿A qué ubicación específica quieres ir?"
+      const msg = "¿A qué ubicación específica desea ir, Señor?"
       setCurrentText(msg)
       await speak(msg)
       setCurrentText("")
@@ -302,7 +353,7 @@ export default function AdvancedJarvis() {
 
     const location = LocationsDB.findByName(locationName)
     if (location) {
-      const navMsg = `Abriendo mapa hacia ${location.name}...`
+      const navMsg = `Abriendo navegación hacia ${location.name}, Señor...`
       setCurrentText(navMsg)
       await speak(navMsg)
       setCurrentText("")
@@ -314,7 +365,7 @@ export default function AdvancedJarvis() {
       setAppState("map_active")
       setIsNavigating(false)
     } else {
-      const notFoundMsg = `No encontré ${locationName} en tus ubicaciones guardadas, Joaquín.`
+      const notFoundMsg = `No encontré ${locationName} en sus ubicaciones guardadas, Señor.`
       setCurrentText(notFoundMsg)
       await speak(notFoundMsg)
       setCurrentText("")
@@ -326,7 +377,7 @@ export default function AdvancedJarvis() {
 
   // 🗺️ CERRAR MAPA
   const handleCloseMap = async () => {
-    const closeMsg = "Cerrando mapa. Volviendo al modo normal."
+    const closeMsg = "Cerrando navegación, Señor. Volviendo al modo normal."
     setCurrentText(closeMsg)
     await speak(closeMsg)
     setCurrentText("")
@@ -345,7 +396,7 @@ export default function AdvancedJarvis() {
 
   // 🗺️ INICIAR NAVEGACIÓN EN MAPA
   const handleStartMapNavigation = async () => {
-    const startMsg = "Iniciando navegación por voz hacia " + currentDestination + "."
+    const startMsg = "Iniciando navegación por voz hacia " + currentDestination + ", Señor."
     setCurrentText(startMsg)
     await speak(startMsg)
     setCurrentText("")
@@ -377,7 +428,7 @@ export default function AdvancedJarvis() {
 
     if (isValidPassword) {
       console.log("✅ PASSWORD CORRECT!")
-      const welcomeMsg = "Bienvenido Joaquín. JARVIS está ahora completamente operativo. ¿En qué puedo asistirte hoy?"
+      const welcomeMsg = "Bienvenido, Señor. JARVIS está ahora completamente operativo. ¿En qué puedo asistirle hoy?"
       setMessages((prev) => [...prev, { text: welcomeMsg, type: "jarvis" }])
       setCurrentText(welcomeMsg)
 
@@ -389,7 +440,7 @@ export default function AdvancedJarvis() {
       setCurrentText("")
     } else {
       console.log("❌ PASSWORD INCORRECT")
-      const errorMsg = "Contraseña incorrecta. Por favor, proporciona la contraseña de reconocimiento."
+      const errorMsg = "Contraseña incorrecta. Por favor, proporcione la contraseña de reconocimiento."
       setMessages((prev) => [...prev, { text: errorMsg, type: "jarvis" }])
       setCurrentText(errorMsg)
 
@@ -404,7 +455,7 @@ export default function AdvancedJarvis() {
     console.log("😴 SHUTTING DOWN JARVIS")
     setIsProcessing(true)
 
-    const goodbye = "Desactivando JARVIS. Hasta luego Joaquín."
+    const goodbye = "Desactivando JARVIS. Hasta luego, Señor."
     setCurrentText(goodbye)
 
     playShutdownSound()
@@ -440,7 +491,11 @@ export default function AdvancedJarvis() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          intelligentMode: appState === "intelligent_mode",
+          functionalMode: appState === "functional_mode",
+        }),
       })
 
       const responseText = await response.text()
@@ -483,7 +538,7 @@ export default function AdvancedJarvis() {
     } catch (error) {
       console.error("❌ COMPLETE ERROR:", error)
 
-      let errorMsg = "Lo siento Joaquín, "
+      let errorMsg = "Lo siento, Señor, "
       if (error instanceof Error) {
         if (error.message.includes("fetch")) {
           errorMsg += "no pude conectar con el servidor."
@@ -493,7 +548,7 @@ export default function AdvancedJarvis() {
           errorMsg += "tuve un problema técnico."
         }
       }
-      errorMsg += " Inténtalo de nuevo."
+      errorMsg += " Inténtelo de nuevo."
 
       setMessages((prev) => [...prev, { text: errorMsg, type: "jarvis" }])
       setCurrentText(errorMsg)
@@ -506,7 +561,7 @@ export default function AdvancedJarvis() {
 
   const handleCancelAction = async () => {
     console.log("❌ CANCELING ACTION")
-    const cancelMsg = "Acción cancelada. Volviendo al modo normal."
+    const cancelMsg = "Acción cancelada, Señor. Volviendo al modo normal."
     setCurrentText(cancelMsg)
     await speak(cancelMsg)
     setCurrentText("")
@@ -527,7 +582,7 @@ export default function AdvancedJarvis() {
 
   const handleAgendaCommand = async () => {
     console.log("📱 AGENDA COMMAND DETECTED")
-    const agendaMsg = "Abriendo tu agenda de contactos, Joaquín."
+    const agendaMsg = "Abriendo su agenda de contactos, Señor."
     setCurrentText(agendaMsg)
     await speak(agendaMsg)
     setCurrentText("")
@@ -539,7 +594,7 @@ export default function AdvancedJarvis() {
     setAppState("spotify_mode")
     setWaitingForPlaylist(true)
 
-    const spotifyMsg = "¿Qué playlist deseas escuchar, Joaquín?"
+    const spotifyMsg = "¿Qué playlist desea escuchar, Señor?"
     setCurrentText(spotifyMsg)
     await speak(spotifyMsg)
     setCurrentText("")
@@ -548,7 +603,7 @@ export default function AdvancedJarvis() {
   const handleSpotifyPlaylistSelection = async (text: string) => {
     console.log("🎵 RAW SPOTIFY INPUT:", text)
 
-    const lowerText = text.toLowerCase()
+    const lowerText = text.toLowerCase().trim()
     const playlists = SpotifyDB.getAll()
 
     console.log(
@@ -556,22 +611,63 @@ export default function AdvancedJarvis() {
       playlists.map((p) => p.name),
     )
 
+    // 🔍 BÚSQUEDA MEJORADA DE PLAYLIST - VERSIÓN CORREGIDA
     const foundPlaylist = playlists.find((playlist) => {
       const playlistName = playlist.name.toLowerCase()
-      console.log(`🔍 COMPARING: "${lowerText}" contains "${playlistName}"?`)
+      console.log(`🔍 COMPARING: "${lowerText}" with "${playlistName}"`)
 
-      return (
-        lowerText.includes(playlistName) ||
-        playlistName.includes(lowerText) ||
-        playlistName.split(" ").some((word) => lowerText.includes(word)) ||
-        lowerText.split(" ").some((word) => playlistName.includes(word))
+      // 1. Búsqueda exacta primero
+      if (lowerText === playlistName) {
+        console.log("✅ EXACT MATCH FOUND")
+        return true
+      }
+
+      // 2. Búsqueda por inclusión directa (muy importante para casos como "música de los 80")
+      if (playlistName.includes(lowerText) || lowerText.includes(playlistName)) {
+        console.log("✅ INCLUSION MATCH FOUND")
+        return true
+      }
+
+      // 3. Búsqueda por palabras individuales
+      const textWords = lowerText.split(" ").filter((word) => word.length > 2)
+      const playlistWords = playlistName.split(" ").filter((word) => word.length > 2)
+
+      // Contar palabras que coinciden
+      const matchingWords = textWords.filter((textWord) =>
+        playlistWords.some(
+          (playlistWord) =>
+            playlistWord.includes(textWord) || textWord.includes(playlistWord) || playlistWord === textWord,
+        ),
       )
+
+      // Si coinciden al menos 2 palabras o 1 palabra importante (>3 caracteres)
+      if (matchingWords.length >= 2 || matchingWords.some((word) => word.length > 3)) {
+        console.log("✅ KEYWORD MATCH FOUND:", matchingWords)
+        return true
+      }
+
+      // 4. Búsqueda especial para números y caracteres especiales
+      const normalizedText = lowerText.replace(/[áéíóú]/g, (match) => {
+        const replacements: { [key: string]: string } = { á: "a", é: "e", í: "i", ó: "o", ú: "u" }
+        return replacements[match] || match
+      })
+      const normalizedPlaylist = playlistName.replace(/[áéíóú]/g, (match) => {
+        const replacements: { [key: string]: string } = { á: "a", é: "e", í: "i", ó: "o", ú: "u" }
+        return replacements[match] || match
+      })
+
+      if (normalizedPlaylist.includes(normalizedText) || normalizedText.includes(normalizedPlaylist)) {
+        console.log("✅ NORMALIZED MATCH FOUND")
+        return true
+      }
+
+      return false
     })
 
     if (foundPlaylist) {
       console.log("✅ PLAYLIST FOUND:", foundPlaylist.name)
 
-      const playingMsg = `Reproduciendo ${foundPlaylist.name}. Abriendo reproductor integrado...`
+      const playingMsg = `Reproduciendo ${foundPlaylist.name}, Señor. Abriendo reproductor integrado...`
       setCurrentText(playingMsg)
       await speak(playingMsg)
       setCurrentText("")
@@ -585,7 +681,9 @@ export default function AdvancedJarvis() {
     } else {
       console.log("❌ PLAYLIST NOT FOUND")
 
-      const notFoundMsg = `No encontré una playlist que coincida con "${text}". ¿Puedes repetir el nombre?`
+      // Mostrar playlists disponibles
+      const availablePlaylists = playlists.map((p) => p.name).join(", ")
+      const notFoundMsg = `No encontré una playlist que coincida con "${text}", Señor. Las playlists disponibles son: ${availablePlaylists}. ¿Puede repetir el nombre?`
       setCurrentText(notFoundMsg)
       await speak(notFoundMsg)
       setCurrentText("")
@@ -594,7 +692,7 @@ export default function AdvancedJarvis() {
 
   const handleMusicControl = async (text: string) => {
     if (text.includes("quitar") || text.includes("cerrar") || text.includes("apagar")) {
-      const stopMsg = "Cerrando reproductor de música. Volviendo al modo normal."
+      const stopMsg = "Cerrando reproductor de música, Señor. Volviendo al modo normal."
       setCurrentText(stopMsg)
       await speak(stopMsg)
       setCurrentText("")
@@ -615,19 +713,19 @@ export default function AdvancedJarvis() {
 
     switch (controlType) {
       case "play":
-        responseMsg = "Reproduciendo música en Spotify."
+        responseMsg = "Reproduciendo música en Spotify, Señor."
         break
       case "pause":
-        responseMsg = "Pausando música en Spotify."
+        responseMsg = "Pausando música en Spotify, Señor."
         break
       case "next":
-        responseMsg = "Cambiando a la siguiente canción."
+        responseMsg = "Cambiando a la siguiente canción, Señor."
         break
       case "previous":
-        responseMsg = "Volviendo a la canción anterior."
+        responseMsg = "Volviendo a la canción anterior, Señor."
         break
       default:
-        responseMsg = "Comando de Spotify no reconocido. Usa: reproducir, pausar, siguiente o anterior."
+        responseMsg = "Comando de Spotify no reconocido, Señor. Use: reproducir, pausar, siguiente o anterior."
     }
 
     setCurrentText(responseMsg)
@@ -655,6 +753,8 @@ export default function AdvancedJarvis() {
     if (appState === "spotify_mode") return <Music className="h-20 w-20 text-green-400 animate-pulse" />
     if (appState === "music_playing") return <Music className="h-20 w-20 text-green-400 animate-bounce" />
     if (appState === "map_active") return <MapPin className="h-20 w-20 text-blue-400 animate-bounce" />
+    if (appState === "intelligent_mode") return <Brain className="h-20 w-20 text-purple-400 animate-pulse" />
+    if (appState === "functional_mode") return <Mail className="h-20 w-20 text-orange-400 animate-pulse" />
     return <Unlock className="h-20 w-20 text-cyan-400" />
   }
 
@@ -692,6 +792,12 @@ export default function AdvancedJarvis() {
     if (appState === "map_active") {
       return `${baseClasses} border-blue-500 shadow-blue-500/70 animate-pulse`
     }
+    if (appState === "intelligent_mode") {
+      return `${baseClasses} border-purple-500 shadow-purple-500/50 animate-pulse`
+    }
+    if (appState === "functional_mode") {
+      return `${baseClasses} border-orange-500 shadow-orange-500/50 animate-pulse`
+    }
     return `${baseClasses} border-cyan-500 shadow-cyan-500/30`
   }
 
@@ -706,7 +812,7 @@ export default function AdvancedJarvis() {
       return pendingCall ? `¿Llamar a ${pendingCall.name}? (Sí/No)` : "Confirmando llamada..."
     }
     if (appState === "navigation_mode") {
-      return "¿A dónde quieres ir?"
+      return "¿A dónde quiere ir?"
     }
     if (appState === "spotify_mode") {
       if (isListening) return "Escuchando playlist... (Di 'cancelar' para salir)"
@@ -719,6 +825,18 @@ export default function AdvancedJarvis() {
     if (appState === "map_active") {
       if (isListening) return "Solo escucho 'JARVIS quitar mapa'"
       return "Mapa activo (Solo comando: 'quitar mapa')"
+    }
+    if (appState === "intelligent_mode") {
+      if (isSpeaking) return "JARVIS hablando..."
+      if (isProcessing) return "Procesando con IA avanzada..."
+      if (isListening) return "Modo inteligente - Escuchando... (automático)"
+      return "Modo inteligente activo (automático)"
+    }
+    if (appState === "functional_mode") {
+      if (isSpeaking) return "JARVIS hablando..."
+      if (isProcessing) return "Ejecutando función..."
+      if (isListening) return "Modo funcional - Escuchando... (automático)"
+      return "Modo funcional activo (automático)"
     }
     if (isSpeaking) return "JARVIS hablando..."
     if (isProcessing) return "Procesando con ChatGPT..."
@@ -779,7 +897,26 @@ export default function AdvancedJarvis() {
 
       {/* Header */}
       <div className="flex justify-between items-center p-6 border-b border-cyan-500/20 relative z-10">
-        <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">JARVIS</h1>
+        <div className="flex items-center space-x-4">
+          <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">JARVIS</h1>
+
+          {/* 🧠 MODO INTELIGENTE HEADER */}
+          {appState === "intelligent_mode" && (
+            <div className="flex items-center space-x-2 bg-purple-900/30 px-4 py-2 rounded-full border border-purple-500/50">
+              <Brain className="h-5 w-5 text-purple-400" />
+              <span className="text-purple-300 text-sm font-bold">🧠 MODO INTELIGENTE</span>
+            </div>
+          )}
+
+          {/* 🔧 MODO FUNCIONAL HEADER */}
+          {appState === "functional_mode" && (
+            <div className="flex items-center space-x-2 bg-orange-900/30 px-4 py-2 rounded-full border border-orange-500/50">
+              <Mail className="h-5 w-5 text-orange-400" />
+              <span className="text-orange-300 text-sm font-bold">📧 MODO FUNCIONAL</span>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2">
           <Button
             variant="ghost"
@@ -876,7 +1013,11 @@ export default function AdvancedJarvis() {
                               ? "text-green-400"
                               : appState === "map_active"
                                 ? "text-blue-400"
-                                : "text-cyan-400"
+                                : appState === "intelligent_mode"
+                                  ? "text-purple-400"
+                                  : appState === "functional_mode"
+                                    ? "text-orange-400"
+                                    : "text-cyan-400"
                 }`}
               >
                 {getStatusText()}
@@ -892,7 +1033,14 @@ export default function AdvancedJarvis() {
               <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse delay-500"></div>
 
               <div className="text-center relative z-10">
-                <p className="text-cyan-100 text-sm mb-3 font-medium font-mono">{">"} JARVIS_OUTPUT:</p>
+                <p className="text-cyan-100 text-sm mb-3 font-medium font-mono">
+                  {">"}{" "}
+                  {appState === "intelligent_mode"
+                    ? "JARVIS_INTELLIGENT_OUTPUT:"
+                    : appState === "functional_mode"
+                      ? "JARVIS_FUNCTIONAL_OUTPUT:"
+                      : "JARVIS_OUTPUT:"}
+                </p>
                 <p className="text-cyan-300 text-lg leading-relaxed font-light">{currentText}</p>
                 <span className="inline-block w-2 h-5 bg-cyan-400 ml-1 animate-pulse"></span>
               </div>
@@ -933,36 +1081,68 @@ export default function AdvancedJarvis() {
         </div>
       )}
 
-      {/* Messages - Solo mostrar si no hay mapa o música activa */}
-      {!isMapActive && !isPlayingMusic && messages.length > 0 && (
-        <div className="p-6 max-h-60 overflow-y-auto relative z-10">
+      {/* Messages con Input de Texto - Solo mostrar si no hay mapa o música activa */}
+      {!isMapActive && !isPlayingMusic && (
+        <div className="p-6 max-h-80 overflow-y-auto relative z-10">
           <Card className="bg-gray-900/60 border-cyan-500/20 p-4 backdrop-blur-sm">
-            <div className="space-y-3">
-              {messages.slice(-3).map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-xs px-4 py-3 rounded-2xl text-sm ${
-                      msg.type === "user"
-                        ? "bg-cyan-500 text-black"
-                        : "bg-gray-700/80 text-cyan-100 border border-cyan-500/20"
-                    }`}
-                  >
-                    <p className="font-bold text-xs mb-1 opacity-70 font-mono">
-                      {msg.type === "user" ? "> JOAQUÍN:" : "> JARVIS:"}
-                    </p>
-                    <p>{msg.text}</p>
-                    {msg.imageUrl && (
-                      <div className="mt-2 rounded overflow-hidden border border-cyan-500/30">
-                        <img
-                          src={msg.imageUrl || "/placeholder.svg"}
-                          alt={msg.imagePrompt || "Imagen"}
-                          className="w-full h-24 object-cover"
-                        />
-                      </div>
-                    )}
+            {/* Historial de Mensajes */}
+            {messages.length > 0 && (
+              <div className="space-y-3 mb-4">
+                {messages.slice(-3).map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-xs px-4 py-3 rounded-2xl text-sm ${
+                        msg.type === "user"
+                          ? "bg-cyan-500 text-black"
+                          : appState === "intelligent_mode"
+                            ? "bg-purple-700/80 text-purple-100 border border-purple-500/20"
+                            : appState === "functional_mode"
+                              ? "bg-orange-700/80 text-orange-100 border border-orange-500/20"
+                              : "bg-gray-700/80 text-cyan-100 border border-cyan-500/20"
+                      }`}
+                    >
+                      <p className="font-bold text-xs mb-1 opacity-70 font-mono">
+                        {msg.type === "user" ? "> SEÑOR:" : "> JARVIS:"}
+                      </p>
+                      <p>{msg.text}</p>
+                      {msg.imageUrl && (
+                        <div className="mt-2 rounded overflow-hidden border border-cyan-500/30">
+                          <img
+                            src={msg.imageUrl || "/placeholder.svg"}
+                            alt={msg.imagePrompt || "Imagen"}
+                            className="w-full h-24 object-cover"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
+                ))}
+              </div>
+            )}
+
+            {/* Input de Texto para Chat */}
+            <div className="border-t border-cyan-500/20 pt-4">
+              <div className="flex items-center space-x-2">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    placeholder="Escribe a JARVIS..."
+                    className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && e.currentTarget.value.trim()) {
+                        const message = e.currentTarget.value.trim()
+                        e.currentTarget.value = ""
+                        handleUserMessage(message)
+                      }
+                    }}
+                    disabled={isProcessing || isSpeaking}
+                  />
                 </div>
-              ))}
+                <div className="text-cyan-400 text-xs font-mono opacity-70">{">"} CHAT_INPUT</div>
+              </div>
+              <p className="text-gray-500 text-xs mt-2 text-center">
+                💬 Escribe y presiona Enter para chatear por texto (JARVIS responderá por voz)
+              </p>
             </div>
           </Card>
         </div>
@@ -976,6 +1156,7 @@ export default function AdvancedJarvis() {
             Procesando: {isProcessing ? "Sí" : "No"} | 🎤{" "}
             {isPlayingMusic ? "SOLO MÚSICA" : isMapActive ? "SOLO MAPA" : "AUTOMÁTICO"}
           </p>
+          <p className="text-cyan-400 text-xs mt-1">💡 Modos: Modo Normal | Modo Inteligente | Modo Funcional</p>
           {transcript && <p className="text-yellow-400 text-xs mt-1">Último: "{transcript}"</p>}
         </div>
       )}
@@ -993,7 +1174,6 @@ export default function AdvancedJarvis() {
         }}
         onSpotifyControl={(action) => {
           console.log("🎵 SPOTIFY CONTROL FROM VOICE:", action)
-          // Aquí puedes manejar la acción si necesitas feedback adicional
         }}
       />
 
