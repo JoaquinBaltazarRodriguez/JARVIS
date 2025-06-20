@@ -5,39 +5,29 @@ export interface Contact {
   id: string
   name: string
   phone: string
-  createdAt: Date
+  email?: string
+  category: "family" | "work" | "friend" | "other"
 }
 
-// 🗺️ UBICACIONES
-export interface Location {
-  id: string
-  name: string
-  address: string
-  latitude?: number
-  longitude?: number
-  createdAt: Date
-}
-
-// 🎵 PLAYLISTS DE SPOTIFY
-export interface SpotifyPlaylist {
-  id: string
-  name: string
-  spotifyUrl: string
-  createdAt: Date
-}
-
-// 📱 GESTIÓN DE CONTACTOS
 export class ContactsDB {
   private static STORAGE_KEY = "jarvis_contacts"
 
   static getAll(): Contact[] {
     if (typeof window === "undefined") return []
     try {
-      const data = localStorage.getItem(this.STORAGE_KEY)
-      return data ? JSON.parse(data) : []
+      const stored = localStorage.getItem(this.STORAGE_KEY)
+      return stored ? JSON.parse(stored) : this.getDefaultContacts()
     } catch {
-      return []
+      return this.getDefaultContacts()
     }
+  }
+
+  private static getDefaultContacts(): Contact[] {
+    return [
+      { id: "1", name: "María García", phone: "+34 600 123 456", category: "family" },
+      { id: "2", name: "Carlos López", phone: "+34 600 789 012", category: "work" },
+      { id: "3", name: "Ana Martín", phone: "+34 600 345 678", category: "friend" },
+    ]
   }
 
   static save(contacts: Contact[]): void {
@@ -45,51 +35,55 @@ export class ContactsDB {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(contacts))
   }
 
-  static add(name: string, phone: string): Contact {
+  static add(contact: Omit<Contact, "id">): Contact {
     const contacts = this.getAll()
-    const newContact: Contact = {
-      id: Date.now().toString(),
-      name: name.toLowerCase().trim(),
-      phone: phone.trim(),
-      createdAt: new Date(),
-    }
+    const newContact = { ...contact, id: Date.now().toString() }
     contacts.push(newContact)
     this.save(contacts)
-    console.log("📱 CONTACT ADDED:", newContact)
     return newContact
   }
 
   static findByName(name: string): Contact | null {
     const contacts = this.getAll()
     const searchName = name.toLowerCase().trim()
-    return (
-      contacts.find(
-        (contact) =>
-          contact.name.includes(searchName) ||
-          searchName.includes(contact.name) ||
-          contact.name.split(" ").some((word) => searchName.includes(word)),
-      ) || null
-    )
-  }
 
-  static delete(id: string): void {
-    const contacts = this.getAll().filter((c) => c.id !== id)
-    this.save(contacts)
+    return (
+      contacts.find((contact) => {
+        const contactName = contact.name.toLowerCase()
+        return contactName.includes(searchName) || searchName.includes(contactName)
+      }) || null
+    )
   }
 }
 
-// 🗺️ GESTIÓN DE UBICACIONES
+// 🗺️ UBICACIONES
+export interface Location {
+  id: string
+  name: string
+  address: string
+  coordinates?: { lat: number; lng: number }
+  category: "home" | "work" | "favorite" | "other"
+}
+
 export class LocationsDB {
   private static STORAGE_KEY = "jarvis_locations"
 
   static getAll(): Location[] {
     if (typeof window === "undefined") return []
     try {
-      const data = localStorage.getItem(this.STORAGE_KEY)
-      return data ? JSON.parse(data) : []
+      const stored = localStorage.getItem(this.STORAGE_KEY)
+      return stored ? JSON.parse(stored) : this.getDefaultLocations()
     } catch {
-      return []
+      return this.getDefaultLocations()
     }
+  }
+
+  private static getDefaultLocations(): Location[] {
+    return [
+      { id: "1", name: "Casa", address: "Calle Principal 123, Madrid", category: "home" },
+      { id: "2", name: "Oficina", address: "Avenida Empresarial 456, Madrid", category: "work" },
+      { id: "3", name: "Supermercado", address: "Centro Comercial Plaza, Madrid", category: "favorite" },
+    ]
   }
 
   static save(locations: Location[]): void {
@@ -97,53 +91,69 @@ export class LocationsDB {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(locations))
   }
 
-  static add(name: string, address: string, latitude?: number, longitude?: number): Location {
+  static add(location: Omit<Location, "id">): Location {
     const locations = this.getAll()
-    const newLocation: Location = {
-      id: Date.now().toString(),
-      name: name.toLowerCase().trim(),
-      address: address.trim(),
-      latitude,
-      longitude,
-      createdAt: new Date(),
-    }
+    const newLocation = { ...location, id: Date.now().toString() }
     locations.push(newLocation)
     this.save(locations)
-    console.log("🗺️ LOCATION ADDED:", newLocation)
     return newLocation
   }
 
   static findByName(name: string): Location | null {
     const locations = this.getAll()
     const searchName = name.toLowerCase().trim()
-    return (
-      locations.find(
-        (location) =>
-          location.name.includes(searchName) ||
-          searchName.includes(location.name) ||
-          location.name.split(" ").some((word) => searchName.includes(word)),
-      ) || null
-    )
-  }
 
-  static delete(id: string): void {
-    const locations = this.getAll().filter((l) => l.id !== id)
-    this.save(locations)
+    return (
+      locations.find((location) => {
+        const locationName = location.name.toLowerCase()
+        return locationName.includes(searchName) || searchName.includes(locationName)
+      }) || null
+    )
   }
 }
 
-// 🎵 GESTIÓN DE PLAYLISTS DE SPOTIFY
+// 🎵 SPOTIFY PLAYLISTS
+export interface SpotifyPlaylist {
+  id: string
+  name: string
+  spotifyUrl: string
+  description?: string
+}
+
 export class SpotifyDB {
   private static STORAGE_KEY = "jarvis_spotify_playlists"
 
   static getAll(): SpotifyPlaylist[] {
     if (typeof window === "undefined") return []
     try {
-      const data = localStorage.getItem(this.STORAGE_KEY)
-      return data ? JSON.parse(data) : []
+      const stored = localStorage.getItem(this.STORAGE_KEY)
+      return stored ? JSON.parse(stored) : this.getDefaultPlaylists()
     } catch {
-      return []
+      return this.getDefaultPlaylists()
     }
+  }
+
+  private static getDefaultPlaylists(): SpotifyPlaylist[] {
+    return [
+      {
+        id: "1",
+        name: "Música de los 80",
+        spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX4UtSsGT1Sbe",
+        description: "Los mejores hits de los años 80",
+      },
+      {
+        id: "2",
+        name: "Rock Clásico",
+        spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DWXRqgorJj26U",
+        description: "Rock clásico de todas las épocas",
+      },
+      {
+        id: "3",
+        name: "Jazz Suave",
+        spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXbITWG1ZJKYt",
+        description: "Jazz relajante para cualquier momento",
+      },
+    ]
   }
 
   static save(playlists: SpotifyPlaylist[]): void {
@@ -151,308 +161,186 @@ export class SpotifyDB {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(playlists))
   }
 
-  static add(name: string, spotifyUrl: string): SpotifyPlaylist {
+  static add(playlist: Omit<SpotifyPlaylist, "id">): SpotifyPlaylist {
     const playlists = this.getAll()
-    const newPlaylist: SpotifyPlaylist = {
-      id: Date.now().toString(),
-      name: name.toLowerCase().trim(),
-      spotifyUrl: spotifyUrl.trim(),
-      createdAt: new Date(),
-    }
+    const newPlaylist = { ...playlist, id: Date.now().toString() }
     playlists.push(newPlaylist)
     this.save(playlists)
-    console.log("🎵 PLAYLIST ADDED:", newPlaylist)
     return newPlaylist
-  }
-
-  // 🎵 EXTRAER NOMBRE DE PLAYLIST - MEJORADO
-  static extractPlaylistName(text: string): string {
-    const lowerText = text.toLowerCase()
-
-    // Remover palabras comunes pero mantener el texto más completo
-    const cleanText = lowerText
-      .replace(/jarvis/gi, "")
-      .replace(/\b(pon|poner|reproducir|música|musica|playlist|lista|de|la|el|del|quiero|escuchar)\b/gi, "")
-      .trim()
-
-    console.log("🎵 EXTRACTED PLAYLIST NAME:", cleanText)
-    return cleanText || lowerText // Si queda vacío, devolver el texto original
-  }
-
-  static findByName(name: string): SpotifyPlaylist | null {
-    const playlists = this.getAll()
-    const searchName = name.toLowerCase().trim()
-
-    console.log("🔍 SEARCHING FOR:", searchName)
-    console.log(
-      "🔍 IN PLAYLISTS:",
-      playlists.map((p) => p.name),
-    )
-
-    return (
-      playlists.find((playlist) => {
-        const playlistName = playlist.name.toLowerCase()
-
-        // Múltiples formas de coincidencia
-        const exactMatch = playlistName === searchName
-        const contains = playlistName.includes(searchName) || searchName.includes(playlistName)
-        const wordMatch = playlist.name
-          .split(" ")
-          .some((word) => searchName.includes(word.toLowerCase()) && word.length > 2)
-        const reverseWordMatch = searchName.split(" ").some((word) => playlistName.includes(word) && word.length > 2)
-
-        console.log(`🔍 CHECKING "${playlistName}":`, {
-          exactMatch,
-          contains,
-          wordMatch,
-          reverseWordMatch,
-        })
-
-        return exactMatch || contains || wordMatch || reverseWordMatch
-      }) || null
-    )
-  }
-
-  static delete(id: string): void {
-    const playlists = this.getAll().filter((p) => p.id !== id)
-    this.save(playlists)
   }
 }
 
-// 🎯 DETECTORES DE COMANDOS MEJORADOS Y MÁS ESPECÍFICOS
+// 🎯 DETECTOR DE COMANDOS
 export class CommandDetector {
-  // 📱 DETECTAR COMANDOS DE AGENDA/LLAMADA - MÁS ESPECÍFICO
-  static isAgendaCommand(text: string): boolean {
-    const agendaKeywords = [
-      "abre mi agenda",
-      "abrir agenda",
-      "agenda de contactos",
-      "quiero llamar a alguien",
-      "quiero hacer una llamada",
-      "necesito llamar",
-      "abrir contactos",
-      "ver contactos",
-      "gestionar contactos",
-    ]
-    const lowerText = text.toLowerCase()
-    return agendaKeywords.some((keyword) => lowerText.includes(keyword))
-  }
-
-  // 📱 DETECTAR LLAMADA DIRECTA - MUY ESPECÍFICO
-  static isDirectCallCommand(text: string): boolean {
-    const callKeywords = [
-      "llama a ",
-      "llamar a ",
-      "marca a ",
-      "marcar a ",
-      "contacta a ",
-      "contactar a ",
-      "telefono a ",
-      "teléfono a ",
-    ]
-    const lowerText = text.toLowerCase()
-    return callKeywords.some((keyword) => lowerText.includes(keyword))
-  }
-
-  // 🗺️ DETECTAR COMANDOS DE NAVEGACIÓN - MÁS ESPECÍFICO
-  static isNavigationCommand(text: string): boolean {
-    const navKeywords = [
-      "activa el geolocalizador",
-      "activar geolocalizador",
-      "abre el mapa",
-      "abrir mapa",
-      "quiero ir a",
-      "necesito ir a",
-      "navegar a",
-      "navegación",
-      "activar navegación",
-    ]
-    const lowerText = text.toLowerCase()
-    return navKeywords.some((keyword) => lowerText.includes(keyword))
-  }
-
-  // 🎵 DETECTAR COMANDOS DE SPOTIFY - NUEVO
-  static isSpotifyCommand(text: string): boolean {
-    const spotifyKeywords = [
-      "abre spotify",
-      "abrir spotify",
-      "pon música",
-      "poner música",
-      "reproducir música",
-      "quiero escuchar música",
-      "activa spotify",
-      "activar spotify",
-    ]
-    const lowerText = text.toLowerCase()
-    return spotifyKeywords.some((keyword) => lowerText.includes(keyword))
-  }
-
-  // 🎵 DETECTAR COMANDOS DE CONTROL DE MÚSICA
-  static isMusicControlCommand(text: string): boolean {
-    const controlKeywords = [
-      "pausa la música",
-      "pausar música",
-      "detener música",
-      "parar música",
-      "reanudar música",
-      "continuar música",
-      "quitar música",
-      "cerrar música",
-      "apagar música",
-    ]
-    const lowerText = text.toLowerCase()
-    return controlKeywords.some((keyword) => lowerText.includes(keyword))
-  }
-
-  // ❌ DETECTAR COMANDO DE CANCELACIÓN - NUEVO
-  static isCancelCommand(text: string): boolean {
-    const cancelKeywords = [
-      "cancela acción",
-      "cancelar acción",
-      "cancela",
-      "cancelar",
-      "volver atrás",
-      "regresar",
-      "salir",
-    ]
-    const lowerText = text.toLowerCase()
-    return cancelKeywords.some((keyword) => lowerText.includes(keyword))
-  }
-
-  // 🕐 DETECTAR PREGUNTAS DE TIEMPO - NUEVO
+  // ⏰ COMANDOS DE TIEMPO
   static isTimeCommand(text: string): boolean {
     const timeKeywords = [
       "qué hora es",
       "que hora es",
-      "dime la hora",
       "hora actual",
-      "qué fecha es",
-      "que fecha es",
-      "dime la fecha",
-      "fecha actual",
-      "día de hoy",
-      "hoy es",
+      "dime la hora",
+      "what time",
+      "current time",
+      "hora",
+      "tiempo actual",
     ]
-    const lowerText = text.toLowerCase()
-    return timeKeywords.some((keyword) => lowerText.includes(keyword))
+    return timeKeywords.some((keyword) => text.includes(keyword))
   }
 
-  // 📱 EXTRAER NOMBRE DE CONTACTO
+  // 📞 COMANDOS DE LLAMADA
+  static isDirectCallCommand(text: string): boolean {
+    const callKeywords = ["llama a", "llamar a", "call", "teléfono", "telefono"]
+    return callKeywords.some((keyword) => text.includes(keyword))
+  }
+
   static extractContactName(text: string): string {
-    const lowerText = text.toLowerCase()
-    const cleanText = lowerText
-      .replace(/jarvis/gi, "")
-      .replace(/llama|llamar|marca|marcar|telefono|teléfono|contacta|contactar/gi, "")
-      .replace(/\ba\b/gi, "")
-      .trim()
+    const patterns = [/llama a (.+)/i, /llamar a (.+)/i, /call (.+)/i, /teléfono de (.+)/i, /telefono de (.+)/i]
 
-    return cleanText
+    for (const pattern of patterns) {
+      const match = text.match(pattern)
+      if (match) {
+        return match[1].trim()
+      }
+    }
+
+    return ""
   }
 
-  // 🗺️ EXTRAER NOMBRE DE UBICACIÓN
+  // 🗺️ COMANDOS DE NAVEGACIÓN
+  static isNavigationCommand(text: string): boolean {
+    const navKeywords = [
+      "ir a",
+      "navegar a",
+      "navigate to",
+      "dirección a",
+      "direccion a",
+      "cómo llegar a",
+      "como llegar a",
+      "ruta a",
+      "vamos a",
+    ]
+    return navKeywords.some((keyword) => text.includes(keyword))
+  }
+
+  static extractDestination(text: string): string {
+    const patterns = [
+      /ir a (.+)/i,
+      /navegar a (.+)/i,
+      /navigate to (.+)/i,
+      /dirección a (.+)/i,
+      /direccion a (.+)/i,
+      /cómo llegar a (.+)/i,
+      /como llegar a (.+)/i,
+      /ruta a (.+)/i,
+      /vamos a (.+)/i,
+    ]
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern)
+      if (match) {
+        return match[1].trim()
+      }
+    }
+
+    return ""
+  }
+
   static extractLocationName(text: string): string {
-    const lowerText = text.toLowerCase()
-    const cleanText = lowerText
-      .replace(/jarvis/gi, "")
-      .replace(/geolocalizador|mapa|navega|navegación|direccion|dirección|ubicacion|ubicación|ruta/gi, "")
-      .replace(/\b(a|la|el|de|del|hacia|ir|vamos|llévame|llevame)\b/gi, "")
-      .trim()
-
-    return cleanText
+    return this.extractDestination(text)
   }
 
-  // 🎵 EXTRAER NOMBRE DE PLAYLIST
-  static extractPlaylistName(text: string): string {
-    const lowerText = text.toLowerCase()
-
-    // Remover palabras comunes pero mantener el texto más completo
-    const cleanText = lowerText
-      .replace(/jarvis/gi, "")
-      .replace(/\b(pon|poner|reproducir|música|musica|playlist|lista|de|la|el|del|quiero|escuchar)\b/gi, "")
-      .trim()
-
-    console.log("🎵 EXTRACTED PLAYLIST NAME:", cleanText)
-    return cleanText || lowerText // Si queda vacío, devolver el texto original
+  // 🎵 COMANDOS DE SPOTIFY
+  static isSpotifyCommand(text: string): boolean {
+    const spotifyKeywords = [
+      "pon música",
+      "reproduce",
+      "música",
+      "musica",
+      "playlist",
+      "play music",
+      "spotify",
+      "canción",
+      "cancion",
+    ]
+    return spotifyKeywords.some((keyword) => text.includes(keyword))
   }
 
-  // Agregar nuevos detectores de comandos de Spotify en la clase CommandDetector
-
-  // 🎵 DETECTAR COMANDOS DE CONTROL DE SPOTIFY ESPECÍFICOS - NUEVO
   static isSpotifyControlCommand(text: string): boolean {
     const controlKeywords = [
       "reproducir",
-      "reproduce",
-      "play",
       "pausar",
-      "pausa",
-      "pause",
-      "siguiente canción",
       "siguiente",
-      "next",
-      "canción anterior",
       "anterior",
+      "parar",
+      "play",
+      "pause",
+      "next",
       "previous",
-      "reanudar",
-      "continuar",
-      "resume",
+      "stop",
     ]
-    const lowerText = text.toLowerCase()
-    return controlKeywords.some((keyword) => lowerText.includes(keyword))
+    return controlKeywords.some((keyword) => text.includes(keyword))
   }
 
-  // 🎵 EXTRAER TIPO DE CONTROL DE SPOTIFY - NUEVO
   static extractSpotifyControl(text: string): "play" | "pause" | "next" | "previous" | "unknown" {
-    const lowerText = text.toLowerCase()
-
-    if (
-      lowerText.includes("reproducir") ||
-      lowerText.includes("reproduce") ||
-      lowerText.includes("play") ||
-      lowerText.includes("reanudar") ||
-      lowerText.includes("continuar")
-    ) {
-      return "play"
-    }
-    if (lowerText.includes("pausar") || lowerText.includes("pausa") || lowerText.includes("pause")) {
-      return "pause"
-    }
-    if (lowerText.includes("siguiente") || lowerText.includes("next")) {
-      return "next"
-    }
-    if (lowerText.includes("anterior") || lowerText.includes("previous")) {
-      return "previous"
-    }
-
+    if (text.includes("reproducir") || text.includes("play")) return "play"
+    if (text.includes("pausar") || text.includes("pause")) return "pause"
+    if (text.includes("siguiente") || text.includes("next")) return "next"
+    if (text.includes("anterior") || text.includes("previous")) return "previous"
     return "unknown"
+  }
+
+  // ❌ COMANDOS DE CANCELACIÓN
+  static isCancelCommand(text: string): boolean {
+    const cancelKeywords = [
+      "cancelar",
+      "cancel",
+      "parar",
+      "stop",
+      "salir",
+      "exit",
+      "no",
+      "nada",
+      "olvídalo",
+      "olvidalo",
+    ]
+    return cancelKeywords.some((keyword) => text.includes(keyword))
+  }
+
+  // 📱 COMANDOS DE AGENDA
+  static isAgendaCommand(text: string): boolean {
+    const agendaKeywords = ["agenda", "contactos", "contacts", "teléfonos", "telefonos"]
+    return agendaKeywords.some((keyword) => text.includes(keyword))
+  }
+
+  // 🎵 COMANDOS DE CONTROL DE MÚSICA
+  static isMusicControlCommand(text: string): boolean {
+    const musicKeywords = [
+      "quitar música",
+      "quitar musica",
+      "cerrar música",
+      "cerrar musica",
+      "parar música",
+      "parar musica",
+      "stop music",
+    ]
+    return musicKeywords.some((keyword) => text.includes(keyword))
   }
 }
 
-// 🕐 UTILIDADES DE TIEMPO PARA ARGENTINA
+// ⏰ UTILIDADES DE TIEMPO
 export class TimeUtils {
-  static getArgentinaTime(): { time: string; date: string; dayName: string } {
-    const now = new Date()
-    const argentinaTime = new Date(now.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
-
-    const time = argentinaTime.toLocaleTimeString("es-AR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-
-    const date = argentinaTime.toLocaleDateString("es-AR", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-
-    const dayName = argentinaTime.toLocaleDateString("es-AR", { weekday: "long" })
-
-    return { time, date, dayName }
-  }
-
   static getTimeResponse(): string {
-    const { time, date, dayName } = this.getArgentinaTime()
-    return `Son las ${time} del ${dayName}. Hoy es ${date}.`
+    const now = new Date()
+    const hours = now.getHours()
+    const minutes = now.getMinutes()
+
+    const timeString = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
+
+    let greeting = ""
+    if (hours < 12) greeting = "Buenos días"
+    else if (hours < 18) greeting = "Buenas tardes"
+    else greeting = "Buenas noches"
+
+    return `${greeting}, Señor. Son las ${timeString}.`
   }
 }

@@ -10,13 +10,23 @@ export function useAutoSpeech() {
   const isActiveRef = useRef(false)
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const finalTranscriptRef = useRef("")
-  const isSpeakingRef = useRef(false) // 🔇 PARA EVITAR AUTO-ESCUCHA
+  const isSpeakingRef = useRef(false)
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition
-      setIsSupported(!!SpeechRecognition)
-      console.log("🎤 Auto Speech Recognition supported:", !!SpeechRecognition)
+      const isHttps = window.location.protocol === "https:" || window.location.hostname === "localhost"
+      const supported = !!SpeechRecognition && isHttps
+
+      setIsSupported(supported)
+      console.log("🎤 Speech Recognition supported:", supported)
+      console.log("🔒 HTTPS/Localhost:", isHttps)
+      console.log("🌐 Current URL:", window.location.href)
+
+      if (!supported && !isHttps) {
+        console.warn("⚠️ Speech Recognition requires HTTPS or localhost")
+      }
     }
   }, [])
 
@@ -33,30 +43,32 @@ export function useAutoSpeech() {
       clearTimeout(silenceTimeoutRef.current)
       silenceTimeoutRef.current = null
     }
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
     setIsListening(false)
     isActiveRef.current = false
     finalTranscriptRef.current = ""
   }, [])
 
-  // 🔇 FUNCIÓN PARA PAUSAR ESCUCHA CUANDO JARVIS HABLA
   const setSpeakingState = useCallback(
     (speaking: boolean) => {
       isSpeakingRef.current = speaking
       console.log("🔇 JARVIS SPEAKING STATE:", speaking)
 
       if (speaking) {
-        // Pausar reconocimiento cuando JARVIS habla
         stopAllRecognition()
       }
     },
     [stopAllRecognition],
   )
 
-  // 🌙 ESCUCHA CONTINUA PARA WAKE WORD
+  // 🌙 ESCUCHA CONTINUA MEJORADA CON MANEJO DE ERRORES
   const startContinuousListening = useCallback(
     (onWakeWord: (detected: boolean) => void) => {
       if (!isSupported) {
-        console.log("❌ Speech recognition not supported")
+        console.log("❌ Speech recognition not supported or not HTTPS")
         return
       }
 
@@ -73,6 +85,7 @@ export function useAutoSpeech() {
           recognition.continuous = true
           recognition.interimResults = true
           recognition.lang = "es-ES"
+          recognition.maxAlternatives = 1
 
           recognition.onstart = () => {
             console.log("🎧 Continuous listening started")
@@ -80,7 +93,6 @@ export function useAutoSpeech() {
           }
 
           recognition.onresult = (event: any) => {
-            // 🔇 NO PROCESAR SI JARVIS ESTÁ HABLANDO
             if (isSpeakingRef.current) {
               console.log("🔇 Ignoring speech - JARVIS is speaking")
               return
@@ -110,12 +122,42 @@ export function useAutoSpeech() {
             console.error("❌ Continuous listening error:", event.error)
             isActiveRef.current = false
 
-            if (event.error !== "no-speech" && !isSpeakingRef.current) {
-              setTimeout(() => {
-                if (!isActiveRef.current && !isSpeakingRef.current) {
-                  startRecognition()
-                }
-              }, 2000)
+            // 🔧 MANEJO MEJORADO DE ERRORES
+            switch (event.error) {
+              case "network":
+                console.log("🌐 Network error - retrying in 5 seconds...")
+                retryTimeoutRef.current = setTimeout(() => {
+                  if (!isActiveRef.current && !isSpeakingRef.current) {
+                    startRecognition()
+                  }
+                }, 5000)
+                break
+              case "aborted":
+                console.log("⏹️ Recognition aborted - retrying in 2 seconds...")
+                retryTimeoutRef.current = setTimeout(() => {
+                  if (!isActiveRef.current && !isSpeakingRef.current) {
+                    startRecognition()
+                  }
+                }, 2000)
+                break
+              case "not-allowed":
+                console.error("🚫 Microphone permission denied")
+                break
+              case "no-speech":
+                // Ignorar este error, es normal
+                retryTimeoutRef.current = setTimeout(() => {
+                  if (!isActiveRef.current && !isSpeakingRef.current) {
+                    startRecognition()
+                  }
+                }, 1000)
+                break
+              default:
+                console.log(`🔄 Unknown error (${event.error}) - retrying in 3 seconds...`)
+                retryTimeoutRef.current = setTimeout(() => {
+                  if (!isActiveRef.current && !isSpeakingRef.current) {
+                    startRecognition()
+                  }
+                }, 3000)
             }
           }
 
@@ -124,7 +166,7 @@ export function useAutoSpeech() {
             isActiveRef.current = false
 
             if (!isSpeakingRef.current) {
-              setTimeout(() => {
+              retryTimeoutRef.current = setTimeout(() => {
                 if (!isActiveRef.current && !isSpeakingRef.current) {
                   startRecognition()
                 }
@@ -137,6 +179,13 @@ export function useAutoSpeech() {
         } catch (error) {
           console.error("❌ Error starting continuous listening:", error)
           isActiveRef.current = false
+
+          // Reintentar después de un error de inicialización
+          retryTimeoutRef.current = setTimeout(() => {
+            if (!isActiveRef.current && !isSpeakingRef.current) {
+              startRecognition()
+            }
+          }, 3000)
         }
       }
 
@@ -146,7 +195,7 @@ export function useAutoSpeech() {
     [isSupported, stopAllRecognition],
   )
 
-  // 🎯 ESCUCHA AUTOMÁTICA PARA CONVERSACIÓN
+  // 🎯 ESCUCHA AUTOMÁTICA MEJORADA
   const startAutoListening = useCallback(() => {
     if (!isSupported || isActiveRef.current || isSpeakingRef.current) {
       console.log("❌ Cannot start auto listening - not supported, already active, or JARVIS speaking")
@@ -162,6 +211,7 @@ export function useAutoSpeech() {
       recognition.continuous = true
       recognition.interimResults = true
       recognition.lang = "es-ES"
+      recognition.maxAlternatives = 1
 
       finalTranscriptRef.current = ""
       let hasSpokenRecently = false
@@ -173,7 +223,6 @@ export function useAutoSpeech() {
       }
 
       recognition.onresult = (event: any) => {
-        // 🔇 NO PROCESAR SI JARVIS ESTÁ HABLANDO
         if (isSpeakingRef.current) {
           console.log("🔇 Ignoring speech - JARVIS is speaking")
           return
@@ -203,7 +252,6 @@ export function useAutoSpeech() {
             clearTimeout(silenceTimeoutRef.current)
           }
 
-          // ⏰ ESPERAR 4 SEGUNDOS DE SILENCIO
           silenceTimeoutRef.current = setTimeout(() => {
             if (finalTranscriptRef.current.trim() && hasSpokenRecently && !isSpeakingRef.current) {
               console.log("🎯 PROCESSING COMPLETE PHRASE:", finalTranscriptRef.current)
@@ -230,6 +278,11 @@ export function useAutoSpeech() {
         setIsListening(false)
         isActiveRef.current = false
         recognitionRef.current = null
+
+        // 🔧 MANEJO DE ERRORES PARA AUTO LISTENING
+        if (event.error === "network" || event.error === "aborted") {
+          console.log("🔄 Auto listening will retry automatically")
+        }
       }
 
       recognition.start()
@@ -249,6 +302,6 @@ export function useAutoSpeech() {
     stopListening: stopAllRecognition,
     startContinuousListening,
     resetTranscript: () => setTranscript(""),
-    setSpeakingState, // 🔇 NUEVA FUNCIÓN PARA CONTROLAR ESTADO DE HABLA
+    setSpeakingState,
   }
 }
