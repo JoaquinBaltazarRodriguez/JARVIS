@@ -32,7 +32,7 @@ import { TokenDisplay } from "@/components/TokenDisplay"
 import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { JarvisMemory } from "@/lib/jarvisMemory"
-import { SpotifyPlayerWorking } from "@/components/SpotifyPlayerWorking"
+import { SpotifyPlayerComplete } from "@/components/SpotifyPlayerComplete"
 
 // Define types
 type AppState =
@@ -1556,8 +1556,8 @@ export default function AdvancedJarvis() {
         </div>
       )}
 
-      {/* 🎵 REPRODUCTOR DE SPOTIFY INTEGRADO - NUEVO */}
-      <SpotifyPlayerWorking
+      {/* 🎵 REPRODUCTOR DE SPOTIFY INTEGRADO - VERSIÓN COMPLETA */}
+      <SpotifyPlayerComplete
         isPlaying={isPlayingMusic}
         playlistUrl={currentPlaylistUrl}
         playlistName={currentPlaylist}
