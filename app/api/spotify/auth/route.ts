@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 export async function GET() {
   try {
     const clientId = process.env.SPOTIFY_CLIENT_ID
-    const redirectUri = "http://localhost:3000/api/spotify/callback"
+    const redirectUri = process.env.SPOTIFY_REDIRECT_URI || "https://jarvis-kappa-amber.vercel.app/api/spotify/callback"
 
     console.log("🎵 SPOTIFY AUTH REQUEST")
     console.log("🎵 CLIENT ID:", clientId ? "✅ EXISTS" : "❌ MISSING")
@@ -30,17 +30,11 @@ export async function GET() {
       "user-read-currently-playing",
     ].join(" ")
 
-    // 🔧 USAR REDIRECT URI EXACTA
-    const possibleRedirectUris = ["http://localhost:3000/api/spotify/callback"]
-
-    // Usar la URI exacta
-    const finalRedirectUri = "http://localhost:3000/api/spotify/callback"
-
     const authUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams({
       response_type: "code",
       client_id: clientId,
       scope: scopes,
-      redirect_uri: finalRedirectUri,
+      redirect_uri: redirectUri,
       show_dialog: "true",
       state: "jarvis-auth-" + Date.now(),
     })}`
@@ -51,8 +45,7 @@ export async function GET() {
       authUrl,
       configured: true,
       message: "URL de autenticación generada correctamente",
-      redirectUri: finalRedirectUri,
-      possibleUris: possibleRedirectUris,
+      redirectUri: redirectUri,
     })
   } catch (error) {
     console.error("❌ SPOTIFY AUTH ERROR:", error)
