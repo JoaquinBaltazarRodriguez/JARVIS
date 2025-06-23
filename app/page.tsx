@@ -1429,8 +1429,6 @@ export default function AdvancedJarvis() {
 
       {/* 📱 GESTORES */}
       <ContactsManager isOpen={showContactsManager} onClose={() => setShowContactsManager(false)} />
-      <LocationsManager isOpen={showLocationsManager} onClose={() => setShowLocationsManager(false)} />
-      <SpotifyManager isOpen={showSpotifyManager} onClose={() => setShowSpotifyManager(false)} />
 
       {/* 💬 GESTOR DE CONVERSACIONES */}
       <ConversationsManager
