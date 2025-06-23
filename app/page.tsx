@@ -85,6 +85,61 @@ export default function AdvancedJarvis() {
   const [currentVideoId, setCurrentVideoId] = useState("")
   const [waitingForSong, setWaitingForSong] = useState(false)
   const youtubePlayerRef = useRef<YouTubePlayerRef>(null)
+  // ESTADOS DE PLAYLIST
+  const [playlistMode, setPlaylistMode] = useState(false)
+  const [currentPlaylist, setCurrentPlaylist] = useState<any>(null)
+  const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(0)
+
+  // PLAYLIST DE LOS 80
+  const playlist80s = {
+    name: "música de los 80",
+    songs: [
+      { title: "a-ha - Take On Me", videoId: "tqrHS9nZp0k" },
+      { title: "Rick Astley - Never Gonna Give You Up", videoId: "KbHaIbDKQMc" },
+      { title: "Europe - The Final Countdown", videoId: "qmUEkQPE7fk" },
+      { title: "Queen - Another One Bites The Dust", videoId: "A_MjCqQoLLA" },
+      { title: "Bonnie Tyler - Total Eclipse of the Heart", videoId: "v1HDt1tknTc" },
+      { title: "Toto - Africa", videoId: "2bqm4gRY3mA" },
+      { title: "Michael Jackson - Billie Jean", videoId: "IRk9gAqjLgg" },
+      { title: "Survivor - Eye Of The Tiger", videoId: "NJd0MLBuJjA" },
+      { title: "Men At Work - Down Under", videoId: "J36z7AnhvOM" },
+      { title: "Cyndi Lauper - Girls Just Want To Have Fun", videoId: "OYB1rbL8EHo" },
+      { title: "Wham! - Wake Me Up Before You Go-Go", videoId: "z-2_OstpR5c" },
+      { title: "Billy Joel - Uptown Girl", videoId: "7p2HqW9J1iU" },
+      { title: "Bananarama - Venus", videoId: "EONn2gj1ngA" },
+      { title: "A Flock Of Seagulls - I Ran", videoId: "Q8UKf65NOzM" },
+      { title: "Simple Minds - Don't You (Forget About Me)", videoId: "oU6uUEwZ8FM" },
+      { title: "Dexys Midnight Runners - Come On Eileen", videoId: "56cKlT62wrQ" },
+      { title: "Van Halen - Jump", videoId: "pSw8an1u3rc" },
+      { title: "The Police - Every Breath You Take", videoId: "einn_UJgGGM" },
+      { title: "Dead Or Alive - You Spin Me Round", videoId: "_r0n9Dv6XnY" },
+      { title: "Soft Cell - Tainted Love", videoId: "XD1cxSE25ck" },
+      { title: "The Bangles - Walk Like an Egyptian", videoId: "JmcA9LIIXWw" },
+      { title: "Madonna - Like a Virgin", videoId: "ZNzYr4U7Zs8" },
+      { title: "Culture Club - Karma Chameleon", videoId: "x34icYC8zA0" },
+      { title: "Tears For Fears - Everybody Wants To Rule The World", videoId: "RP0_8J7uxhs" },
+      { title: "Duran Duran - Hungry Like The Wolf", videoId: "YHRvDo8rUoQ" },
+      { title: "Dire Straits - Walk of Life", videoId: "wp43OdtAAkM" },
+      { title: "Eurythmics - Sweet Dreams", videoId: "OMOGaugKpzs" },
+      { title: "Simple Minds - Alive And Kicking", videoId: "9GkVhgIeGJQ" },
+      { title: "Billy Idol - Dancing With Myself", videoId: "Chs2bmqzyUs" },
+      { title: "The Outfield - Your Love", videoId: "2oX2FSv4Rys" },
+      { title: "Pat Benatar - Love Is A Battlefield", videoId: "atY7ymXAcRQ" },
+      { title: "Journey - Don't Stop Believin'", videoId: "VOgFZfRVaww" },
+      { title: "The Clash - Rock the Casbah", videoId: "cJRP3LRcUFg" },
+      { title: "Billy Joel - We Didn't Start the Fire", videoId: "k04tX2fvh0o" },
+      { title: "Starship - We Built This City", videoId: "0pGOFX1D_jg" },
+      { title: "Kenny Loggins - Footloose", videoId: "5p2k55F-uag" },
+      { title: "INXS - Need You Tonight", videoId: "J9gKyRmic20" },
+      { title: "The Cure - Just Like Heaven", videoId: "XuFC6ud1cAQ" },
+      { title: "Foreigner - I Want to Know What Love Is", videoId: "CsHiG-43Fzg" },
+      { title: "Modern Talking - Brother Louie", videoId: "ZotVMxuXBo0" },
+      { title: "Lionel Richie - All Night Long", videoId: "gykWYPrArbY" },
+      { title: "U2 - With Or Without You", videoId: "Uw5OLnN7UvM" },
+      { title: "Prince - When Doves Cry", videoId: "htgr3pvBr-I" },
+      { title: "The Human League - Don't You Want Me", videoId: "egPVvFYxLe4" },
+    ]
+  }
 
   // 🗺️ ESTADOS PARA MAPA
   const [isMapActive, setIsMapActive] = useState(false)
@@ -889,14 +944,31 @@ export default function AdvancedJarvis() {
 
   const handleYouTubeMusicSelection = async (text: string) => {
     console.log("🎵 RAW YOUTUBE INPUT:", text)
-
-    const cleaned = text.replace(/pon |reproduce |música de |canción de /gi, "").trim()
+    const cleaned = text.replace(/pon |reproduce |música de |canción de /gi, "").trim().toLowerCase()
+    // Si el usuario pide la playlist de los 80
+    if (cleaned.includes("playlist") && cleaned.includes("80")) {
+      setPlaylistMode(true)
+      setCurrentPlaylist(playlist80s)
+      setCurrentPlaylistIndex(0)
+      setCurrentSongTitle(playlist80s.songs[0].title)
+      setCurrentVideoId(playlist80s.songs[0].videoId)
+      setIsPlayingMusic(true)
+      setWaitingForSong(false)
+      setAppState("music_playing")
+      setCurrentText(`Reproduciendo playlist: música de los 80\nCanción: ${playlist80s.songs[0].title}`)
+      await speak(`Reproduciendo playlist: música de los 80. Canción: ${playlist80s.songs[0].title}`)
+      setCurrentText("")
+      return
+    }
+    // Canción individual
     const result = await searchYouTube(cleaned)
     if (result) {
       setCurrentSongTitle(result.title)
       setCurrentVideoId(result.videoId)
       setIsPlayingMusic(true)
       setWaitingForSong(false)
+      setPlaylistMode(false)
+      setCurrentPlaylist(null)
       setAppState("music_playing")
       setCurrentText(`Reproduciendo: ${result.title}`)
       await speak(`Reproduciendo: ${result.title}`)
@@ -918,6 +990,9 @@ export default function AdvancedJarvis() {
       setIsPlayingMusic(false)
       setCurrentSongTitle("")
       setCurrentVideoId("")
+      setPlaylistMode(false)
+      setCurrentPlaylist(null)
+      setCurrentPlaylistIndex(0)
       setAppState("active")
     }
   }
@@ -937,7 +1012,27 @@ export default function AdvancedJarvis() {
     if (!youtubePlayerRef.current) return
     if (text.includes("pausa")) youtubePlayerRef.current.pause()
     else if (text.includes("play") || text.includes("reanuda") || text.includes("reproduce")) youtubePlayerRef.current.play()
-    // Puedes implementar next/previous si manejas listas
+    else if (text.includes("siguiente") && playlistMode && currentPlaylist) {
+      if (currentPlaylistIndex < currentPlaylist.songs.length - 1) {
+        const nextIndex = currentPlaylistIndex + 1
+        setCurrentPlaylistIndex(nextIndex)
+        setCurrentSongTitle(currentPlaylist.songs[nextIndex].title)
+        setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId)
+        setCurrentText(`Siguiente: ${currentPlaylist.songs[nextIndex].title}`)
+        await speak(`Siguiente: ${currentPlaylist.songs[nextIndex].title}`)
+        setCurrentText("")
+      }
+    } else if (text.includes("anterior") && playlistMode && currentPlaylist) {
+      if (currentPlaylistIndex > 0) {
+        const prevIndex = currentPlaylistIndex - 1
+        setCurrentPlaylistIndex(prevIndex)
+        setCurrentSongTitle(currentPlaylist.songs[prevIndex].title)
+        setCurrentVideoId(currentPlaylist.songs[prevIndex].videoId)
+        setCurrentText(`Anterior: ${currentPlaylist.songs[prevIndex].title}`)
+        await speak(`Anterior: ${currentPlaylist.songs[prevIndex].title}`)
+        setCurrentText("")
+      }
+    }
   }
 
   const getMainIcon = () => {
