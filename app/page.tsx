@@ -21,10 +21,10 @@ import { useSimpleAudio } from "@/hooks/useSimpleAudio"
 import { useAutoSpeech } from "@/hooks/useAutoSpeech"
 import { useFuturisticSounds } from "@/hooks/useFuturisticSounds"
 import { ContactsManager } from "@/components/ContactsManager"
-import { LocationsManager } from "@/components/LocationsManager"
-import { SpotifyManager } from "@/components/SpotifyManager"
+import YouTubePlayer, { YouTubePlayerRef } from "@/components/YoutubePlayer"
+import { searchYouTube } from "@/lib/youtubeSearch"
 import { MapViewer, type MapViewerRef } from "@/components/MapViewer"
-import { ContactsDB, LocationsDB, SpotifyDB, CommandDetector, TimeUtils } from "@/lib/database"
+import { ContactsDB, LocationsDB, CommandDetector, TimeUtils } from "@/lib/database"
 import { ConversationsManager } from "@/components/ConversationsManager"
 import { ConversationsDB, type Conversation, type ConversationMessage } from "@/lib/conversations"
 import { usePillReminder } from "@/hooks/usePillReminder"
@@ -32,7 +32,6 @@ import { TokenDisplay } from "@/components/TokenDisplay"
 import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { JarvisMemory } from "@/lib/jarvisMemory"
-import { SpotifyPlayerReal } from "@/components/SpotifyPlayerReal"
 
 // Define types
 type AppState =
@@ -41,7 +40,7 @@ type AppState =
   | "active"
   | "calling_confirmation"
   | "navigation_mode"
-  | "spotify_mode"
+  | "music_mode"
   | "music_playing"
   | "map_active"
   | "intelligent_mode"
@@ -64,18 +63,18 @@ export default function AdvancedJarvis() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [mounted, setMounted] = useState(false)
 
-  // 📱 ESTADOS PARA FUNCIONALIDADES
+  // ESTADOS PARA FUNCIONALIDADES
   const [pendingCall, setPendingCall] = useState<{ name: string; phone: string } | null>(null)
   const [isNavigating, setIsNavigating] = useState(false)
   const [showContactsManager, setShowContactsManager] = useState(false)
   const [showLocationsManager, setShowLocationsManager] = useState(false)
 
-  // 🎵 ESTADOS PARA SPOTIFY
+  // ESTADOS PARA YOUTUBE
   const [isPlayingMusic, setIsPlayingMusic] = useState(false)
-  const [currentPlaylist, setCurrentPlaylist] = useState("")
-  const [currentPlaylistUrl, setCurrentPlaylistUrl] = useState("")
-  const [showSpotifyManager, setShowSpotifyManager] = useState(false)
-  const [waitingForPlaylist, setWaitingForPlaylist] = useState(false)
+  const [currentSongTitle, setCurrentSongTitle] = useState("")
+  const [currentVideoId, setCurrentVideoId] = useState("")
+  const [waitingForSong, setWaitingForSong] = useState(false)
+  const youtubePlayerRef = useRef<YouTubePlayerRef>(null)
 
   // 🗺️ ESTADOS PARA MAPA
   const [isMapActive, setIsMapActive] = useState(false)
@@ -148,66 +147,6 @@ export default function AdvancedJarvis() {
     }
   }, [mounted, appState, playClickSound, playHoverSound])
 
-  // 🎵 MANEJAR AUTENTICACIÓN DE SPOTIFY AL CARGAR
-  useEffect(() => {
-    if (mounted) {
-      const urlParams = new URLSearchParams(window.location.search)
-
-      // Manejar éxito de autenticación de Spotify
-      if (urlParams.get("spotify_success") === "true") {
-        const accessToken = urlParams.get("access_token")
-        const refreshToken = urlParams.get("refresh_token")
-        const expiresIn = urlParams.get("expires_in")
-
-        if (accessToken) {
-          // Guardar tokens en localStorage
-          localStorage.setItem("spotify_access_token", accessToken)
-          if (refreshToken) localStorage.setItem("spotify_refresh_token", refreshToken)
-          if (expiresIn)
-            localStorage.setItem("spotify_expires_at", (Date.now() + Number.parseInt(expiresIn) * 1000).toString())
-
-          console.log("✅ SPOTIFY AUTHENTICATED SUCCESSFULLY")
-
-          // Limpiar URL
-          window.history.replaceState({}, document.title, window.location.pathname)
-
-          // Mostrar mensaje de éxito
-          const successMsg =
-            "Spotify conectado exitosamente, Señor. Ahora puede controlar la música directamente desde JARVIS."
-          setCurrentText(successMsg)
-          speak(successMsg).then(() => setCurrentText(""))
-        }
-      }
-
-      // Manejar errores de autenticación de Spotify
-      const spotifyError = urlParams.get("spotify_error")
-      if (spotifyError) {
-        console.error("❌ SPOTIFY AUTH ERROR:", spotifyError)
-
-        let errorMsg = "Error conectando con Spotify, Señor. "
-        switch (spotifyError) {
-          case "access_denied":
-            errorMsg += "Acceso denegado por el usuario."
-            break
-          case "no_code":
-            errorMsg += "No se recibió código de autorización."
-            break
-          case "token_exchange":
-            errorMsg += "Error intercambiando código por token."
-            break
-          default:
-            errorMsg += "Error desconocido en la autenticación."
-        }
-
-        setCurrentText(errorMsg)
-        speak(errorMsg).then(() => setCurrentText(""))
-
-        // Limpiar URL
-        window.history.replaceState({}, document.title, window.location.pathname)
-      }
-    }
-  }, [mounted, speak])
-
   useEffect(() => {
     if (mounted && appState === "sleeping" && isSupported) {
       console.log("🌙 Starting continuous listening for wake word...")
@@ -221,7 +160,7 @@ export default function AdvancedJarvis() {
       appState === "waiting_password" ||
       appState === "active" ||
       appState === "navigation_mode" ||
-      appState === "spotify_mode" ||
+      appState === "music_mode" ||
       appState === "intelligent_mode" ||
       appState === "functional_mode" ||
       appState === "image_download_confirmation"
@@ -282,24 +221,23 @@ export default function AdvancedJarvis() {
         handleCallConfirmation(text)
       } else if (appState === "navigation_mode") {
         handleNavigationCommand(text)
-      } else if (appState === "spotify_mode") {
-        if (CommandDetector.isCancelCommand(text)) {
-          console.log("❌ CANCEL COMMAND IN SPOTIFY MODE")
+      } else if (appState === "music_mode") {
+        if (text.includes("cancelar")) {
           handleCancelAction()
         } else {
-          handleSpotifyPlaylistSelection(text)
+          handleYouTubeMusicSelection(text)
         }
       } else if (appState === "image_download_confirmation") {
         // 🖼️ MANEJAR CONFIRMACIÓN DE DESCARGA DE IMAGEN
         handleImageDownloadConfirmation(text)
       } else if (appState === "music_playing") {
-        // 🎵 CONTROLES DE SPOTIFY POR VOZ
-        if (CommandDetector.isSpotifyControlCommand(text)) {
-          console.log("🎵 SPOTIFY CONTROL COMMAND DETECTED")
-          handleSpotifyControlCommand(text)
+        // 🎵 CONTROLES DE YOUTUBE POR VOZ
+        if (isYouTubeVoiceControlCommand(text)) {
+          console.log("🎵 YOUTUBE VOICE CONTROL COMMAND DETECTED")
+          handleYouTubeVoiceControl(text)
         }
         // 🎵 COMANDO DE QUITAR MÚSICA
-        else if (CommandDetector.isMusicControlCommand(text)) {
+        else if (text.includes("quitar música") || text.includes("cerrar música") || text.includes("apagar música")) {
           console.log("🎵 MUSIC CONTROL COMMAND DETECTED")
           handleMusicControl(text)
         } else {
@@ -355,12 +293,9 @@ export default function AdvancedJarvis() {
         } else if (CommandDetector.isNavigationCommand(text)) {
           console.log("🗺️ NAVIGATION COMMAND DETECTED")
           handleNavigationStart(text)
-        } else if (CommandDetector.isSpotifyCommand(text)) {
-          console.log("🎵 SPOTIFY COMMAND DETECTED")
-          handleSpotifyCommand()
-        } else if (CommandDetector.isMusicControlCommand(text)) {
-          console.log("🎵 MUSIC CONTROL COMMAND DETECTED")
-          handleMusicControl(text)
+        } else if (isYouTubeMusicCommand(text)) {
+          console.log("🎵 YOUTUBE MUSIC COMMAND DETECTED")
+          handleYouTubeMusicCommand()
         } else if (text.length > 2) {
           handleUserMessage(transcript)
         }
@@ -710,8 +645,8 @@ export default function AdvancedJarvis() {
     setPendingCall(null)
     setIsNavigating(false)
     setIsPlayingMusic(false)
-    setCurrentPlaylist("")
-    setCurrentPlaylistUrl("")
+    setCurrentSongTitle("")
+    setCurrentVideoId("")
     setIsMapActive(false)
     setCurrentDestination("")
     setCurrentDestinationAddress("")
@@ -761,8 +696,8 @@ export default function AdvancedJarvis() {
                   handleNavigationStart(`ir a ${localCommand.data.destination}`)
                 }
                 break
-              case "spotify":
-                handleSpotifyCommand()
+              case "youtube":
+                handleYouTubeMusicCommand()
                 break
               case "cancel":
                 handleCancelAction()
@@ -908,7 +843,7 @@ export default function AdvancedJarvis() {
 
     setPendingCall(null)
     setIsNavigating(false)
-    setWaitingForPlaylist(false)
+    setWaitingForSong(false)
     setPendingImageDownload(null)
     setWaitingImageDownloadConfirmation(false)
     setAppState("active")
@@ -931,103 +866,34 @@ export default function AdvancedJarvis() {
     setShowContactsManager(true)
   }
 
-  const handleSpotifyCommand = async () => {
-    console.log("🎵 SPOTIFY COMMAND DETECTED")
-    setAppState("spotify_mode")
-    setWaitingForPlaylist(true)
+  const handleYouTubeMusicCommand = async () => {
+    console.log("🎵 YOUTUBE MUSIC COMMAND DETECTED")
+    setAppState("music_mode")
+    setWaitingForSong(true)
 
-    const spotifyMsg = "¿Qué playlist desea escuchar, Señor?"
-    setCurrentText(spotifyMsg)
-    await speak(spotifyMsg)
+    const youtubeMsg = "¿Qué canción o artista desea escuchar, Señor?"
+    setCurrentText(youtubeMsg)
+    await speak(youtubeMsg)
     setCurrentText("")
   }
 
-  const handleSpotifyPlaylistSelection = async (text: string) => {
-    console.log("🎵 RAW SPOTIFY INPUT:", text)
+  const handleYouTubeMusicSelection = async (text: string) => {
+    console.log("🎵 RAW YOUTUBE INPUT:", text)
 
-    const lowerText = text.toLowerCase().trim()
-    const playlists = SpotifyDB.getAll()
-
-    console.log(
-      "🎵 AVAILABLE PLAYLISTS:",
-      playlists.map((p) => p.name),
-    )
-
-    // 🔍 BÚSQUEDA MEJORADA DE PLAYLIST - VERSIÓN CORREGIDA
-    const foundPlaylist = playlists.find((playlist) => {
-      const playlistName = playlist.name.toLowerCase()
-      console.log(`🔍 COMPARING: "${lowerText}" with "${playlistName}"`)
-
-      // 1. Búsqueda exacta primero
-      if (lowerText === playlistName) {
-        console.log("✅ EXACT MATCH FOUND")
-        return true
-      }
-
-      // 2. Búsqueda por inclusión directa (muy importante para casos como "música de los 80")
-      if (playlistName.includes(lowerText) || lowerText.includes(playlistName)) {
-        console.log("✅ INCLUSION MATCH FOUND")
-        return true
-      }
-
-      // 3. Búsqueda por palabras individuales
-      const textWords = lowerText.split(" ").filter((word) => word.length > 2)
-      const playlistWords = playlistName.split(" ").filter((word) => word.length > 2)
-
-      // Contar palabras que coinciden
-      const matchingWords = textWords.filter((textWord) =>
-        playlistWords.some(
-          (playlistWord) =>
-            playlistWord.includes(textWord) || textWord.includes(playlistWord) || playlistWord === textWord,
-        ),
-      )
-
-      // Si coinciden al menos 2 palabras o 1 palabra importante (>3 caracteres)
-      if (matchingWords.length >= 2 || matchingWords.some((word) => word.length > 3)) {
-        console.log("✅ KEYWORD MATCH FOUND:", matchingWords)
-        return true
-      }
-
-      // 4. Búsqueda especial para números y caracteres especiales
-      const normalizedText = lowerText.replace(/[áéíóú]/g, (match) => {
-        const replacements: { [key: string]: string } = { á: "a", é: "e", í: "i", ó: "o", ú: "u" }
-        return replacements[match] || match
-      })
-      const normalizedPlaylist = playlistName.replace(/[áéíóú]/g, (match) => {
-        const replacements: { [key: string]: string } = { á: "a", é: "e", í: "i", ó: "o", ú: "u" }
-        return replacements[match] || match
-      })
-
-      if (normalizedPlaylist.includes(normalizedText) || normalizedText.includes(normalizedPlaylist)) {
-        console.log("✅ NORMALIZED MATCH FOUND")
-        return true
-      }
-
-      return false
-    })
-
-    if (foundPlaylist) {
-      console.log("✅ PLAYLIST FOUND:", foundPlaylist.name)
-
-      const playingMsg = `Reproduciendo ${foundPlaylist.name}, Señor. Abriendo reproductor integrado...`
-      setCurrentText(playingMsg)
-      await speak(playingMsg)
-      setCurrentText("")
-
-      // 🎵 ACTIVAR REPRODUCTOR INTEGRADO
+    const cleaned = text.replace(/pon |reproduce |música de |canción de /gi, "").trim()
+    const result = await searchYouTube(cleaned)
+    if (result) {
+      setCurrentSongTitle(result.title)
+      setCurrentVideoId(result.videoId)
       setIsPlayingMusic(true)
-      setCurrentPlaylist(foundPlaylist.name)
-      setCurrentPlaylistUrl(foundPlaylist.spotifyUrl)
-      setWaitingForPlaylist(false)
+      setWaitingForSong(false)
       setAppState("music_playing")
+      setCurrentText(`Reproduciendo: ${result.title}`)
+      await speak(`Reproduciendo: ${result.title}`)
+      setCurrentText("")
     } else {
-      console.log("❌ PLAYLIST NOT FOUND")
-
-      // Mostrar playlists disponibles
-      const availablePlaylists = playlists.map((p) => p.name).join(", ")
-      const notFoundMsg = `No encontré una playlist que coincida con "${text}", Señor. Las playlists disponibles son: ${availablePlaylists}. ¿Puede repetir el nombre?`
-      setCurrentText(notFoundMsg)
-      await speak(notFoundMsg)
+      setCurrentText("No encontré la canción, Señor. ¿Puede repetir el nombre?")
+      await speak("No encontré la canción, Señor. ¿Puede repetir el nombre?")
       setCurrentText("")
     }
   }
@@ -1040,52 +906,28 @@ export default function AdvancedJarvis() {
       setCurrentText("")
 
       setIsPlayingMusic(false)
-      setCurrentPlaylist("")
-      setCurrentPlaylistUrl("")
+      setCurrentSongTitle("")
+      setCurrentVideoId("")
       setAppState("active")
     }
   }
 
-  // 🎵 MANEJAR CONTROLES DE SPOTIFY POR VOZ - MEJORADO
-  const handleSpotifyControlCommand = async (text: string) => {
-    const controlType = CommandDetector.extractSpotifyControl(text)
-    console.log("🎵 SPOTIFY CONTROL TYPE:", controlType)
+  const isYouTubeVoiceControlCommand = (text: string) => {
+    return (
+      text.includes("pausa") ||
+      text.includes("play") ||
+      text.includes("reproduce") ||
+      text.includes("reanuda") ||
+      text.includes("siguiente") ||
+      text.includes("anterior")
+    )
+  }
 
-    let responseMsg = ""
-
-    // 🎵 USAR CONTROL REAL DE SPOTIFY
-    const spotifyControl = (window as any).spotifyVoiceControl
-
-    if (spotifyControl) {
-      switch (controlType) {
-        case "play":
-          spotifyControl.play()
-          responseMsg = `Reproduciendo ${spotifyControl.currentTrack || "música"} en Spotify, Señor.`
-          break
-        case "pause":
-          spotifyControl.pause()
-          responseMsg = "Pausando música en Spotify, Señor."
-          break
-        case "next":
-          spotifyControl.next()
-          responseMsg = "Cambiando a la siguiente canción, Señor."
-          break
-        case "previous":
-          spotifyControl.previous()
-          responseMsg = "Volviendo a la canción anterior, Señor."
-          break
-        default:
-          responseMsg = "Comando de Spotify no reconocido, Señor. Use: reproducir, pausar, siguiente o anterior."
-      }
-    } else {
-      responseMsg = "Reproductor de Spotify no disponible, Señor. Abra una playlist primero."
-    }
-
-    setCurrentText(responseMsg)
-    await speak(responseMsg)
-    setCurrentText("")
-
-    console.log("🎵 SPOTIFY VOICE CONTROL EXECUTED:", controlType)
+  const handleYouTubeVoiceControl = async (text: string) => {
+    if (!youtubePlayerRef.current) return
+    if (text.includes("pausa")) youtubePlayerRef.current.pause()
+    else if (text.includes("play") || text.includes("reanuda") || text.includes("reproduce")) youtubePlayerRef.current.play()
+    // Puedes implementar next/previous si manejas listas
   }
 
   const getMainIcon = () => {
@@ -1095,7 +937,7 @@ export default function AdvancedJarvis() {
     if (appState === "waiting_password") return <Lock className="h-20 w-20 text-yellow-400" />
     if (appState === "calling_confirmation") return <Phone className="h-20 w-20 text-green-400 animate-pulse" />
     if (appState === "navigation_mode") return <MapPin className="h-20 w-20 text-blue-400 animate-pulse" />
-    if (appState === "spotify_mode") return <Music className="h-20 w-20 text-green-400 animate-pulse" />
+    if (appState === "music_mode") return <Music className="h-20 w-20 text-green-400 animate-pulse" />
     if (appState === "music_playing") return <Music className="h-20 w-20 text-green-400 animate-bounce" />
     if (appState === "map_active") return <MapPin className="h-20 w-20 text-blue-400 animate-bounce" />
     if (appState === "intelligent_mode") return <Brain className="h-20 w-20 text-purple-400 animate-pulse" />
@@ -1130,7 +972,7 @@ export default function AdvancedJarvis() {
     if (appState === "navigation_mode") {
       return `${baseClasses} border-blue-500 shadow-blue-500/50 animate-pulse`
     }
-    if (appState === "spotify_mode") {
+    if (appState === "music_mode") {
       return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`
     }
     if (appState === "music_playing") {
@@ -1164,9 +1006,9 @@ export default function AdvancedJarvis() {
     if (appState === "navigation_mode") {
       return "¿A dónde quiere ir?"
     }
-    if (appState === "spotify_mode") {
-      if (isListening) return "Escuchando playlist... (Di 'cancelar' para salir)"
-      return waitingForPlaylist ? "Di el nombre de la playlist (o 'cancelar')" : "Seleccionando música..."
+    if (appState === "music_mode") {
+      if (isListening) return "Escuchando canción... (Di 'cancelar' para salir)"
+      return waitingForSong ? "Di el nombre de la canción (o 'cancelar')" : "Seleccionando música..."
     }
     if (appState === "image_download_confirmation") {
       if (isListening) return "¿Descargar imagen? (Sí/No)"
@@ -1304,15 +1146,6 @@ export default function AdvancedJarvis() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowSpotifyManager(true)}
-            className="text-cyan-400"
-            title="Gestionar Playlists"
-          >
-            <Music className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
             onClick={() => setShowConversationsManager(true)}
             className="text-cyan-400"
             title="Historial de Conversaciones"
@@ -1381,7 +1214,7 @@ export default function AdvancedJarvis() {
                         ? "text-green-400"
                         : appState === "navigation_mode"
                           ? "text-blue-400"
-                          : appState === "spotify_mode"
+                          : appState === "music_mode"
                             ? "text-green-400"
                             : appState === "music_playing"
                               ? "text-green-400"
@@ -1556,15 +1389,28 @@ export default function AdvancedJarvis() {
         </div>
       )}
 
-      {/* 🎵 REPRODUCTOR DE SPOTIFY INTEGRADO */}
-{isPlayingMusic && currentPlaylistUrl && (
-  <SpotifyPlayerReal
-    playlistUrl={currentPlaylistUrl}
-    playlistName={currentPlaylist}
-    // Puedes agregar aquí callbacks si tu componente los acepta
-  />
-)}
-
+      {/* 🎵 REPRODUCTOR DE YOUTUBE INTEGRADO */}
+      {isPlayingMusic && currentVideoId && (
+        <div className="fixed inset-0 flex items-center justify-center z-40 bg-black/80">
+          <YouTubePlayer
+            ref={youtubePlayerRef}
+            videoId={currentVideoId}
+            title={currentSongTitle || ""}
+            onEnd={() => {
+              setIsPlayingMusic(false)
+              setCurrentVideoId("")
+              setCurrentSongTitle("")
+              setAppState("active")
+            }}
+          />
+          <Button
+            className="absolute top-6 right-6 bg-cyan-700 text-white"
+            onClick={() => handleMusicControl("quitar")}
+          >
+            Quitar música
+          </Button>
+        </div>
+      )}
 
       {/* 🗺️ MAPA INTEGRADO */}
       <MapViewer
