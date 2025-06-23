@@ -33,6 +33,16 @@ import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { JarvisMemory } from "@/lib/jarvisMemory"
 
+// --- DETECTOR DE COMANDO DE MÚSICA YOUTUBE ---
+function isYouTubeMusicCommand(text: string): boolean {
+  return (
+    text.toLowerCase().includes("pon ") ||
+    text.toLowerCase().includes("reproduce ") ||
+    text.toLowerCase().includes("música de ") ||
+    text.toLowerCase().includes("canción de ")
+  )
+}
+
 // Define types
 type AppState =
   | "sleeping"
@@ -293,7 +303,7 @@ export default function AdvancedJarvis() {
         } else if (CommandDetector.isNavigationCommand(text)) {
           console.log("🗺️ NAVIGATION COMMAND DETECTED")
           handleNavigationStart(text)
-        } else if (isYouTubeMusicCommand(text)) {
+        } else if (isYouTubeMusicCommand && isYouTubeMusicCommand(text)) {
           console.log("🎵 YOUTUBE MUSIC COMMAND DETECTED")
           handleYouTubeMusicCommand()
         } else if (text.length > 2) {
@@ -1368,6 +1378,9 @@ export default function AdvancedJarvis() {
             {isPlayingMusic ? "SOLO MÚSICA" : isMapActive ? "SOLO MAPA" : "AUTOMÁTICO"}
           </p>
           <p className="text-cyan-400 text-xs mt-1">💡 Modos: Modo Normal | Modo Inteligente | Modo Funcional</p>
+          <p className="text-cyan-300 text-xs mt-1">
+            🎵 <b>Para reproducir música</b> di: <span className="bg-cyan-900 px-1 rounded">"pon [nombre de la canción o artista]"</span> o <span className="bg-cyan-900 px-1 rounded">"reproduce [nombre de la canción]"</span>
+          </p>
           {transcript && <p className="text-yellow-400 text-xs mt-1">Último: "{transcript}"</p>}
         </div>
       )}
