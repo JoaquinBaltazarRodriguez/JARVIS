@@ -33,6 +33,53 @@ import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { JarvisMemory } from "@/lib/jarvisMemory"
 
+// --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
+const DEFAULT_CITY = "Posadas, Misiones, AR";
+const WEATHER_API_KEY = "34c011ccd32573ff3d987a6a9b241b2f";
+
+function getFriendlyWeatherMessage(desc: string) {
+  const d = desc.toLowerCase();
+  if (d.includes("lluvia")) return "Señor, se esperan lluvias. Le recomiendo llevar paraguas.";
+  if (d.includes("nublado") && d.includes("parcial")) return "Señor, estará parcialmente nublado. Ideal para salir, pero lleve abrigo por si acaso.";
+  if (d.includes("nublado")) return "Señor, el cielo estará mayormente nublado.";
+  if (d.includes("despejado") || d.includes("cielo claro") || d.includes("claro")) return "Señor, se espera un día soleado y despejado. ¡Aproveche el buen clima!";
+  if (d.includes("tormenta")) return "Señor, hay alerta de tormenta. Le recomiendo precaución.";
+  if (d.includes("niebla")) return "Señor, habrá niebla. Conduzca con cuidado.";
+  return `Señor, el clima será: ${desc}.`;
+}
+
+async function fetchWeather(city: string, day: "today" | "tomorrow" = "today") {
+  // Para ambos casos, usamos /forecast para obtener máxima y mínima realista
+  const res = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${WEATHER_API_KEY}&units=metric&lang=es`)
+  if (!res.ok) return null;
+  const data = await res.json();
+  const now = new Date();
+  let targetDate;
+  if (day === "today") {
+    targetDate = now.toISOString().slice(0, 10);
+  } else {
+    const tomorrow = new Date(now.getTime() + 24*60*60*1000);
+    targetDate = tomorrow.toISOString().slice(0, 10);
+  }
+  // Filtrar bloques del día objetivo
+  const blocks = data.list.filter((item: any) => item.dt_txt.startsWith(targetDate));
+  if (!blocks.length) return null;
+  // Calcular min y max del día
+  const temp_min = Math.min(...blocks.map((b: any) => b.main.temp_min));
+  const temp_max = Math.max(...blocks.map((b: any) => b.main.temp_max));
+  // Elegir bloque de máxima del día
+  const maxBlock = blocks.reduce((prev: any, curr: any) => (curr.main.temp_max > prev.main.temp_max ? curr : prev));
+  // Usar la descripción del bloque de máxima
+  const descBlock = maxBlock;
+  return {
+    desc: descBlock.weather[0].description,
+    temp: descBlock.main.temp_max,
+    temp_min,
+    temp_max,
+    city: data.city.name
+  };
+}
+
 // --- DETECTOR DE COMANDO DE MÚSICA YOUTUBE ---
 function isYouTubeMusicCommand(text: string): boolean {
   return (
@@ -65,6 +112,24 @@ type Message = {
 }
 
 export default function AdvancedJarvis() {
+  // --- HANDLER DE PRONÓSTICO ---
+  const handleWeatherCommand = async (text: string) => {
+    let day: "today" | "tomorrow" = "today";
+    if (text.includes("mañana")) day = "tomorrow";
+    const weather = await fetchWeather(DEFAULT_CITY, day);
+    if (!weather) {
+      setCurrentText("No pude obtener el pronóstico, Señor.");
+      await speak("No pude obtener el pronóstico, Señor.");
+      setCurrentText("");
+      return;
+    }
+    const friendly = getFriendlyWeatherMessage(weather.desc);
+    const msg = `${friendly} Temperatura mínima de ${Math.round(weather.temp_min)}°C y máxima de ${Math.round(weather.temp_max)}°C.`;
+    setCurrentText(msg);
+    await speak(msg);
+    setCurrentText("");
+  }
+
   const [appState, setAppState] = useState<AppState>("sleeping")
   const [messages, setMessages] = useState<Message[]>([])
   const [currentText, setCurrentText] = useState("")
@@ -94,50 +159,50 @@ export default function AdvancedJarvis() {
   const playlist80s = {
     name: "música de los 80",
     songs: [
-      { title: "a-ha - Take On Me", videoId: "tqrHS9nZp0k" },
-      { title: "Rick Astley - Never Gonna Give You Up", videoId: "KbHaIbDKQMc" },
-      { title: "Europe - The Final Countdown", videoId: "qmUEkQPE7fk" },
-      { title: "Queen - Another One Bites The Dust", videoId: "A_MjCqQoLLA" },
-      { title: "Bonnie Tyler - Total Eclipse of the Heart", videoId: "v1HDt1tknTc" },
-      { title: "Toto - Africa", videoId: "2bqm4gRY3mA" },
-      { title: "Michael Jackson - Billie Jean", videoId: "IRk9gAqjLgg" },
-      { title: "Survivor - Eye Of The Tiger", videoId: "NJd0MLBuJjA" },
-      { title: "Men At Work - Down Under", videoId: "J36z7AnhvOM" },
-      { title: "Cyndi Lauper - Girls Just Want To Have Fun", videoId: "OYB1rbL8EHo" },
-      { title: "Wham! - Wake Me Up Before You Go-Go", videoId: "z-2_OstpR5c" },
-      { title: "Billy Joel - Uptown Girl", videoId: "7p2HqW9J1iU" },
-      { title: "Bananarama - Venus", videoId: "EONn2gj1ngA" },
-      { title: "A Flock Of Seagulls - I Ran", videoId: "Q8UKf65NOzM" },
-      { title: "Simple Minds - Don't You (Forget About Me)", videoId: "oU6uUEwZ8FM" },
-      { title: "Dexys Midnight Runners - Come On Eileen", videoId: "56cKlT62wrQ" },
-      { title: "Van Halen - Jump", videoId: "pSw8an1u3rc" },
-      { title: "The Police - Every Breath You Take", videoId: "einn_UJgGGM" },
-      { title: "Dead Or Alive - You Spin Me Round", videoId: "_r0n9Dv6XnY" },
-      { title: "Soft Cell - Tainted Love", videoId: "XD1cxSE25ck" },
-      { title: "The Bangles - Walk Like an Egyptian", videoId: "JmcA9LIIXWw" },
-      { title: "Madonna - Like a Virgin", videoId: "ZNzYr4U7Zs8" },
-      { title: "Culture Club - Karma Chameleon", videoId: "x34icYC8zA0" },
-      { title: "Tears For Fears - Everybody Wants To Rule The World", videoId: "RP0_8J7uxhs" },
-      { title: "Duran Duran - Hungry Like The Wolf", videoId: "YHRvDo8rUoQ" },
-      { title: "Dire Straits - Walk of Life", videoId: "wp43OdtAAkM" },
-      { title: "Eurythmics - Sweet Dreams", videoId: "OMOGaugKpzs" },
-      { title: "Simple Minds - Alive And Kicking", videoId: "9GkVhgIeGJQ" },
-      { title: "Billy Idol - Dancing With Myself", videoId: "Chs2bmqzyUs" },
-      { title: "The Outfield - Your Love", videoId: "2oX2FSv4Rys" },
-      { title: "Pat Benatar - Love Is A Battlefield", videoId: "atY7ymXAcRQ" },
-      { title: "Journey - Don't Stop Believin'", videoId: "VOgFZfRVaww" },
-      { title: "The Clash - Rock the Casbah", videoId: "cJRP3LRcUFg" },
-      { title: "Billy Joel - We Didn't Start the Fire", videoId: "k04tX2fvh0o" },
-      { title: "Starship - We Built This City", videoId: "0pGOFX1D_jg" },
-      { title: "Kenny Loggins - Footloose", videoId: "5p2k55F-uag" },
-      { title: "INXS - Need You Tonight", videoId: "J9gKyRmic20" },
-      { title: "The Cure - Just Like Heaven", videoId: "XuFC6ud1cAQ" },
-      { title: "Foreigner - I Want to Know What Love Is", videoId: "CsHiG-43Fzg" },
-      { title: "Modern Talking - Brother Louie", videoId: "ZotVMxuXBo0" },
-      { title: "Lionel Richie - All Night Long", videoId: "gykWYPrArbY" },
-      { title: "U2 - With Or Without You", videoId: "Uw5OLnN7UvM" },
-      { title: "Prince - When Doves Cry", videoId: "htgr3pvBr-I" },
-      { title: "The Human League - Don't You Want Me", videoId: "egPVvFYxLe4" },
+      { title: "The end of the world", videoId: "tqrHS9nZp0k" },
+      { title: "Hey lover", videoId: "KbHaIbDKQMc" },
+      { title: "Laughing on the outside", videoId: "qmUEkQPE7fk" },
+      { title: "Hey Jude", videoId: "A_MjCqQoLLA" },
+      { title: "I want to hold your hand", videoId: "v1HDt1tknTc" },
+      { title: "Love of my life", videoId: "2bqm4gRY3mA" },
+      { title: "I will follow him", videoId: "IRk9gAqjLgg" },
+      { title: "Tonight you belong to me", videoId: "NJd0MLBuJjA" },
+      { title: "Cant take my eyes off you", videoId: "J36z7AnhvOM" },
+      { title: "You dont own me", videoId: "OYB1rbL8EHo" },
+      { title: "Everybody loves somebody", videoId: "z-2_OstpR5c" },
+      { title: "We belong toghether", videoId: "7p2HqW9J1iU" },
+      { title: "Leader of the pack", videoId: "EONn2gj1ngA" },
+      { title: "California Dreamin", videoId: "Q8UKf65NOzM" },
+      { title: "All i have to do is dream", videoId: "oU6uUEwZ8FM" },
+      { title: "Happy toghether", videoId: "56cKlT62wrQ" },
+      { title: "Stand by me", videoId: "pSw8an1u3rc" },
+      { title: "Tarzan boy", videoId: "einn_UJgGGM" },
+      { title: "Look what you've done", videoId: "_r0n9Dv6XnY" },
+      { title: "Karma chameleon", videoId: "XD1cxSE25ck" },
+      { title: "Cuando pase el temblor", videoId: "JmcA9LIIXWw" },
+      { title: "A little respect", videoId: "ZNzYr4U7Zs8" },
+      { title: "Self control", videoId: "x34icYC8zA0" },
+      { title: "Forever young", videoId: "RP0_8J7uxhs" },
+      { title: "Running up that hill", videoId: "YHRvDo8rUoQ" },
+      { title: "Every breath you take", videoId: "wp43OdtAAkM" },
+      { title: "Boys dont cry", videoId: "OMOGaugKpzs" },
+      { title: "its been a long, long time", videoId: "9GkVhgIeGJQ" },
+      { title: "Have you ever seen the rain", videoId: "Chs2bmqzyUs" },
+      { title: "Sunshine", videoId: "2oX2FSv4Rys" },
+      { title: "Imagine", videoId: "atY7ymXAcRQ" },
+      { title: "This charming man", videoId: "VOgFZfRVaww" },
+      { title: "Knockin on heaven's door", videoId: "cJRP3LRcUFg" },
+      { title: "Love me do", videoId: "k04tX2fvh0o" },
+      { title: "Only you", videoId: "0pGOFX1D_jg" },
+      { title: "Dont dream its over", videoId: "5p2k55F-uag" },
+      { title: "Who can it be now", videoId: "J9gKyRmic20" },
+      { title: "Head over heels", videoId: "XuFC6ud1cAQ" },
+      { title: "Always on my mind", videoId: "CsHiG-43Fzg" },
+      { title: "I dont want to see the world on fire", videoId: "ZotVMxuXBo0" },
+      { title: "Chinese New year", videoId: "gykWYPrArbY" },
+      { title: "Just the two of us", videoId: "Uw5OLnN7UvM" },
+      { title: "Hold the line", videoId: "htgr3pvBr-I" },
+      { title: "Pretty little baby", videoId: "egPVvFYxLe4" },
     ]
   }
 
@@ -722,6 +787,12 @@ export default function AdvancedJarvis() {
   }
 
   const handleUserMessage = async (message: string) => {
+  // --- DETECTOR DE PRONÓSTICO ---
+  if (message.toLowerCase().includes("pronóstico de hoy") || message.toLowerCase().includes("pronóstico de mañana")) {
+    await handleWeatherCommand(message);
+    setIsProcessing(false);
+    return;
+  }
     console.log("📨 USER MESSAGE:", message)
     setIsProcessing(true)
     setMessages((prev) => [...prev, { text: message, type: "user" }])
@@ -1504,11 +1575,24 @@ export default function AdvancedJarvis() {
             ref={youtubePlayerRef}
             videoId={currentVideoId}
             title={currentSongTitle || ""}
-            onEnd={() => {
-              setIsPlayingMusic(false)
-              setCurrentVideoId("")
-              setCurrentSongTitle("")
-              setAppState("active")
+            onEnd={async () => {
+              if (playlistMode && currentPlaylist && currentPlaylistIndex < currentPlaylist.songs.length - 1) {
+                const nextIndex = currentPlaylistIndex + 1;
+                setCurrentPlaylistIndex(nextIndex);
+                setCurrentSongTitle(currentPlaylist.songs[nextIndex].title);
+                setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId);
+                setCurrentText(`Siguiente: ${currentPlaylist.songs[nextIndex].title}`);
+                await speak(`Siguiente: ${currentPlaylist.songs[nextIndex].title}`);
+                setCurrentText("");
+              } else {
+                setIsPlayingMusic(false);
+                setCurrentVideoId("");
+                setCurrentSongTitle("");
+                setPlaylistMode(false);
+                setCurrentPlaylist(null);
+                setCurrentPlaylistIndex(0);
+                setAppState("active");
+              }
             }}
           />
           <Button
