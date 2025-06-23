@@ -32,7 +32,7 @@ import { TokenDisplay } from "@/components/TokenDisplay"
 import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { JarvisMemory } from "@/lib/jarvisMemory"
-import { SpotifyPlayerComplete } from "@/components/SpotifyPlayerComplete"
+import { SpotifyPlayerReal } from "@/components/SpotifyPlayerReal"
 
 // Define types
 type AppState =
@@ -1556,21 +1556,15 @@ export default function AdvancedJarvis() {
         </div>
       )}
 
-      {/* 🎵 REPRODUCTOR DE SPOTIFY INTEGRADO - VERSIÓN COMPLETA */}
-      <SpotifyPlayerComplete
-        isPlaying={isPlayingMusic}
-        playlistUrl={currentPlaylistUrl}
-        playlistName={currentPlaylist}
-        onStop={() => {
-          setIsPlayingMusic(false)
-          setCurrentPlaylist("")
-          setCurrentPlaylistUrl("")
-          setAppState("active")
-        }}
-        onSpotifyControl={(action) => {
-          console.log("🎵 SPOTIFY CONTROL FROM VOICE:", action)
-        }}
-      />
+      {/* 🎵 REPRODUCTOR DE SPOTIFY INTEGRADO */}
+{isPlayingMusic && currentPlaylistUrl && (
+  <SpotifyPlayerReal
+    playlistUrl={currentPlaylistUrl}
+    playlistName={currentPlaylist}
+    // Puedes agregar aquí callbacks si tu componente los acepta
+  />
+)}
+
 
       {/* 🗺️ MAPA INTEGRADO */}
       <MapViewer

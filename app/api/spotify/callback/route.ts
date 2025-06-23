@@ -1,41 +1,48 @@
-import { type NextRequest, NextResponse } from "next/server"
+// /app/api/spotify/callback/route.ts
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
+  const error = searchParams.get("error");
+
+  console.log("🎵 SPOTIFY CALLBACK RECEIVED");
+  console.log("🎵 CODE:", code ? "✅ EXISTS" : "❌ MISSING");
+  console.log("🎵 STATE:", state);
+  console.log("🎵 ERROR:", error);
+
+  if (error) {
+    console.error("❌ SPOTIFY AUTH ERROR:", error);
+    return NextResponse.redirect(
+      new URL(`/?error=spotify_auth_denied&details=${error}`, request.url)
+    );
+  }
+
+  if (!code) {
+    console.error("❌ NO CODE RECEIVED");
+    return NextResponse.redirect(
+      new URL("/?error=no_auth_code", request.url)
+    );
+  }
+
+  if (!state || !state.startsWith("jarvis-auth-")) {
+    console.error("❌ INVALID STATE:", state);
+    return NextResponse.redirect(
+      new URL("/?error=invalid_state", request.url)
+    );
+  }
+
   try {
-    const { searchParams } = new URL(request.url)
-    const code = searchParams.get("code")
-    const error = searchParams.get("error")
-    const state = searchParams.get("state")
-
-    console.log("🎵 SPOTIFY CALLBACK - CODE:", !!code)
-    console.log("🎵 SPOTIFY CALLBACK - ERROR:", error)
-    console.log("🎵 SPOTIFY CALLBACK - STATE:", state)
-
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://jarvis-kappa-amber.vercel.app"
-
-    if (error) {
-      console.error("❌ SPOTIFY CALLBACK ERROR:", error)
-      return NextResponse.redirect(`${baseUrl}?spotify_error=${error}`)
-    }
-
-    if (!code) {
-      console.error("❌ NO CODE RECEIVED")
-      return NextResponse.redirect(`${baseUrl}?spotify_error=no_code`)
-    }
-
-    // 🔥 INTERCAMBIAR CÓDIGO POR TOKEN
-    const clientId = process.env.SPOTIFY_CLIENT_ID
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
-    const redirectUri = process.env.SPOTIFY_REDIRECT_URI || `${baseUrl}/api/spotify/callback`
-
-    console.log("🎵 USING REDIRECT URI FOR TOKEN:", redirectUri)
+    const clientId = process.env.SPOTIFY_CLIENT_ID;
+    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+    const redirectUri = process.env.SPOTIFY_REDIRECT_URI || "https://jarvis-kappa-amber.vercel.app/api/spotify/callback";
 
     if (!clientId || !clientSecret) {
-      console.error("❌ MISSING SPOTIFY CREDENTIALS")
-      return NextResponse.redirect(`${baseUrl}?spotify_error=missing_credentials`)
+      throw new Error("Missing Spotify credentials");
     }
 
-    console.log("🎵 EXCHANGING CODE FOR TOKEN...")
+    console.log("🎵 EXCHANGING CODE FOR TOKENS...");
 
     const tokenResponse = await fetch("https://accounts.spotify.com/api/token", {
       method: "POST",
@@ -48,34 +55,57 @@ export async function GET(request: NextRequest) {
         code,
         redirect_uri: redirectUri,
       }),
-    })
+    });
 
-    console.log("🎵 TOKEN RESPONSE STATUS:", tokenResponse.status)
+    const tokenData = await tokenResponse.json();
 
-    if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.text()
-      console.error("❌ TOKEN EXCHANGE ERROR:", errorData)
-      return NextResponse.redirect(`${baseUrl}?spotify_error=token_exchange&details=${encodeURIComponent(errorData)}`)
+    if (tokenData.error) {
+      console.error("❌ TOKEN EXCHANGE ERROR:", tokenData.error_description);
+      throw new Error(tokenData.error_description);
     }
 
-    const tokenData = await tokenResponse.json()
-    console.log("✅ SPOTIFY TOKENS RECEIVED")
+    console.log("✅ TOKENS RECEIVED SUCCESSFULLY");
+    console.log("🎵 ACCESS TOKEN:", tokenData.access_token ? "✅ EXISTS" : "❌ MISSING");
+    console.log("🎵 REFRESH TOKEN:", tokenData.refresh_token ? "✅ EXISTS" : "❌ MISSING");
 
-    // 🔥 REDIRIGIR CON TOKENS EN LA URL
-    const successUrl = new URL(baseUrl)
-    successUrl.searchParams.append("spotify_success", "true")
-    successUrl.searchParams.append("access_token", tokenData.access_token)
-    if (tokenData.refresh_token) {
-      successUrl.searchParams.append("refresh_token", tokenData.refresh_token)
-    }
-    successUrl.searchParams.append("expires_in", tokenData.expires_in.toString())
+    // Crear respuesta con cookies seguras
+    const response = NextResponse.redirect(
+      new URL("/?spotify_connected=true&status=success", request.url)
+    );
 
-    console.log("🎵 REDIRECTING TO:", successUrl.toString())
+    // Configurar cookies con tokens
+    response.cookies.set("spotify_access_token", tokenData.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 3600, // 1 hora
+      path: "/",
+    });
 
-    return NextResponse.redirect(successUrl.toString())
+    response.cookies.set("spotify_refresh_token", tokenData.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 365 * 24 * 60 * 60, // 1 año
+      path: "/",
+    });
+
+    // También guardar tiempo de expiración
+    response.cookies.set("spotify_token_expires", (Date.now() + tokenData.expires_in * 1000).toString(), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 365 * 24 * 60 * 60, // 1 año
+      path: "/",
+    });
+
+    console.log("✅ COOKIES SET SUCCESSFULLY");
+    return response;
+
   } catch (error) {
-    console.error("❌ SPOTIFY CALLBACK COMPLETE ERROR:", error)
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://jarvis-kappa-amber.vercel.app"
-    return NextResponse.redirect(`${baseUrl}?spotify_error=callback_failed`)
+    console.error("❌ CALLBACK ERROR:", error);
+    return NextResponse.redirect(
+      new URL(`/?error=spotify_auth_failed&details=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`, request.url)
+    );
   }
 }
