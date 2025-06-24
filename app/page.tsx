@@ -109,6 +109,7 @@ type Message = {
   type: "user" | "jarvis"
   imageUrl?: string
   imagePrompt?: string
+  source?: "memory" | "ollama" | "wikipedia" | "none"
 }
 
 export default function AdvancedJarvis() {
@@ -878,7 +879,7 @@ export default function AdvancedJarvis() {
       // Resto del código para llamar a la API...
       console.log("🧠 CALLING CHAT API - INTELLIGENT MODE ONLY...")
 
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/mcp-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -887,30 +888,17 @@ export default function AdvancedJarvis() {
           message,
           intelligentMode: true,
           functionalMode: false,
+          conversationContext: messages.filter(m => m.type === "jarvis" || m.type === "user").map(m => m.text).join(" | ")
         }),
       })
 
       const data = await response.json()
 
       if (data.success) {
-        // 💰 REGISTRAR USO DE TOKENS SI EXISTE
-        if (data.tokensUsed && data.tokensUsed > 0) {
-          const usage = TokenManager.recordUsage(data.tokensUsed)
-
-          // 🚨 VERIFICAR ALERTAS
-          const alert = TokenManager.checkLimits()
-          if (alert) {
-            console.log("🚨 TOKEN ALERT:", alert)
-            setTimeout(() => {
-              speak(`Señor, ${alert.message}`)
-            }, 3000)
-          }
-        }
-
         // 🧠 REGISTRAR INTERACCIÓN EN MEMORIA
         JarvisMemory.recordInteraction(message, data.response)
 
-        // 🖼️ PROCESAR RESPUESTA CON IMAGEN - NUEVA LÓGICA
+        // 🖼️ PROCESAR RESPUESTA CON IMAGEN
         if (data.hasImage && data.imageUrl) {
           setCurrentImage({
             url: data.imageUrl,
@@ -924,6 +912,7 @@ export default function AdvancedJarvis() {
               type: "jarvis",
               imageUrl: data.imageUrl,
               imagePrompt: data.imagePrompt || message,
+              source: data.source || undefined,
             },
           ])
 
@@ -940,7 +929,6 @@ export default function AdvancedJarvis() {
             await speak(downloadQuestion)
             setCurrentText("")
 
-            // Configurar estado para confirmación de descarga
             setPendingImageDownload({
               url: data.imageUrl,
               prompt: data.imagePrompt || message,
@@ -949,11 +937,27 @@ export default function AdvancedJarvis() {
             setAppState("image_download_confirmation")
           }, 2000)
         } else {
-          setMessages((prev) => [...prev, { text: data.response, type: "jarvis" }])
+          setMessages((prev) => [
+            ...prev,
+            {
+              text: data.response,
+              type: "jarvis",
+              source: data.source || undefined,
+            },
+          ])
           saveMessageToConversation(data.response)
 
           setCurrentText(data.response)
           await speak(data.response)
+          setCurrentText("")
+        }
+
+        if (data.source === "none") {
+          const noInfoMsg = "No se pudo obtener información precisa."
+          setMessages((prev) => [...prev, { text: noInfoMsg, type: "jarvis" }])
+          saveMessageToConversation(noInfoMsg, "jarvis")
+          setCurrentText(noInfoMsg)
+          await speak(noInfoMsg)
           setCurrentText("")
         }
       }
@@ -1499,6 +1503,46 @@ export default function AdvancedJarvis() {
                             alt={msg.imagePrompt || "Imagen"}
                             className="w-full h-24 object-cover"
                           />
+                        </div>
+                      )}
+                      {/* Source Badge for Jarvis responses */}
+                      {msg.type === "jarvis" && msg.source && (
+                        <div className="mt-2 flex items-center">
+                          <span
+                            className={
+                              `inline-block px-2 py-0.5 rounded-full text-xs font-semibold ml-0 ` +
+                              (msg.source === "memory"
+                                ? "bg-green-800 text-green-200 border border-green-400"
+                                : msg.source === "ollama"
+                                  ? "bg-blue-900 text-blue-200 border border-blue-400"
+                                  : msg.source === "wikipedia"
+                                    ? "bg-yellow-900 text-yellow-200 border border-yellow-400"
+                                    : msg.source === "none"
+                                      ? "bg-gray-700 text-gray-300 border border-gray-500"
+                                      : "bg-gray-700 text-cyan-200 border border-cyan-400")
+                            }
+                            title={
+                              msg.source === "memory"
+                                ? "Respuesta generada desde la memoria de JARVIS"
+                                : msg.source === "ollama"
+                                  ? "Respuesta generada por el modelo Ollama LLM local"
+                                  : msg.source === "wikipedia"
+                                    ? "Respuesta basada en Wikipedia"
+                                    : msg.source === "none"
+                                      ? "No se encontró información precisa en las fuentes disponibles"
+                                      : "Fuente desconocida"
+                            }
+                          >
+                            {msg.source === "memory"
+                              ? "Memoria"
+                              : msg.source === "ollama"
+                                ? "Ollama LLM"
+                                : msg.source === "wikipedia"
+                                  ? "Wikipedia"
+                                  : msg.source === "none"
+                                    ? "Sin fuente precisa"
+                                    : msg.source}
+                          </span>
                         </div>
                       )}
                     </div>

@@ -1,0 +1,32 @@
+[
+  {
+    "question": "Jarvis, háblame sobre Tesla.",
+    "answer": "Tesla es una empresa estadounidense innovadora en el sector automotriz centrada en la fabricación y venta de vehículos eléctricos e híbridos full-electricidad desde 2008, con sede en Palo Alto, California. Fundada por el ingeniero serbio-americano Serbian inventor Elon Musk junto a Jorg Neumann entre otros, ha sido líder mundial debido al avance tecnológico y la visión de disruptiva innovación para un futuro sustentable energético automovilístico global.",
+    "date": "2025-06-24T06:47:04.768Z",
+    "verified": false
+  },
+  {
+    "question": "Hola.",
+    "answer": "Hola, ¿cómo estás? Estoy bien, gracias por preguntar.",
+    "date": "2025-06-24T06:51:40.685Z",
+    "verified": false
+  },
+  {
+    "question": "Háblame un poco más sobre elon Musk.",
+    "answer": "Elon Musk es fundador de SpaceX y Tesla, Inc., incentivando la innovación en energía renovable y transporte sostenible. Su visión revoluciona las industrias aeroespaciales y automotrices globales.",
+    "date": "2025-06-24T06:52:58.937Z",
+    "verified": false
+  },
+  {
+    "question": "Háblame sobre la camioneta Ford Ranger.",
+    "answer": "La Camión Chevrolet Silverado es robusta con un motor V6, mientras que el Jeep Wrangler tiene transmisión manual a diferencia del Toyota Tacoma que ofrece una variedad de motores y niveles de equipamiento más amplios.",
+    "date": "2025-06-24T07:05:44.940Z",
+    "verified": false
+  },
+  {
+    "question": "¿Hello, jarvis, where are you?",
+    "answer": "\"Jarvis is an AI assistant residing on a computer and does not have a physical location.\"",
+    "date": "2025-06-24T07:14:04.026Z",
+    "verified": false
+  }
+]

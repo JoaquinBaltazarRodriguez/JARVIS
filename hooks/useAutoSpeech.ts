@@ -254,11 +254,11 @@ export function useAutoSpeech() {
 
           silenceTimeoutRef.current = setTimeout(() => {
             if (finalTranscriptRef.current.trim() && hasSpokenRecently && !isSpeakingRef.current) {
-              console.log("🎯 PROCESSING COMPLETE PHRASE:", finalTranscriptRef.current)
+              console.log("🎯 PROCESSING COMPLETE PHRASE (INSTANT):", finalTranscriptRef.current)
               setTranscript(finalTranscriptRef.current.trim())
               stopAllRecognition()
             }
-          }, 4000)
+          }, 0)
         }
 
         if (interimTranscript) {
@@ -280,7 +280,14 @@ export function useAutoSpeech() {
         recognitionRef.current = null
 
         // 🔧 MANEJO DE ERRORES PARA AUTO LISTENING
-        if (event.error === "network" || event.error === "aborted") {
+        if (event.error === "no-speech") {
+          console.log("🔄 No speech detected, retrying auto listening in 1s...")
+          setTimeout(() => {
+            if (!isActiveRef.current && !isSpeakingRef.current) {
+              startAutoListening()
+            }
+          }, 1000)
+        } else if (event.error === "network" || event.error === "aborted") {
           console.log("🔄 Auto listening will retry automatically")
         }
       }
