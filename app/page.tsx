@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { useCineSound } from "@/hooks/useCineSound"
 import {
   Power,
   Volume2,
@@ -35,6 +36,9 @@ import { TokenDisplay } from "@/components/TokenDisplay"
 import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { NexusMemory } from "@/lib/jarvisMemory"
+import Starfield from "@/components/Starfield"
+import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation"
+import TypewriterText from "@/components/TypewriterText"
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 const DEFAULT_CITY = "Posadas, Misiones, AR";
@@ -141,6 +145,8 @@ export default function AdvancedJarvis() {
   const [hasInitialized, setHasInitialized] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [startupAnim, setStartupAnim] = useState(false)
+  const startupAudioRef = useRef<HTMLAudioElement | null>(null)
 
   // ESTADOS PARA FUNCIONALIDADES
   const [pendingCall, setPendingCall] = useState<{ name: string; phone: string } | null>(null)
@@ -176,7 +182,7 @@ export default function AdvancedJarvis() {
       { title: "Everybody loves somebody", videoId: "z-2_OstpR5c" },
       { title: "We belong toghether", videoId: "7p2HqW9J1iU" },
       { title: "Leader of the pack", videoId: "EONn2gj1ngA" },
-      { title: "California Dreamin", videoId: "Q8UKf65NOzM" },
+      { title: "California Dreamin", videoId: "Q8UKfYxLe4" },
       { title: "All i have to do is dream", videoId: "oU6uUEwZ8FM" },
       { title: "Happy toghether", videoId: "56cKlT62wrQ" },
       { title: "Stand by me", videoId: "pSw8an1u3rc" },
@@ -225,6 +231,8 @@ export default function AdvancedJarvis() {
   const [waitingImageDownloadConfirmation, setWaitingImageDownloadConfirmation] = useState(false)
 
   const { speak, isSpeaking } = useSimpleAudio()
+  useCineSound(isSpeaking) // Efecto cine cuando NEXUS habla
+  useNexusStartupAnimation(startupAnim, () => setStartupAnim(false))
   const {
     isListening,
     transcript,
@@ -242,6 +250,19 @@ export default function AdvancedJarvis() {
   })
 
   const mapViewerRef = useRef<MapViewerRef>(null)
+
+  // Detecta transición de waiting_password a active para animación de inicio
+  useEffect(() => {
+    if (appState === "active" && mounted) {
+      setStartupAnim(true)
+      if (!startupAudioRef.current) {
+        startupAudioRef.current = new Audio("/nexus-startup.mp3")
+        startupAudioRef.current.volume = 0.34
+      }
+      startupAudioRef.current.currentTime = 0
+      startupAudioRef.current.play()
+    }
+  }, [appState, mounted])
 
   useEffect(() => {
     setSpeakingState(isSpeaking)
@@ -1298,7 +1319,21 @@ export default function AdvancedJarvis() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-black/95 relative overflow-hidden">
+      {/* Fondo de estrellas futurista */}
+      <Starfield isSpeaking={isSpeaking} startupMode={startupAnim} />
+
+      {/* PANEL DE ESTADO IMPONENTE SOLO PARA ESTADO DE NEXUS */}
+      {(appState !== "sleeping" && appState !== "waiting_password" || isListening || isProcessing) && (
+        <div className="fixed left-1/2 -translate-x-1/2 top-6 md:top-8 z-50 flex justify-center w-full pointer-events-none select-none">
+          <div className="max-w-2xl px-6 py-3 rounded-xl bg-black/60 border border-cyan-400/30 shadow-lg backdrop-blur-md"
+               style={{textShadow:'0 2px 16px #00fff9, 0 1px 2px #000', minWidth:'240px'}}>
+            <span className="text-xl md:text-2xl font-semibold text-cyan-100 tracking-wide text-center">
+              {getStatusText()}
+            </span>
+          </div>
+        </div>
+      )}
       {/* ✨ ANIMACIONES DE FONDO ÉPICAS CUANDO HABLA */}
       {isSpeaking && (
         <>
@@ -1446,7 +1481,7 @@ export default function AdvancedJarvis() {
                 </>
               )}
 
-              <div className="w-48 h-48 rounded-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 flex items-center justify-center backdrop-blur-sm">
+              <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">
                 {getMainIcon()}
               </div>
             </div>
@@ -1620,12 +1655,6 @@ export default function AdvancedJarvis() {
               </div>
             )}
 
-            {/* Indicaciones de comandos */}
-            <div className="mb-2 text-xs text-cyan-300">
-              <span role="img" aria-label="nota musical">🎵</span> Para reproducir música di: <span className="bg-cyan-800/40 px-1 rounded">"pon [nombre de la canción o artista]"</span> o <span className="bg-cyan-800/40 px-1 rounded">"reproduce [nombre de la canción]"</span><br />
-              <span role="img" aria-label="teléfono">📞</span> Para llamar di: <span className="bg-cyan-800/40 px-1 rounded">"llama a [nombre]"</span> o <span className="bg-cyan-800/40 px-1 rounded">"NEXUS llama a [nombre]"</span>
-            </div>
-
             {/* Input de Texto para Chat */}
             <div className="border-t border-cyan-500/20 pt-4">
               <div className="flex items-center space-x-2">
@@ -1654,8 +1683,8 @@ export default function AdvancedJarvis() {
         </div>
       )}
 
-      {/* Debug Info - Solo mostrar si no hay mapa o música activa */}
-      {!isMapActive && !isPlayingMusic && (
+      {/* Instrucciones de uso */}
+      {appState !== "sleeping" && appState !== "waiting_password" && (
         <div className="p-4 text-center relative z-10">
           <p className="text-gray-500 text-xs">
             Estado: {appState} | Escuchando: {isListening ? "Sí" : "No"} | Hablando: {isSpeaking ? "Sí" : "No"} |
