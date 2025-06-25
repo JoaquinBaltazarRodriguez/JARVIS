@@ -661,27 +661,37 @@ export default function AdvancedJarvis() {
       return
     }
 
-    const location = LocationsDB.findByName(locationName)
+    const locationName = text.trim();
+    if (!locationName) {
+      const emptyMsg = "No entendí el destino, Señor. Por favor, diga el nombre de una ubicación guardada."
+      setCurrentText(emptyMsg);
+      await speak(emptyMsg);
+      setCurrentText("");
+      setIsNavigating(false);
+      setAppState("active");
+      return;
+    }
+
+    const location = LocationsDB.findByName(locationName);
     if (location) {
-      const navMsg = `Abriendo navegación hacia ${location.name}, Señor...`
-      setCurrentText(navMsg)
-      await speak(navMsg)
-      setCurrentText("")
+      const navMsg = `Abriendo navegación hacia ${location.name}, Señor...`;
+      setCurrentText(navMsg);
+      await speak(navMsg);
+      setCurrentText("");
 
       // 🗺️ ACTIVAR MAPA INTEGRADO
-      setCurrentDestination(location.name)
-      setCurrentDestinationAddress(location.address)
-      setIsMapActive(true)
-      setAppState("map_active")
-      setIsNavigating(false)
+      setCurrentDestination(location.name);
+      setCurrentDestinationAddress(location.address);
+      setIsMapActive(true);
+      setAppState("map_active");
+      setIsNavigating(false);
     } else {
-      const notFoundMsg = `No encontré ${locationName} en sus ubicaciones guardadas, Señor.`
-      setCurrentText(notFoundMsg)
-      await speak(notFoundMsg)
-      setCurrentText("")
-
-      setIsNavigating(false)
-      setAppState("active")
+      const notFoundMsg = `No encontré "${locationName}" en sus ubicaciones guardadas, Señor. ¿Desea que lo agregue o intente con otra dirección?`;
+      setCurrentText(notFoundMsg);
+      await speak(notFoundMsg);
+      setCurrentText("");
+      setIsNavigating(false);
+      setAppState("active");
     }
   }
 

@@ -80,6 +80,11 @@ export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
       if (destinationAddress && isActive) {
         geocodeAddress(destinationAddress).then((coords) => {
           setDestinationCoords(coords)
+          if (!coords) {
+            setLocationError("No se pudo encontrar la dirección indicada. Por favor, verifica el nombre o intenta con una dirección más precisa.")
+          } else {
+            setLocationError(null)
+          }
         })
       }
     }, [destinationAddress, isActive])
@@ -135,12 +140,30 @@ export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
       }
     }
 
-    // Exponer función para iniciar navegación
+    // Exponer funciones para control externo (centrar en usuario, iniciar/detener navegación)
     useImperativeHandle(ref, () => ({
       startNavigation: () => setIsNavigating(true),
+      stopNavigation: () => setIsNavigating(false),
+      centerOnUser: handleCenterOnUser,
     }))
 
     if (!isActive) return null
+
+    // Overlay de error si hay problemas de ubicación o geocodificación
+    if (locationError) {
+      return (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80">
+          <Card className="bg-red-900/90 border-red-500/50 p-8">
+            <div className="flex flex-col items-center">
+              <X className="h-12 w-12 text-red-400 mb-4 animate-pulse" />
+              <p className="text-red-100 font-bold text-xl mb-2">Error de ubicación</p>
+              <p className="text-red-200 mb-2">{locationError}</p>
+              <Button onClick={onClose} className="mt-4 bg-red-500 hover:bg-red-600 text-white">Cerrar mapa</Button>
+            </div>
+          </Card>
+        </div>
+      )
+    }
 
     // --- COMPONENTE PARA CENTRAR MAPA EN UBICACIÓN ---
     function CenterMap({ position }: { position: LatLng }) {
