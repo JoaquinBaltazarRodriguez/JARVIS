@@ -164,8 +164,10 @@ export default function AdvancedJarvis() {
   const [playlistMode, setPlaylistMode] = useState(false)
   const [currentPlaylist, setCurrentPlaylist] = useState<any>(null)
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(0)
+  // NUEVO ESTADO: esperando nombre de playlist
+  const [awaitingPlaylistName, setAwaitingPlaylistName] = useState(false)
 
-  // PLAYLIST DE LOS 80
+  // PLAYLISTS REGISTRADAS
   const playlist80s = {
     name: "música de los 80",
     songs: [
@@ -215,6 +217,34 @@ export default function AdvancedJarvis() {
 { title: "Pretty little baby", videoId: "egPVvFYxLe4" },
     ]
   }
+
+  const playlistArcane = {
+    name: "ARCANE",
+    songs: [
+      { title: "ma meilleure ennemie", videoId: "XbLemOwzdxk" },
+      { title: "Isha death song", videoId: "r7cwj7UPM8Q" },
+      { title: "To Ashes of blood", videoId: "Gj-jmBi0aK8" },
+      { title: "Enemy", videoId: "D9G1VOjN_84" },
+    ]
+  }
+
+  const playlistEstudio = {
+    name: "Musica de estudio",
+    songs: [
+      { title: "Solitude M83", videoId: "h_F5WVmTugY" },
+      { title: "The line", videoId: "E2Rj2gQAyPA" },
+      { title: "Bang bang bang", videoId: "zd9rtEyZY6w" },
+      { title: "This is what falling in love feels like", videoId: "BOyO8sZOaOQ" },
+      { title: "Wasteland", videoId: "WPDpgSBEWaI" },
+      { title: "No surprises", videoId: "u5CVsCnxyXg" },
+      { title: "Cant help falling in love", videoId: "eTKeQhYVvbQ" },
+    ]
+  }
+
+  const playlists = [playlist80s, playlistArcane, playlistEstudio]; // 'Musica de estudio' actualizado
+
+  // Estado para mostrar/ocultar el selector de playlists
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
 
   // 🗺️ ESTADOS PARA MAPA
   const [isMapActive, setIsMapActive] = useState(false)
@@ -370,6 +400,12 @@ export default function AdvancedJarvis() {
       const text = transcript.toLowerCase().trim()
       console.log("💬 PROCESSING:", text, "| STATE:", appState)
 
+      // --- NUEVO FLUJO PARA PLAYLISTS ---
+      if (awaitingPlaylistName) {
+        handleYouTubeMusicSelection(text)
+        return;
+      }
+
       if (appState === "waiting_password") {
         handlePasswordCheck(text)
       } else if (appState === "calling_confirmation") {
@@ -421,6 +457,11 @@ export default function AdvancedJarvis() {
         } else if (CommandDetector.isTimeCommand(text)) {
           console.log("🕐 TIME COMMAND DETECTED")
           handleTimeCommand()
+        } else if (
+          /reproduce una playlist|pon una playlist|quiero escuchar una playlist/i.test(text)
+        ) {
+          // Reconocer el comando globalmente
+          handleYouTubeMusicSelection(text)
         } else if (text.includes("nexus") && (text.includes("apágate") || text.includes("apagate"))) {
           console.log("🔌 SHUTDOWN COMMAND DETECTED")
           handleShutdown()
@@ -1108,40 +1149,99 @@ export default function AdvancedJarvis() {
   }
 
   const handleYouTubeMusicSelection = async (text: string) => {
-    console.log("🎵 RAW YOUTUBE INPUT:", text)
-    const cleaned = text.replace(/pon |reproduce |música de |canción de /gi, "").trim().toLowerCase()
-    // Si el usuario pide la playlist de los 80
-    if (cleaned.includes("playlist") && cleaned.includes("80")) {
-      setPlaylistMode(true)
-      setCurrentPlaylist(playlist80s)
-      setCurrentPlaylistIndex(0)
-      setCurrentSongTitle(playlist80s.songs[0].title)
-      setCurrentVideoId(playlist80s.songs[0].videoId)
-      setIsPlayingMusic(true)
-      setWaitingForSong(false)
-      setAppState("music_playing")
-      setCurrentText(`Reproduciendo playlist: música de los 80\nCanción: ${playlist80s.songs[0].title}`)
-      await speak(`Reproduciendo playlist: música de los 80. Canción: ${playlist80s.songs[0].title}`)
-      setCurrentText("")
-      return
+    console.log(" RAW YOUTUBE INPUT:", text)
+    const cleaned = text.replace(/pon |reproduce |música de |canción de |la |el |playlist |playlists? |de /gi, "").trim().toLowerCase();
+    const isPlaylistRequest = /playlist|playlists?/i.test(text);
+
+    // Si estamos esperando el nombre de la playlist (por "reproduce una playlist")
+    if (awaitingPlaylistName) {
+      // Normaliza texto: quita tildes y minúsculas
+      const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const input = normalize(text.trim());
+      const foundPlaylist = playlists.find(pl => {
+        const plName = normalize(pl.name);
+        return plName.includes(input) || input.includes(plName);
+      });
+      if (foundPlaylist) {
+        setPlaylistMode(true);
+        setCurrentPlaylist(foundPlaylist);
+        setCurrentPlaylistIndex(0);
+        setCurrentSongTitle(foundPlaylist.songs[0].title);
+        setCurrentVideoId(foundPlaylist.songs[0].videoId);
+        setIsPlayingMusic(true);
+        setWaitingForSong(false);
+        setAppState("music_playing");
+        const msg = `Reproduciendo playlist ${foundPlaylist.name}: ${foundPlaylist.songs[0].title}`;
+        setCurrentText(msg);
+        await speak(msg);
+        setCurrentText("");
+        setAwaitingPlaylistName(false);
+        return;
+      } else {
+        setCurrentText("No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre? (Solo nombres registrados)");
+        await speak("No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre? (Solo nombres registrados)");
+        setCurrentText("");
+        return;
+      }
     }
-    // Canción individual
-    const result = await searchYouTube(cleaned)
+
+    // Si el usuario pide "reproduce una playlist" o similar
+    if (isPlaylistRequest && /reproduce una playlist|pon una playlist|quiero escuchar una playlist/i.test(text)) {
+      setAwaitingPlaylistName(true);
+      setCurrentText("¿Qué playlist desea reproducir, Señor? (Opciones: " + playlists.map(pl => pl.name).join(", ") + ")");
+      await speak("¿Qué playlist desea reproducir, Señor?");
+      setCurrentText("");
+      return;
+    }
+
+    // Si el usuario dice directamente "reproduce la playlist X"
+    if (isPlaylistRequest) {
+      const foundPlaylist = playlists.find(pl => {
+        const plName = pl.name.toLowerCase().replace(/[^a-záéíóúüñ0-9 ]/gi, "");
+        const input = cleaned.replace(/[^a-záéíóúüñ0-9 ]/gi, "");
+        return (
+          input.includes(plName) || plName.includes(input)
+        );
+      });
+      if (foundPlaylist) {
+        setPlaylistMode(true);
+        setCurrentPlaylist(foundPlaylist);
+        setCurrentPlaylistIndex(0);
+        setCurrentSongTitle(foundPlaylist.songs[0].title);
+        setCurrentVideoId(foundPlaylist.songs[0].videoId);
+        setIsPlayingMusic(true);
+        setWaitingForSong(false);
+        setAppState("music_playing");
+        const msg = `Reproduciendo playlist ${foundPlaylist.name}: ${foundPlaylist.songs[0].title}`;
+        setCurrentText(msg);
+        await speak(msg);
+        setCurrentText("");
+        return;
+      } else {
+        setCurrentText("No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre?");
+        await speak("No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre?");
+        setCurrentText("");
+        return;
+      }
+    }
+
+    // Si no es pedido de playlist, buscar canción individual en YouTube
+    const result = await searchYouTube(cleaned);
     if (result) {
-      setCurrentSongTitle(result.title)
-      setCurrentVideoId(result.videoId)
-      setIsPlayingMusic(true)
-      setWaitingForSong(false)
-      setPlaylistMode(false)
-      setCurrentPlaylist(null)
-      setAppState("music_playing")
-      setCurrentText(`Reproduciendo: ${result.title}`)
-      await speak(`Reproduciendo: ${result.title}`)
-      setCurrentText("")
+      setCurrentSongTitle(result.title);
+      setCurrentVideoId(result.videoId);
+      setIsPlayingMusic(true);
+      setWaitingForSong(false);
+      setPlaylistMode(false);
+      setCurrentPlaylist(null);
+      setAppState("music_playing");
+      setCurrentText(`Reproduciendo: ${result.title}`);
+      await speak(`Reproduciendo: ${result.title}`);
+      setCurrentText("");
     } else {
-      setCurrentText("No encontré la canción, Señor. ¿Puede repetir el nombre?")
-      await speak("No encontré la canción, Señor. ¿Puede repetir el nombre?")
-      setCurrentText("")
+      setCurrentText("No encontré la canción, Señor. ¿Puede repetir el nombre?");
+      await speak("No encontré la canción, Señor. ¿Puede repetir el nombre?");
+      setCurrentText("");
     }
   }
 
@@ -1437,11 +1537,44 @@ export default function AdvancedJarvis() {
             <MessageCircle className="h-5 w-5" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => window.location.reload()} className="text-cyan-400">
-            <Power className="h-6 w-6" />
+            <Power className="w-6 h-6" />
+          </Button>
+          {/* Botón de Playlist */}
+          <Button
+            variant="ghost"
+            className="rounded-full p-2 hover:bg-cyan-900"
+            title="Ver playlists"
+            onClick={() => setShowPlaylistSelector(true)}
+          >
+            <Music className="w-6 h-6 text-cyan-400" />
           </Button>
         </div>
       </div>
 
+      {/* Modal de Playlists */}
+      {showPlaylistSelector && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
+          <div className="bg-gray-900 rounded-lg p-8 shadow-xl border border-cyan-800 relative min-w-[320px] max-w-[90vw]">
+            <h2 className="text-cyan-300 text-xl font-bold mb-4 flex items-center gap-2">
+              <Music className="inline-block w-6 h-6 text-cyan-400" /> Playlists Registradas
+            </h2>
+            <ul className="space-y-2 mb-4">
+              {playlists.map((pl, idx) => (
+                <li key={pl.name} className="flex items-center justify-between bg-cyan-950/40 rounded px-4 py-2">
+                  <span className="text-cyan-100 font-semibold">{pl.name}</span>
+                  <span className="text-cyan-400 text-xs">{pl.songs.length} canciones</span>
+                </li>
+              ))}
+            </ul>
+            <Button
+              className="w-full bg-cyan-700 hover:bg-cyan-800 text-white mt-2"
+              onClick={() => setShowPlaylistSelector(false)}
+            >
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Main Interface - Solo mostrar si no hay mapa o música activa */}
       {!isMapActive && !isPlayingMusic && (
         <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10">
