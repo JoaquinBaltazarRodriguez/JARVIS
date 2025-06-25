@@ -21,6 +21,7 @@ import { useSimpleAudio } from "@/hooks/useSimpleAudio"
 import { useAutoSpeech } from "@/hooks/useAutoSpeech"
 import { useFuturisticSounds } from "@/hooks/useFuturisticSounds"
 import { ContactsManager } from "@/components/ContactsManager"
+import { LocationsManager } from "@/components/LocationsManager"
 import YouTubePlayer, { YouTubePlayerRef } from "@/components/YoutubePlayer"
 import { searchYouTube } from "@/lib/youtubeSearch"
 import { MapViewer, type MapViewerRef } from "@/components/MapViewer"
@@ -618,9 +619,7 @@ export default function AdvancedJarvis() {
         await speak(callingMsg)
         setCurrentText("")
 
-        if (typeof window !== "undefined") {
         window.open(`tel:${pendingCall.phone}`, "_self")
-      }
 
         setPendingCall(null)
         setAppState("active")
@@ -641,7 +640,7 @@ export default function AdvancedJarvis() {
     setAppState("navigation_mode")
     setIsNavigating(true)
 
-    const navMsg = "Por supuesto, Señor. ¿A dónde desea dirigirse?"
+    const navMsg = "¿Dónde desea ir señor? (di cancelar para cancelar la acción)"
     setCurrentText(navMsg)
     await speak(navMsg)
     setCurrentText("")
@@ -649,14 +648,14 @@ export default function AdvancedJarvis() {
 
   // 🗺️ MANEJAR COMANDO DE NAVEGACIÓN
   const handleNavigationCommand = async (text: string) => {
-    const locationName = CommandDetector.extractLocationName(text)
-    console.log("🗺️ EXTRACTED LOCATION NAME:", locationName)
-
-    if (!locationName) {
-      const msg = "¿A qué ubicación específica desea ir, Señor?"
-      setCurrentText(msg)
-      await speak(msg)
+    // Permitir cancelar
+    if (text.toLowerCase().includes("cancelar")) {
+      const cancelMsg = "Navegación cancelada, Señor. Volviendo al modo normal."
+      setCurrentText(cancelMsg)
+      await speak(cancelMsg)
       setCurrentText("")
+      setAppState("active")
+      setIsNavigating(false)
       return
     }
 
@@ -737,7 +736,7 @@ export default function AdvancedJarvis() {
 
     if (isValidPassword) {
       console.log("✅ PASSWORD CORRECT!")
-      const welcomeMsg = "Inicializando NEXUS. bienvenido señor, ¿en qué puedo asistirlo?"
+      const welcomeMsg = "Bienvenido, Señor. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy?"
       setMessages((prev) => [...prev, { text: welcomeMsg, type: "nexus" }])
       setCurrentText(welcomeMsg)
 
@@ -807,8 +806,53 @@ export default function AdvancedJarvis() {
     JarvisMemory.saveMemory("context", message, ["user_input"])
 
     try {
-      // 🔧 PROCESAR COMANDOS LOCALES EN MODO NORMAL Y FUNCIONAL
-      if (appState === "active" || appState === "functional_mode") {
+    // 🚦 CANCELAR NAVEGACIÓN SI SE ESTÁ ESPERANDO DIRECCIÓN
+    if (appState === "navigation_mode") {
+      if (CommandDetector.isCancelCommand(message.toLowerCase())) {
+        const cancelMsg = "Navegación cancelada, Señor. Volviendo al modo normal."
+        setCurrentText(cancelMsg)
+        await speak(cancelMsg)
+        setCurrentText("")
+        setAppState("active")
+        setIsNavigating(false)
+        setCurrentDestination("")
+        setCurrentDestinationAddress("")
+        setIsProcessing(false)
+        return
+      } else {
+        // Intentar extraer la dirección con extractLocationName
+        let locationName = CommandDetector.extractLocationName(message)
+        let location = locationName ? LocationsDB.findByName(locationName) : null
+        // Si no se extrajo nada, intentar buscar directamente por el mensaje completo
+        if (!location && message.trim().length > 0) {
+          location = LocationsDB.findByName(message.trim())
+          locationName = message.trim()
+        }
+        if (location) {
+          const navMsg = `Abriendo navegación hacia ${location.name}, Señor...`
+          setCurrentText(navMsg)
+          await speak(navMsg)
+          setCurrentText("")
+          setCurrentDestination(location.name)
+          setCurrentDestinationAddress(location.address)
+          setIsMapActive(true)
+          setAppState("map_active")
+          setIsNavigating(false)
+          setIsProcessing(false)
+          return
+        } else {
+          const msg = "¿A qué ubicación específica desea ir, Señor? (puede decir 'cancelar' para abortar)"
+          setCurrentText(msg)
+          await speak(msg)
+          setCurrentText("")
+          setAppState("navigation_mode")
+          setIsProcessing(false)
+          return
+        }
+      }
+    }
+    // 🔧 PROCESAR COMANDOS LOCALES EN MODO NORMAL Y FUNCIONAL
+    if (appState === "active" || appState === "functional_mode") {
         const mode = appState === "functional_mode" ? "functional" : "normal"
         const localCommand = LocalCommands.processCommand(message, mode)
 
@@ -1593,6 +1637,9 @@ export default function AdvancedJarvis() {
           <p className="text-cyan-300 text-xs mt-1">
             🎵 <b>Para reproducir música</b> di: <span className="bg-cyan-900 px-1 rounded">"pon [nombre de la canción o artista]"</span> o <span className="bg-cyan-900 px-1 rounded">"reproduce [nombre de la canción]"</span>
           </p>
+          <p className="text-blue-300 text-xs mt-1">
+            🗺️ <b>Para navegar a una ubicación</b> di: <span className="bg-blue-900 px-1 rounded">"ir a [nombre de la ubicación]"</span> o <span className="bg-blue-900 px-1 rounded">"navega a [nombre de la ubicación]"</span>
+          </p>
           {transcript && <p className="text-yellow-400 text-xs mt-1">Último: "{transcript}"</p>}
         </div>
       )}
@@ -1651,22 +1698,45 @@ export default function AdvancedJarvis() {
       )}
 
       {/* 🗺️ MAPA INTEGRADO */}
-      <MapViewer
-        ref={mapViewerRef}
-        isActive={isMapActive}
-        destination={currentDestination}
-        destinationAddress={currentDestinationAddress}
-        onClose={() => {
+      {/* 🗺️ MAPA INTEGRADO */}
+{isMapActive && (!currentDestination || !currentDestinationAddress) && (
+  <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80">
+    <div className="bg-gray-900 text-red-400 p-8 rounded-lg border border-red-500">
+      <p><b>Error:</b> El mapa fue activado sin un destino o dirección válida.</p>
+      <p>currentDestination: {String(currentDestination)}</p>
+      <p>currentDestinationAddress: {String(currentDestinationAddress)}</p>
+      <p>Por favor, verifique el comando de voz o las ubicaciones registradas.</p>
+      <button
+        className="mt-4 px-4 py-2 bg-red-500 text-white rounded"
+        onClick={() => {
           setIsMapActive(false)
           setCurrentDestination("")
           setCurrentDestinationAddress("")
           setAppState("active")
         }}
-        onNavigationUpdate={handleNavigationUpdate}
-      />
+      >Cerrar</button>
+    </div>
+  </div>
+)}
+<MapViewer
+  ref={mapViewerRef}
+  isActive={isMapActive}
+  destination={currentDestination}
+  destinationAddress={currentDestinationAddress}
+  onClose={() => {
+    setIsMapActive(false)
+    setCurrentDestination("")
+    setCurrentDestinationAddress("")
+    setAppState("active")
+  }}
+  onNavigationUpdate={handleNavigationUpdate}
+/>
 
       {/* 📱 GESTORES */}
       <ContactsManager isOpen={showContactsManager} onClose={() => setShowContactsManager(false)} />
+
+      {/* 📍 GESTOR DE UBICACIONES */}
+      <LocationsManager isOpen={showLocationsManager} onClose={() => setShowLocationsManager(false)} />
 
       {/* 💬 GESTOR DE CONVERSACIONES */}
       <ConversationsManager
