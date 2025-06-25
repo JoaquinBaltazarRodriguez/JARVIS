@@ -102,16 +102,12 @@ export function useAutoSpeech() {
               const transcript = event.results[i][0].transcript.toLowerCase()
               console.log("👂 Continuous listening heard:", transcript)
 
-              if (
-      transcript.includes("jarvis") ||
-      transcript.includes("yarvis") ||
-      transcript.includes("nexus")
-    ) {
+              if (transcript.includes("nexus") || transcript.includes("néxus")) {
                 if (
                   transcript.includes("enciende") ||
+                  transcript.includes("enciéndete") ||
                   transcript.includes("activa") ||
-                  transcript.includes("despierta") ||
-                  transcript.includes("enciéndete")
+                  transcript.includes("despierta")
                 ) {
                   console.log("🚀 Wake word detected!")
                   onWakeWord(true)

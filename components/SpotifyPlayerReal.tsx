@@ -103,7 +103,17 @@ export function SpotifyPlayerReal({
 
   // 4. Funciones de control de reproducción
   const playTrack = (trackUri?: string) => {
-    if (!accessToken || !deviceId) return
+    if (!accessToken || !deviceId) return;
+    // Si no se especifica trackUri y hay una canción actual, reanuda (resume) playback (sin body)
+    if (!trackUri && currentTrack) {
+      fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` }
+        // No body: esto reanuda la reproducción según la API de Spotify
+      });
+      return;
+    }
+    // Si se especifica trackUri o no hay canción actual, inicia desde la lista
     fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
       method: "PUT",
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -113,7 +123,7 @@ export function SpotifyPlayerReal({
           ? { uri: trackUri }
           : undefined,
       }),
-    })
+    });
   }
 
   const pause = () => {

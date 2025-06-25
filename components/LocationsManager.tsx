@@ -141,7 +141,7 @@ export function LocationsManager({ isOpen, onClose }: LocationsManagerProps) {
 
         <div className="mt-6 p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
           <p className="text-cyan-300 text-sm">
-            <strong>💡 Tip:</strong> Di "JARVIS activa el geolocalizador" y luego "ir a [nombre]" para navegar.
+            <strong>💡 Tip:</strong> "Di \"NEXUS activa el geolocalizador\" y luego \"ir a [nombre]\" para navegar."
           </p>
         </div>
       </Card>

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "NEXUS Assistant",
     short_name: "NEXUS",
-    description: "NEXUS: Tu asistente personal inteligente con control por voz",
+    description: "Tu asistente personal inteligente con control por voz (NEXUS)",
     start_url: "/",
     display: "standalone",
     background_color: "#0a0a0a",
