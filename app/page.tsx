@@ -21,6 +21,7 @@ import { useSimpleAudio } from "@/hooks/useSimpleAudio"
 import { useAutoSpeech } from "@/hooks/useAutoSpeech"
 import { useFuturisticSounds } from "@/hooks/useFuturisticSounds"
 import { ContactsManager } from "@/components/ContactsManager"
+import { LocationsManager } from "@/components/LocationsManager"
 import YouTubePlayer, { YouTubePlayerRef } from "@/components/YoutubePlayer"
 import { searchYouTube } from "@/lib/youtubeSearch"
 import { MapViewer, type MapViewerRef } from "@/components/MapViewer"
@@ -106,7 +107,7 @@ type AppState =
 
 type Message = {
   text: string
-  type: "user" | "jarvis"
+  type: "user" | "nexus"
   imageUrl?: string
   imagePrompt?: string
   source?: "memory" | "ollama" | "wikipedia" | "none"
@@ -252,7 +253,7 @@ export default function AdvancedJarvis() {
   useEffect(() => {
     if (mounted) {
       const handleGlobalClick = (e: MouseEvent) => {
-        // Solo reproducir sonido si JARVIS está activo
+        // Solo reproducir sonido si NEXUS está activo
         if (appState !== "sleeping") {
           playClickSound()
         }
@@ -397,7 +398,7 @@ export default function AdvancedJarvis() {
         } else if (CommandDetector.isTimeCommand(text)) {
           console.log("🕐 TIME COMMAND DETECTED")
           handleTimeCommand()
-        } else if (text.includes("jarvis") && (text.includes("apágate") || text.includes("apagate"))) {
+        } else if (text.includes("nexus") && (text.includes("apágate") || text.includes("apagate"))) {
           console.log("🔌 SHUTDOWN COMMAND DETECTED")
           handleShutdown()
         }
@@ -458,7 +459,7 @@ export default function AdvancedJarvis() {
           const url = window.URL.createObjectURL(blob)
           const link = document.createElement("a")
           link.href = url
-          link.download = `jarvis-image-${Date.now()}.png`
+          link.download = `nexus-image-${Date.now()}.png`
           document.body.appendChild(link)
           link.click()
           document.body.removeChild(link)
@@ -522,7 +523,7 @@ export default function AdvancedJarvis() {
   // 💬 GUARDAR MENSAJE EN CONVERSACIÓN ACTUAL
   const saveMessageToConversation = (
     text: string,
-    type: "user" | "jarvis",
+    type: "user" | "nexus",
     imageUrl?: string,
     imagePrompt?: string,
   ) => {
@@ -553,7 +554,7 @@ export default function AdvancedJarvis() {
     const intelligentMsg =
       "Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle?"
     setCurrentText(intelligentMsg)
-    setMessages((prev) => [...prev, { text: intelligentMsg, type: "jarvis" }])
+    setMessages((prev) => [...prev, { text: intelligentMsg, type: "nexus" }])
     await speak(intelligentMsg)
     setCurrentText("")
   }
@@ -564,7 +565,7 @@ export default function AdvancedJarvis() {
     const functionalMsg =
       "Modo funcional activado, Señor. Puedo gestionar correos electrónicos, WhatsApp, aplicaciones y realizar tareas administrativas. ¿Qué función necesita que ejecute?"
     setCurrentText(functionalMsg)
-    setMessages((prev) => [...prev, { text: functionalMsg, type: "jarvis" }])
+    setMessages((prev) => [...prev, { text: functionalMsg, type: "nexus" }])
     await speak(functionalMsg)
     setCurrentText("")
   }
@@ -574,7 +575,7 @@ export default function AdvancedJarvis() {
     setAppState("active")
     const normalMsg = "Volviendo al modo normal, Señor. ¿En qué más puedo asistirle?"
     setCurrentText(normalMsg)
-    setMessages((prev) => [...prev, { text: normalMsg, type: "jarvis" }])
+    setMessages((prev) => [...prev, { text: normalMsg, type: "nexus" }])
     await speak(normalMsg)
     setCurrentText("")
   }
@@ -639,7 +640,7 @@ export default function AdvancedJarvis() {
     setAppState("navigation_mode")
     setIsNavigating(true)
 
-    const navMsg = "Por supuesto, Señor. ¿A dónde desea dirigirse?"
+    const navMsg = "¿Dónde desea ir señor? (di cancelar para cancelar la acción)"
     setCurrentText(navMsg)
     await speak(navMsg)
     setCurrentText("")
@@ -647,14 +648,14 @@ export default function AdvancedJarvis() {
 
   // 🗺️ MANEJAR COMANDO DE NAVEGACIÓN
   const handleNavigationCommand = async (text: string) => {
-    const locationName = CommandDetector.extractLocationName(text)
-    console.log("🗺️ EXTRACTED LOCATION NAME:", locationName)
-
-    if (!locationName) {
-      const msg = "¿A qué ubicación específica desea ir, Señor?"
-      setCurrentText(msg)
-      await speak(msg)
+    // Permitir cancelar
+    if (text.toLowerCase().includes("cancelar")) {
+      const cancelMsg = "Navegación cancelada, Señor. Volviendo al modo normal."
+      setCurrentText(cancelMsg)
+      await speak(cancelMsg)
       setCurrentText("")
+      setAppState("active")
+      setIsNavigating(false)
       return
     }
 
@@ -735,8 +736,8 @@ export default function AdvancedJarvis() {
 
     if (isValidPassword) {
       console.log("✅ PASSWORD CORRECT!")
-      const welcomeMsg = "Bienvenido, Señor. JARVIS está ahora completamente operativo. ¿En qué puedo asistirle hoy?"
-      setMessages((prev) => [...prev, { text: welcomeMsg, type: "jarvis" }])
+      const welcomeMsg = "Bienvenido, Señor. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy?"
+      setMessages((prev) => [...prev, { text: welcomeMsg, type: "nexus" }])
       setCurrentText(welcomeMsg)
 
       playStartupSound()
@@ -748,7 +749,7 @@ export default function AdvancedJarvis() {
     } else {
       console.log("❌ PASSWORD INCORRECT")
       const errorMsg = "Contraseña incorrecta. Por favor, proporcione la contraseña de reconocimiento."
-      setMessages((prev) => [...prev, { text: errorMsg, type: "jarvis" }])
+      setMessages((prev) => [...prev, { text: errorMsg, type: "nexus" }])
       setCurrentText(errorMsg)
 
       await speak(errorMsg)
@@ -759,10 +760,10 @@ export default function AdvancedJarvis() {
   }
 
   const handleShutdown = async () => {
-    console.log("😴 SHUTTING DOWN JARVIS")
+    console.log("😴 SHUTTING DOWN NEXUS")
     setIsProcessing(true)
 
-    const goodbye = "Desactivando JARVIS. Hasta luego, Señor."
+    const goodbye = "Desactivando NEXUS. Hasta luego, Señor."
     setCurrentText(goodbye)
 
     playShutdownSound()
@@ -801,20 +802,65 @@ export default function AdvancedJarvis() {
     // 💬 GUARDAR EN CONVERSACIÓN
     saveMessageToConversation(message, "user")
 
-    // 🧠 GUARDAR EN MEMORIA DE JARVIS
+    // 🧠 GUARDAR EN MEMORIA DE NEXUS
     JarvisMemory.saveMemory("context", message, ["user_input"])
 
     try {
-      // 🔧 PROCESAR COMANDOS LOCALES EN MODO NORMAL Y FUNCIONAL
-      if (appState === "active" || appState === "functional_mode") {
+    // 🚦 CANCELAR NAVEGACIÓN SI SE ESTÁ ESPERANDO DIRECCIÓN
+    if (appState === "navigation_mode") {
+      if (CommandDetector.isCancelCommand(message.toLowerCase())) {
+        const cancelMsg = "Navegación cancelada, Señor. Volviendo al modo normal."
+        setCurrentText(cancelMsg)
+        await speak(cancelMsg)
+        setCurrentText("")
+        setAppState("active")
+        setIsNavigating(false)
+        setCurrentDestination("")
+        setCurrentDestinationAddress("")
+        setIsProcessing(false)
+        return
+      } else {
+        // Intentar extraer la dirección con extractLocationName
+        let locationName = CommandDetector.extractLocationName(message)
+        let location = locationName ? LocationsDB.findByName(locationName) : null
+        // Si no se extrajo nada, intentar buscar directamente por el mensaje completo
+        if (!location && message.trim().length > 0) {
+          location = LocationsDB.findByName(message.trim())
+          locationName = message.trim()
+        }
+        if (location) {
+          const navMsg = `Abriendo navegación hacia ${location.name}, Señor...`
+          setCurrentText(navMsg)
+          await speak(navMsg)
+          setCurrentText("")
+          setCurrentDestination(location.name)
+          setCurrentDestinationAddress(location.address)
+          setIsMapActive(true)
+          setAppState("map_active")
+          setIsNavigating(false)
+          setIsProcessing(false)
+          return
+        } else {
+          const msg = "¿A qué ubicación específica desea ir, Señor? (puede decir 'cancelar' para abortar)"
+          setCurrentText(msg)
+          await speak(msg)
+          setCurrentText("")
+          setAppState("navigation_mode")
+          setIsProcessing(false)
+          return
+        }
+      }
+    }
+    // 🔧 PROCESAR COMANDOS LOCALES EN MODO NORMAL Y FUNCIONAL
+    if (appState === "active" || appState === "functional_mode") {
         const mode = appState === "functional_mode" ? "functional" : "normal"
         const localCommand = LocalCommands.processCommand(message, mode)
 
         if (localCommand) {
           console.log("🔧 LOCAL COMMAND PROCESSED:", localCommand)
 
-          setMessages((prev) => [...prev, { text: localCommand.response, type: "jarvis" }])
-          saveMessageToConversation(localCommand.response, "jarvis")
+          setMessages((prev) => [...prev, { text: localCommand.response, type: "nexus" }])
+          saveMessageToConversation(localCommand.response, "nexus")
 
           setCurrentText(localCommand.response)
           await speak(localCommand.response)
@@ -854,8 +900,8 @@ export default function AdvancedJarvis() {
             ? "Señor, para consultas libres debe activar el modo inteligente. En modo funcional solo ejecuto comandos específicos."
             : "Señor, para consultas libres debe activar el modo inteligente. En modo normal solo ejecuto comandos básicos."
 
-        setMessages((prev) => [...prev, { text: restrictedMsg, type: "jarvis" }])
-        saveMessageToConversation(restrictedMsg, "jarvis")
+        setMessages((prev) => [...prev, { text: restrictedMsg, type: "nexus" }])
+        saveMessageToConversation(restrictedMsg, "nexus")
         setCurrentText(restrictedMsg)
         await speak(restrictedMsg)
         setCurrentText("")
@@ -867,8 +913,8 @@ export default function AdvancedJarvis() {
       const tokenCheck = TokenManager.canUseTokens()
       if (!tokenCheck.allowed) {
         const limitMsg = `Señor, ${tokenCheck.reason} Por favor, revise su panel de OpenAI.`
-        setMessages((prev) => [...prev, { text: limitMsg, type: "jarvis" }])
-        saveMessageToConversation(limitMsg, "jarvis")
+        setMessages((prev) => [...prev, { text: limitMsg, type: "nexus" }])
+        saveMessageToConversation(limitMsg, "nexus")
         setCurrentText(limitMsg)
         await speak(limitMsg)
         setCurrentText("")
@@ -888,7 +934,7 @@ export default function AdvancedJarvis() {
           message,
           intelligentMode: true,
           functionalMode: false,
-          conversationContext: messages.filter(m => m.type === "jarvis" || m.type === "user").map(m => m.text).join(" | ")
+          conversationContext: messages.filter(m => m.type === "nexus" || m.type === "user").map(m => m.text).join(" | ")
         }),
       })
 
@@ -909,14 +955,14 @@ export default function AdvancedJarvis() {
             ...prev,
             {
               text: data.response,
-              type: "jarvis",
+              type: "nexus",
               imageUrl: data.imageUrl,
               imagePrompt: data.imagePrompt || message,
               source: data.source || undefined,
             },
           ])
 
-          saveMessageToConversation(data.response, "jarvis", data.imageUrl, data.imagePrompt || message)
+          saveMessageToConversation(data.response, "nexus", data.imageUrl, data.imagePrompt || message)
 
           setCurrentText(data.response)
           await speak(data.response)
@@ -941,7 +987,7 @@ export default function AdvancedJarvis() {
             ...prev,
             {
               text: data.response,
-              type: "jarvis",
+              type: "nexus",
               source: data.source || undefined,
             },
           ])
@@ -954,8 +1000,8 @@ export default function AdvancedJarvis() {
 
         if (data.source === "none") {
           const noInfoMsg = "No se pudo obtener información precisa."
-          setMessages((prev) => [...prev, { text: noInfoMsg, type: "jarvis" }])
-          saveMessageToConversation(noInfoMsg, "jarvis")
+          setMessages((prev) => [...prev, { text: noInfoMsg, type: "nexus" }])
+          saveMessageToConversation(noInfoMsg, "nexus")
           setCurrentText(noInfoMsg)
           await speak(noInfoMsg)
           setCurrentText("")
@@ -964,8 +1010,8 @@ export default function AdvancedJarvis() {
     } catch (error) {
       console.error("❌ ERROR:", error)
       const errorMsg = "Lo siento, Señor, tuve un problema técnico. Inténtelo de nuevo."
-      setMessages((prev) => [...prev, { text: errorMsg, type: "jarvis" }])
-      saveMessageToConversation(errorMsg, "jarvis")
+      setMessages((prev) => [...prev, { text: errorMsg, type: "nexus" }])
+      saveMessageToConversation(errorMsg, "nexus")
       setCurrentText(errorMsg)
       await speak(errorMsg)
       setCurrentText("")
@@ -1174,7 +1220,7 @@ export default function AdvancedJarvis() {
   }
 
   const getStatusText = () => {
-    if (appState === "sleeping") return "Di: 'JARVIS enciéndete'"
+    if (appState === "sleeping") return "Di: 'NEXUS enciéndete'"
     if (appState === "waiting_password") {
       if (isListening) return "Escuchando contraseña..."
       if (isProcessing) return "Verificando contraseña..."
@@ -1195,26 +1241,26 @@ export default function AdvancedJarvis() {
       return "Esperando confirmación de descarga..."
     }
     if (appState === "music_playing") {
-      if (isListening) return "Solo escucho 'JARVIS quitar música'"
+      if (isListening) return "Solo escucho 'NEXUS quitar música'"
       return "Reproduciendo música (Solo comando: 'quitar música')"
     }
     if (appState === "map_active") {
-      if (isListening) return "Solo escucho 'JARVIS quitar mapa'"
+      if (isListening) return "Solo escucho 'NEXUS quitar mapa'"
       return "Mapa activo (Solo comando: 'quitar mapa')"
     }
     if (appState === "intelligent_mode") {
-      if (isSpeaking) return "JARVIS hablando..."
+      if (isSpeaking) return "NEXUS hablando..."
       if (isProcessing) return "Procesando con IA avanzada..."
       if (isListening) return "Modo inteligente - Escuchando... (automático)"
       return "Modo inteligente activo (automático)"
     }
     if (appState === "functional_mode") {
-      if (isSpeaking) return "JARVIS hablando..."
+      if (isSpeaking) return "NEXUS hablando..."
       if (isProcessing) return "Ejecutando función..."
       if (isListening) return "Modo funcional - Escuchando... (automático)"
       return "Modo funcional activo (automático)"
     }
-    if (isSpeaking) return "JARVIS hablando..."
+    if (isSpeaking) return "NEXUS hablando..."
     if (isProcessing) return "Procesando con ChatGPT..."
     if (isListening) return "Escuchando... (automático)"
     return "Habla libremente (automático)"
@@ -1223,7 +1269,7 @@ export default function AdvancedJarvis() {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
-        <div className="text-cyan-400 text-xl">Inicializando JARVIS...</div>
+        <div className="text-cyan-400 text-xl">Inicializando NEXUS...</div>
       </div>
     )
   }
@@ -1274,7 +1320,7 @@ export default function AdvancedJarvis() {
       {/* Header */}
       <div className="flex justify-between items-center p-6 border-b border-cyan-500/20 relative z-10">
         <div className="flex items-center space-x-4">
-          <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">JARVIS</h1>
+          <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">NEXUS</h1>
 
           {/* 💰 DISPLAY DE TOKENS */}
           <TokenDisplay />
@@ -1358,7 +1404,7 @@ export default function AdvancedJarvis() {
 
                   <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
                     <div className="text-cyan-400 text-xs font-mono animate-pulse opacity-70">
-                      {">"} JARVIS_SPEAKING
+                      {">"} NEXUS_SPEAKING
                     </div>
                   </div>
                   <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
@@ -1425,12 +1471,12 @@ export default function AdvancedJarvis() {
                 <p className="text-cyan-100 text-sm mb-3 font-medium font-mono">
                   {">"}{" "}
                   {appState === "intelligent_mode"
-                    ? "JARVIS_INTELLIGENT_OUTPUT:"
+                    ? "NEXUS_INTELLIGENT_OUTPUT:"
                     : appState === "functional_mode"
-                      ? "JARVIS_FUNCTIONAL_OUTPUT:"
+                      ? "NEXUS_FUNCTIONAL_OUTPUT:"
                       : appState === "image_download_confirmation"
-                        ? "JARVIS_DOWNLOAD_CONFIRMATION:"
-                        : "JARVIS_OUTPUT:"}
+                        ? "NEXUS_DOWNLOAD_CONFIRMATION:"
+                        : "NEXUS_OUTPUT:"}
                 </p>
                 <p className="text-cyan-300 text-lg leading-relaxed font-light">{currentText}</p>
                 <span className="inline-block w-2 h-5 bg-cyan-400 ml-1 animate-pulse"></span>
@@ -1472,7 +1518,7 @@ export default function AdvancedJarvis() {
         </div>
       )}
 
-      {/* Messages con Input de Texto - Solo mostrar si JARVIS está activo */}
+      {/* Messages con Input de Texto - Solo mostrar si NEXUS está activo */}
       {!isMapActive && !isPlayingMusic && appState !== "sleeping" && appState !== "waiting_password" && (
         <div className="p-6 max-h-80 overflow-y-auto relative z-10">
           <Card className="bg-gray-900/60 border-cyan-500/20 p-4 backdrop-blur-sm">
@@ -1493,7 +1539,7 @@ export default function AdvancedJarvis() {
                       }`}
                     >
                       <p className="font-bold text-xs mb-1 opacity-70 font-mono">
-                        {msg.type === "user" ? "> SEÑOR:" : "> JARVIS:"}
+                        {msg.type === "user" ? "> SEÑOR:" : "> NEXUS:"}
                       </p>
                       <p>{msg.text}</p>
                       {msg.imageUrl && (
@@ -1506,7 +1552,7 @@ export default function AdvancedJarvis() {
                         </div>
                       )}
                       {/* Source Badge for Jarvis responses */}
-                      {msg.type === "jarvis" && msg.source && (
+                      {msg.type === "nexus" && msg.source && (
                         <div className="mt-2 flex items-center">
                           <span
                             className={
@@ -1523,7 +1569,7 @@ export default function AdvancedJarvis() {
                             }
                             title={
                               msg.source === "memory"
-                                ? "Respuesta generada desde la memoria de JARVIS"
+                                ? "Respuesta generada desde la memoria de NEXUS"
                                 : msg.source === "ollama"
                                   ? "Respuesta generada por el modelo Ollama LLM local"
                                   : msg.source === "wikipedia"
@@ -1557,7 +1603,7 @@ export default function AdvancedJarvis() {
                 <div className="flex-1 relative">
                   <input
                     type="text"
-                    placeholder="Escribe a JARVIS..."
+                    placeholder="Escribe a NEXUS..."
                     className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm"
                     onKeyPress={(e) => {
                       if (e.key === "Enter" && e.currentTarget.value.trim()) {
@@ -1572,7 +1618,7 @@ export default function AdvancedJarvis() {
                 <div className="text-cyan-400 text-xs font-mono opacity-70">{">"} CHAT_INPUT</div>
               </div>
               <p className="text-gray-500 text-xs mt-2 text-center">
-                💬 Escribe y presiona Enter para chatear por texto (JARVIS responderá por voz)
+                💬 Escribe y presiona Enter para chatear por texto (NEXUS responderá por voz)
               </p>
             </div>
           </Card>
@@ -1590,6 +1636,9 @@ export default function AdvancedJarvis() {
           <p className="text-cyan-400 text-xs mt-1">💡 Modos: Modo Normal | Modo Inteligente | Modo Funcional</p>
           <p className="text-cyan-300 text-xs mt-1">
             🎵 <b>Para reproducir música</b> di: <span className="bg-cyan-900 px-1 rounded">"pon [nombre de la canción o artista]"</span> o <span className="bg-cyan-900 px-1 rounded">"reproduce [nombre de la canción]"</span>
+          </p>
+          <p className="text-blue-300 text-xs mt-1">
+            🗺️ <b>Para navegar a una ubicación</b> di: <span className="bg-blue-900 px-1 rounded">"ir a [nombre de la ubicación]"</span> o <span className="bg-blue-900 px-1 rounded">"navega a [nombre de la ubicación]"</span>
           </p>
           {transcript && <p className="text-yellow-400 text-xs mt-1">Último: "{transcript}"</p>}
         </div>
@@ -1649,22 +1698,45 @@ export default function AdvancedJarvis() {
       )}
 
       {/* 🗺️ MAPA INTEGRADO */}
-      <MapViewer
-        ref={mapViewerRef}
-        isActive={isMapActive}
-        destination={currentDestination}
-        destinationAddress={currentDestinationAddress}
-        onClose={() => {
+      {/* 🗺️ MAPA INTEGRADO */}
+{isMapActive && (!currentDestination || !currentDestinationAddress) && (
+  <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80">
+    <div className="bg-gray-900 text-red-400 p-8 rounded-lg border border-red-500">
+      <p><b>Error:</b> El mapa fue activado sin un destino o dirección válida.</p>
+      <p>currentDestination: {String(currentDestination)}</p>
+      <p>currentDestinationAddress: {String(currentDestinationAddress)}</p>
+      <p>Por favor, verifique el comando de voz o las ubicaciones registradas.</p>
+      <button
+        className="mt-4 px-4 py-2 bg-red-500 text-white rounded"
+        onClick={() => {
           setIsMapActive(false)
           setCurrentDestination("")
           setCurrentDestinationAddress("")
           setAppState("active")
         }}
-        onNavigationUpdate={handleNavigationUpdate}
-      />
+      >Cerrar</button>
+    </div>
+  </div>
+)}
+<MapViewer
+  ref={mapViewerRef}
+  isActive={isMapActive}
+  destination={currentDestination}
+  destinationAddress={currentDestinationAddress}
+  onClose={() => {
+    setIsMapActive(false)
+    setCurrentDestination("")
+    setCurrentDestinationAddress("")
+    setAppState("active")
+  }}
+  onNavigationUpdate={handleNavigationUpdate}
+/>
 
       {/* 📱 GESTORES */}
       <ContactsManager isOpen={showContactsManager} onClose={() => setShowContactsManager(false)} />
+
+      {/* 📍 GESTOR DE UBICACIONES */}
+      <LocationsManager isOpen={showLocationsManager} onClose={() => setShowLocationsManager(false)} />
 
       {/* 💬 GESTOR DE CONVERSACIONES */}
       <ConversationsManager

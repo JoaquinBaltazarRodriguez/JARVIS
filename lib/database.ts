@@ -10,6 +10,21 @@ export interface Contact {
 }
 
 export class ContactsDB {
+  /**
+   * Elimina un contacto por id y actualiza el almacenamiento.
+   * Retorna true si eliminó, false si no encontró.
+   */
+  static delete(id: string): boolean {
+    const contacts = this.getAll();
+    const idx = contacts.findIndex(contact => contact.id === id);
+    if (idx !== -1) {
+      contacts.splice(idx, 1);
+      this.save(contacts);
+      return true;
+    }
+    return false;
+  }
+
   private static STORAGE_KEY = "jarvis_contacts"
 
   static getAll(): Contact[] {
@@ -66,6 +81,21 @@ export interface Location {
 }
 
 export class LocationsDB {
+  /**
+   * Elimina una ubicación por id y actualiza el almacenamiento.
+   * Retorna true si eliminó, false si no encontró.
+   */
+  static delete(id: string): boolean {
+    const locations = this.getAll();
+    const idx = locations.findIndex(loc => loc.id === id);
+    if (idx !== -1) {
+      locations.splice(idx, 1);
+      this.save(locations);
+      return true;
+    }
+    return false;
+  }
+
   private static STORAGE_KEY = "jarvis_locations"
 
   static getAll(): Location[] {

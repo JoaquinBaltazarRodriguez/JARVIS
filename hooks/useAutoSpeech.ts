@@ -102,7 +102,11 @@ export function useAutoSpeech() {
               const transcript = event.results[i][0].transcript.toLowerCase()
               console.log("👂 Continuous listening heard:", transcript)
 
-              if (transcript.includes("jarvis") || transcript.includes("yarvis")) {
+              if (
+      transcript.includes("jarvis") ||
+      transcript.includes("yarvis") ||
+      transcript.includes("nexus")
+    ) {
                 if (
                   transcript.includes("enciende") ||
                   transcript.includes("activa") ||

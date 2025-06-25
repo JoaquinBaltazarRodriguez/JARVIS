@@ -67,7 +67,11 @@ export function useSmartSpeech() {
               console.log("👂 Continuous listening heard:", transcript)
 
               // Detectar palabras de activación
-              if (transcript.includes("jarvis") || transcript.includes("yarvis")) {
+              if (
+      transcript.includes("jarvis") ||
+      transcript.includes("yarvis") ||
+      transcript.includes("nexus")
+    ) {
                 if (
                   transcript.includes("enciende") ||
                   transcript.includes("activa") ||

@@ -51,10 +51,8 @@ export function ConversationsManager({
   }
 
   const handleDelete = (conversationId: string) => {
-    if (confirm("¿Está seguro de eliminar esta conversación?")) {
-      ConversationsDB.delete(conversationId)
-      loadConversations()
-    }
+    ConversationsDB.delete(conversationId)
+    loadConversations()
   }
 
   const handleNewConversation = () => {

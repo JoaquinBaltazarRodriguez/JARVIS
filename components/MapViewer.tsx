@@ -4,6 +4,20 @@ import { useState, useEffect, useImperativeHandle, forwardRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { MapPin, Navigation, X, Volume2, Maximize, Minimize } from "lucide-react"
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet"
+import L, { LatLngExpression } from "leaflet"
+import "leaflet/dist/leaflet.css"
+import { getRouteORS, type LatLng, type RouteStep } from "@/utils/openRouteService"
+
+// Fix default icon for leaflet
+if (typeof window !== "undefined" && L) {
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png",
+    iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
+    shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
+  });
+}
 
 interface MapViewerProps {
   isActive: boolean
@@ -19,93 +33,123 @@ export interface MapViewerRef {
 
 export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
   ({ isActive, destination, destinationAddress, onClose, onNavigationUpdate }, ref) => {
-    const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null)
+    const [currentLocation, setCurrentLocation] = useState<LatLng | null>(null)
+    const [destinationCoords, setDestinationCoords] = useState<LatLng | null>(null)
+    const [route, setRoute] = useState<{ geometry: LatLngExpression[]; steps: RouteStep[] } | null>(null)
     const [navigationStep, setNavigationStep] = useState(0)
     const [isNavigating, setIsNavigating] = useState(false)
-    const [mapUrl, setMapUrl] = useState("")
+    const [loadingRoute, setLoadingRoute] = useState(false)
+    const [locationError, setLocationError] = useState<string | null>(null)
     const [isFullscreen, setIsFullscreen] = useState(false)
 
-    // 🗺️ INSTRUCCIONES DE NAVEGACIÓN SIMULADAS
-    const navigationSteps = [
-      "Iniciando navegación hacia " + destination,
-      "En 200 metros, gira a la derecha",
-      "Continúa recto por 500 metros",
-      "En 100 metros, gira a la izquierda",
-      "Continúa recto por 300 metros",
-      "En 50 metros, gira a la derecha",
-      "Has llegado a tu destino: " + destination,
-    ]
+    // Convertir address a coordenadas (usando Nominatim OSM)
+    async function geocodeAddress(address: string): Promise<LatLng | null> {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
+        const res = await fetch(url)
+        const data = await res.json()
+        if (data && data.length > 0) {
+          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+        }
+      } catch (e) { /* ignore */ }
+      return null
+    }
 
-    // 🌍 OBTENER UBICACIÓN ACTUAL
+    // Obtener ubicación actual
     useEffect(() => {
       if (isActive) {
+        setLocationError(null)
         navigator.geolocation.getCurrentPosition(
-          (position) => {
+          async (position) => {
             const location = {
               lat: position.coords.latitude,
               lng: position.coords.longitude,
             }
             setCurrentLocation(location)
-            console.log("📍 CURRENT LOCATION:", location)
-
-            // 🗺️ CREAR URL DE OPENSTREETMAP MEJORADA
-            const bbox = `${location.lng - 0.01},${location.lat - 0.01},${location.lng + 0.01},${location.lat + 0.01}`
-            const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${location.lat},${location.lng}`
-            setMapUrl(osmUrl)
           },
           (error) => {
-            console.error("❌ GEOLOCATION ERROR:", error)
-            // Ubicación por defecto (Buenos Aires)
-            const defaultLocation = { lat: -34.6037, lng: -58.3816 }
-            setCurrentLocation(defaultLocation)
-
-            // Mapa por defecto
-            const bbox = `${defaultLocation.lng - 0.01},${defaultLocation.lat - 0.01},${defaultLocation.lng + 0.01},${defaultLocation.lat + 0.01}`
-            const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${defaultLocation.lat},${defaultLocation.lng}`
-            setMapUrl(osmUrl)
-          },
+            setLocationError("No se pudo obtener su ubicación actual.")
+            setCurrentLocation({ lat: -34.6037, lng: -58.3816 }) // Default: Buenos Aires
+          }
         )
       }
     }, [isActive])
 
-    // 🧭 FUNCIÓN DE NAVEGACIÓN EXPUESTA
-    const startNavigation = () => {
-      console.log("🗺️ STARTING NAVIGATION FROM VOICE COMMAND")
-      setIsNavigating(true)
-      setNavigationStep(0)
-      const firstInstruction = navigationSteps[0]
-      onNavigationUpdate?.(firstInstruction)
-    }
-
-    // 🧭 EXPONER FUNCIÓN A TRAVÉS DE REF
-    useImperativeHandle(ref, () => ({
-      startNavigation,
-    }))
-
-    // 🧭 SIMULACIÓN DE NAVEGACIÓN
+    // Geocodificar destino
     useEffect(() => {
-      if (isActive && isNavigating) {
-        const interval = setInterval(() => {
-          setNavigationStep((prev) => {
-            const nextStep = prev + 1
-            if (nextStep < navigationSteps.length) {
-              const instruction = navigationSteps[nextStep]
-              console.log("🧭 NAVIGATION:", instruction)
-              onNavigationUpdate?.(instruction)
-              return nextStep
-            } else {
-              setIsNavigating(false)
-              onNavigationUpdate?.("Navegación completada. Has llegado a tu destino.")
-              return prev
-            }
-          })
-        }, 8000) // Cada 8 segundos una nueva instrucción
+      if (destinationAddress && isActive) {
+        geocodeAddress(destinationAddress).then((coords) => {
+          setDestinationCoords(coords)
+        })
+      }
+    }, [destinationAddress, isActive])
 
+    // Consultar ruta real
+    useEffect(() => {
+      async function fetchRoute() {
+        if (currentLocation && destinationCoords) {
+          setLoadingRoute(true)
+          const res = await getRouteORS(currentLocation, destinationCoords)
+          if (res && res.geometry && res.steps) {
+            // Decodificar geometry (GeoJSON LineString)
+            const coords: LatLngExpression[] = res.geometry.coordinates.map((c: number[]) => [c[1], c[0]])
+            setRoute({ geometry: coords, steps: res.steps })
+          } else {
+            setRoute(null)
+          }
+          setLoadingRoute(false)
+        }
+      }
+      if (currentLocation && destinationCoords) fetchRoute()
+    }, [currentLocation, destinationCoords])
+
+    // Navegación giro a giro real
+    useEffect(() => {
+      if (isActive && isNavigating && route && route.steps.length > 0) {
+        let step = 0
+        onNavigationUpdate?.(route.steps[0].instruction)
+        const interval = setInterval(() => {
+          step++
+          if (step < route.steps.length) {
+            setNavigationStep(step)
+            onNavigationUpdate?.(route.steps[step].instruction)
+          } else {
+            setIsNavigating(false)
+            onNavigationUpdate?.("Navegación completada. Has llegado a tu destino.")
+            clearInterval(interval)
+          }
+        }, 8000)
         return () => clearInterval(interval)
       }
-    }, [isActive, isNavigating, onNavigationUpdate])
+    }, [isActive, isNavigating, route])
+
+    const handleCenterOnUser = () => {
+      if (navigator.geolocation) {
+        setLocationError(null)
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setCurrentLocation({ lat: position.coords.latitude, lng: position.coords.longitude })
+          },
+          () => setLocationError("No se pudo obtener su ubicación actual.")
+        )
+      }
+    }
+
+    // Exponer función para iniciar navegación
+    useImperativeHandle(ref, () => ({
+      startNavigation: () => setIsNavigating(true),
+    }))
 
     if (!isActive) return null
+
+    // --- COMPONENTE PARA CENTRAR MAPA EN UBICACIÓN ---
+    function CenterMap({ position }: { position: LatLng }) {
+      const map = useMap()
+      useEffect(() => {
+        map.setView([position.lat, position.lng], 15)
+      }, [position.lat, position.lng])
+      return null
+    }
 
     return (
       <div className="fixed inset-0 bg-black/90 z-50 flex flex-col">
@@ -136,21 +180,47 @@ export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
 
         {/* Mapa Principal */}
         <div className="flex-1 relative">
-          {currentLocation && mapUrl ? (
+          {currentLocation ? (
             <div className="w-full h-full relative">
-              {/* 🗺️ MAPA DE OPENSTREETMAP */}
-              <iframe
-                src={mapUrl}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                className="w-full h-full"
-                title="Mapa de navegación"
-              />
-
-              {/* 🗺️ OVERLAY CON INFORMACIÓN DEL DESTINO */}
+              <MapContainer
+                center={[currentLocation.lat, currentLocation.lng]}
+                zoom={15}
+                style={{ width: "100%", height: "100%" }}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {route && (
+                  <Polyline
+                    positions={route.geometry}
+                    color="blue"
+                    weight={5}
+                    opacity={0.8}
+                    dashArray="3"
+                  />
+                )}
+                {currentLocation && (
+                  <Marker
+                    position={[currentLocation.lat, currentLocation.lng]}
+                    icon={L.icon({
+                      iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
+                      iconSize: [25, 41],
+                      iconAnchor: [12, 41],
+                    })}
+                  />
+                )}
+                {destinationCoords && (
+                  <Marker
+                    position={[destinationCoords.lat, destinationCoords.lng]}
+                    icon={L.icon({
+                      iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
+                      iconSize: [25, 41],
+                      iconAnchor: [12, 41],
+                    })}
+                  />
+                )}
+              </MapContainer>
               <div className="absolute top-4 left-4 right-4 z-10">
                 <Card className="bg-gray-900/90 border-blue-500/40 p-4 backdrop-blur-sm">
                   <div className="text-center">
@@ -184,15 +254,15 @@ export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
           )}
 
           {/* Overlay de Navegación */}
-          {isNavigating && (
+          {isNavigating && route && route.steps.length > 0 && (
             <div className="absolute bottom-20 left-4 right-4 z-10">
               <Card className="bg-gray-900/90 border-blue-500/40 p-4 backdrop-blur-sm">
                 <div className="flex items-center">
                   <Navigation className="h-5 w-5 text-blue-400 mr-3 animate-pulse" />
                   <div className="flex-1">
-                    <p className="text-blue-100 font-medium">{navigationSteps[navigationStep]}</p>
+                    <p className="text-blue-100 font-medium">{route.steps[navigationStep]?.instruction}</p>
                     <p className="text-blue-300 text-sm mt-1">
-                      Paso {navigationStep + 1} de {navigationSteps.length}
+                      Paso {navigationStep + 1} de {route.steps.length}
                     </p>
                   </div>
                   <Volume2 className="h-4 w-4 text-blue-400 animate-pulse" />
@@ -205,10 +275,12 @@ export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
         {/* Controles Inferiores */}
         <div className="p-4 bg-gray-900/80 border-t border-blue-500/30">
           <div className="flex justify-center space-x-4">
+            <Button onClick={handleCenterOnUser} variant="outline" className="border-blue-400 text-blue-200">
+              <MapPin className="h-4 w-4 mr-2" /> Centrar en mi ubicación
+            </Button>
             {!isNavigating ? (
-              <Button onClick={startNavigation} className="bg-blue-500 hover:bg-blue-600 text-black">
-                <Navigation className="h-4 w-4 mr-2" />
-                Iniciar Navegación
+              <Button onClick={() => setIsNavigating(true)} className="bg-blue-500 hover:bg-blue-600 text-black">
+                <Navigation className="h-4 w-4 mr-2" /> Iniciar Navegación
               </Button>
             ) : (
               <Button
@@ -224,11 +296,10 @@ export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
             </Button>
           </div>
           <p className="text-center text-blue-300 text-xs mt-3">
-            🎤 <strong>Control por voz:</strong> "JARVIS quitar mapa" para cerrar | "JARVIS iniciar navegación" para
-            comenzar
+            🎤 <strong>Control por voz:</strong> "JARVIS quitar mapa" para cerrar | "JARVIS iniciar navegación" para comenzar
           </p>
           <p className="text-center text-blue-200 text-xs mt-1">
-            🗺️ <strong>Mapa:</strong> OpenStreetMap - Sin límites de API
+            🗺️ <strong>Mapa:</strong> OpenStreetMap + Rutas reales por OpenRouteService
           </p>
         </div>
       </div>

@@ -136,7 +136,7 @@ export function SpotifyManager({ isOpen, onClose }: SpotifyManagerProps) {
 
         <div className="mt-6 p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
           <p className="text-cyan-300 text-sm">
-            <strong>💡 Tip:</strong> Di "JARVIS abre Spotify" y luego el nombre de la playlist para reproducir música.
+            <strong>💡 Tip:</strong> Di "NEXUS abre Spotify" y luego el nombre de la playlist para reproducir música.
           </p>
           <p className="text-cyan-300 text-xs mt-2">
             <strong>📝 Nota:</strong> Copia la URL completa de Spotify desde la app o web.

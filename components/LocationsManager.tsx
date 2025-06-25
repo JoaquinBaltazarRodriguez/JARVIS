@@ -26,7 +26,7 @@ export function LocationsManager({ isOpen, onClose }: LocationsManagerProps) {
 
   const handleAdd = () => {
     if (newName.trim() && newAddress.trim()) {
-      const location = LocationsDB.add(newName, newAddress)
+      const location = LocationsDB.add({ name: newName, address: newAddress, category: "other" })
       setLocations(LocationsDB.getAll())
       setNewName("")
       setNewAddress("")
