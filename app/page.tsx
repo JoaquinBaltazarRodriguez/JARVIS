@@ -618,7 +618,9 @@ export default function AdvancedJarvis() {
         await speak(callingMsg)
         setCurrentText("")
 
+        if (typeof window !== "undefined") {
         window.open(`tel:${pendingCall.phone}`, "_self")
+      }
 
         setPendingCall(null)
         setAppState("active")
