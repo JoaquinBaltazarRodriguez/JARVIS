@@ -34,48 +34,51 @@ export function SpotifyPlayerReal({
 
   // 1. Obtener accessToken desde localStorage
   useEffect(() => {
-    const token = localStorage.getItem("spotify_access_token")
-    if (token) setAccessToken(token)
-  }, [])
+    if (typeof window !== 'undefined') {
+      const token = window.localStorage.getItem("spotify_access_token");
+      if (token) setAccessToken(token);
+    }
+  }, []);
 
   // 2. Inicializar el Web Playback SDK de Spotify
   useEffect(() => {
-    if (!accessToken || playerRef.current) return
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (!accessToken || playerRef.current) return;
 
-    const script = document.createElement("script")
-    script.src = "https://sdk.scdn.co/spotify-player.js"
-    script.async = true
-    document.body.appendChild(script)
+    const script = document.createElement("script");
+    script.src = "https://sdk.scdn.co/spotify-player.js";
+    script.async = true;
+    document.body.appendChild(script);
 
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      const player = new window.Spotify.Player({
+    (window as any).onSpotifyWebPlaybackSDKReady = () => {
+      const player = new (window as any).Spotify.Player({
         name: "JARVIS Player",
         getOAuthToken: (cb: any) => cb(accessToken),
         volume: 0.7,
-      })
-      playerRef.current = player
+      });
+      playerRef.current = player;
 
       player.addListener("ready", ({ device_id }: any) => {
-        setDeviceId(device_id)
-      })
+        setDeviceId(device_id);
+      });
 
       player.addListener("player_state_changed", (state: any) => {
-        if (!state) return
-        setIsPlaying(!state.paused)
-        const current = state.track_window.current_track
+        if (!state) return;
+        setIsPlaying(!state.paused);
+        const current = state.track_window.current_track;
         if (current) {
           setCurrentTrack({
             id: current.id,
             name: current.name,
             artists: current.artists,
             uri: current.uri,
-          })
+          });
         }
-      })
+      });
 
-      player.connect()
-    }
-  }, [accessToken])
+      player.connect();
+    };
+  }, [accessToken]);
 
   // 3. Obtener tracks de la playlist real
   useEffect(() => {

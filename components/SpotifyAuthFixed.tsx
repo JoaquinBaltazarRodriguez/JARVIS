@@ -24,13 +24,16 @@ export function SpotifyAuthFixed({ onAuthSuccess, onError }: SpotifyAuthFixedPro
   }
 
   useEffect(() => {
-    checkExistingTokens()
-    checkUrlParams()
+    if (typeof window !== 'undefined') {
+      checkExistingTokens()
+      checkUrlParams()
+    }
   }, [])
 
   const checkExistingTokens = () => {
-    const token = localStorage.getItem("spotify_access_token")
-    const expiresAt = localStorage.getItem("spotify_expires_at")
+    if (typeof window === 'undefined') return
+    const token = window.localStorage.getItem("spotify_access_token")
+    const expiresAt = window.localStorage.getItem("spotify_expires_at")
 
     if (token && expiresAt) {
       const isExpired = Date.now() > Number.parseInt(expiresAt)
@@ -41,15 +44,16 @@ export function SpotifyAuthFixed({ onAuthSuccess, onError }: SpotifyAuthFixedPro
         return
       } else {
         addLog("⚠️ Token expirado, limpiando...")
-        localStorage.removeItem("spotify_access_token")
-        localStorage.removeItem("spotify_expires_at")
-        localStorage.removeItem("spotify_refresh_token")
+        window.localStorage.removeItem("spotify_access_token")
+        window.localStorage.removeItem("spotify_expires_at")
+        window.localStorage.removeItem("spotify_refresh_token")
       }
     }
     addLog("❌ No se encontraron tokens válidos")
   }
 
   const checkUrlParams = () => {
+    if (typeof window === 'undefined') return
     const urlParams = new URLSearchParams(window.location.search)
 
     // Verificar si hay tokens de éxito
@@ -63,18 +67,18 @@ export function SpotifyAuthFixed({ onAuthSuccess, onError }: SpotifyAuthFixedPro
 
       const expiresAt = Date.now() + Number.parseInt(expiresIn || "3600") * 1000
 
-      localStorage.setItem("spotify_access_token", accessToken)
-      localStorage.setItem("spotify_expires_at", expiresAt.toString())
+      window.localStorage.setItem("spotify_access_token", accessToken)
+      window.localStorage.setItem("spotify_expires_at", expiresAt.toString())
 
       if (refreshToken) {
-        localStorage.setItem("spotify_refresh_token", refreshToken)
+        window.localStorage.setItem("spotify_refresh_token", refreshToken)
       }
 
       setIsAuthenticated(true)
       onAuthSuccess(accessToken)
 
       // Limpiar URL
-      window.history.replaceState({}, document.title, window.location.pathname)
+      window.history.replaceState && document && window.history.replaceState({}, document.title, window.location.pathname)
       return
     }
 
@@ -83,7 +87,7 @@ export function SpotifyAuthFixed({ onAuthSuccess, onError }: SpotifyAuthFixedPro
     if (spotifyError) {
       addLog(`❌ Error de autenticación: ${spotifyError}`)
       setAuthError(`Error: ${spotifyError}`)
-      window.history.replaceState({}, document.title, window.location.pathname)
+      window.history.replaceState && document && window.history.replaceState({}, document.title, window.location.pathname)
     }
   }
 
@@ -100,7 +104,9 @@ export function SpotifyAuthFixed({ onAuthSuccess, onError }: SpotifyAuthFixedPro
       if (data.configured && data.authUrl) {
         addLog("✅ URL de auth generada")
         addLog(`🔗 Redirigiendo a: ${data.authUrl.substring(0, 50)}...`)
-        window.location.href = data.authUrl
+        if (typeof window !== 'undefined') {
+          window.location.href = data.authUrl
+        }
       } else {
         throw new Error(data.error || "Error generando URL de autenticación")
       }
@@ -114,9 +120,10 @@ export function SpotifyAuthFixed({ onAuthSuccess, onError }: SpotifyAuthFixedPro
   }
 
   const handleLogout = () => {
-    localStorage.removeItem("spotify_access_token")
-    localStorage.removeItem("spotify_expires_at")
-    localStorage.removeItem("spotify_refresh_token")
+    if (typeof window === 'undefined') return
+    window.localStorage.removeItem("spotify_access_token")
+    window.localStorage.removeItem("spotify_expires_at")
+    window.localStorage.removeItem("spotify_refresh_token")
     setIsAuthenticated(false)
     setAuthError(null)
     addLog("🔓 Sesión cerrada")

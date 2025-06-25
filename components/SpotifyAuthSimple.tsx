@@ -15,58 +15,63 @@ export function SpotifyAuthSimple2({ onAuthSuccess, onError }: SpotifyAuthSimple
   const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
-    checkExistingTokens()
-    checkHashParams()
-  }, [])
+    if (typeof window !== 'undefined') {
+      checkExistingTokens();
+      checkHashParams();
+    }
+  }, []);
 
   const checkExistingTokens = () => {
-    const token = localStorage.getItem("spotify_access_token")
-    const expiresAt = localStorage.getItem("spotify_expires_at")
+    if (typeof window === 'undefined') return;
+    const token = window.localStorage.getItem("spotify_access_token");
+    const expiresAt = window.localStorage.getItem("spotify_expires_at");
 
     if (token && expiresAt) {
-      const isExpired = Date.now() > Number.parseInt(expiresAt)
+      const isExpired = Date.now() > Number.parseInt(expiresAt);
       if (!isExpired) {
-        setIsAuthenticated(true)
-        onAuthSuccess(token)
-        return
+        setIsAuthenticated(true);
+        onAuthSuccess(token);
+        return;
       } else {
-        localStorage.removeItem("spotify_access_token")
-        localStorage.removeItem("spotify_expires_at")
+        window.localStorage.removeItem("spotify_access_token");
+        window.localStorage.removeItem("spotify_expires_at");
       }
     }
-  }
+  };
 
   const checkHashParams = () => {
-    const hash = window.location.hash.substring(1)
-    const params = new URLSearchParams(hash)
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
 
-    const accessToken = params.get("access_token")
-    const expiresIn = params.get("expires_in")
-    const error = params.get("error")
+    const accessToken = params.get("access_token");
+    const expiresIn = params.get("expires_in");
+    const error = params.get("error");
 
     if (error) {
-      setAuthError(`Error: ${error}`)
-      onError(error)
-      return
+      setAuthError(`Error: ${error}`);
+      onError(error);
+      return;
     }
 
     if (accessToken && expiresIn) {
-      const expiresAt = Date.now() + Number.parseInt(expiresIn) * 1000
+      const expiresAt = Date.now() + Number.parseInt(expiresIn) * 1000;
 
-      localStorage.setItem("spotify_access_token", accessToken)
-      localStorage.setItem("spotify_expires_at", expiresAt.toString())
+      window.localStorage.setItem("spotify_access_token", accessToken);
+      window.localStorage.setItem("spotify_expires_at", expiresAt.toString());
 
-      setIsAuthenticated(true)
-      onAuthSuccess(accessToken)
+      setIsAuthenticated(true);
+      onAuthSuccess(accessToken);
 
       // Limpiar hash
-      window.location.hash = ""
+      window.location.hash = "";
     }
-  }
+  };
 
   const handleSpotifyAuth = () => {
-    const clientId = "3c997e3fe60c47e9998598b59eab2e9d"
-    const redirectUri = window.location.origin
+    if (typeof window === 'undefined') return;
+    const clientId = "3c997e3fe60c47e9998598b59eab2e9d";
+    const redirectUri = window.location.origin;
     const scopes = [
       "streaming",
       "user-read-email",
@@ -76,7 +81,7 @@ export function SpotifyAuthSimple2({ onAuthSuccess, onError }: SpotifyAuthSimple
       "playlist-read-private",
       "playlist-read-collaborative",
       "user-library-read",
-    ].join(" ")
+    ].join(" ");
 
     const authUrl = `https://accounts.spotify.com/authorize?${new URLSearchParams({
       response_type: "token",
@@ -84,17 +89,18 @@ export function SpotifyAuthSimple2({ onAuthSuccess, onError }: SpotifyAuthSimple
       scope: scopes,
       redirect_uri: redirectUri,
       show_dialog: "true",
-    })}`
+    })}`;
 
-    window.location.href = authUrl
-  }
+    window.location.href = authUrl;
+  };
 
   const handleLogout = () => {
-    localStorage.removeItem("spotify_access_token")
-    localStorage.removeItem("spotify_expires_at")
-    setIsAuthenticated(false)
-    setAuthError(null)
-  }
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem("spotify_access_token");
+    window.localStorage.removeItem("spotify_expires_at");
+    setIsAuthenticated(false);
+    setAuthError(null);
+  };
 
   if (isAuthenticated) {
     return (
