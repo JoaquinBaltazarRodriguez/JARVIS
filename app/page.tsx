@@ -34,7 +34,7 @@ import { usePillReminder } from "@/hooks/usePillReminder"
 import { TokenDisplay } from "@/components/TokenDisplay"
 import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
-import { JarvisMemory } from "@/lib/jarvisMemory"
+import { NexusMemory } from "@/lib/jarvisMemory"
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 const DEFAULT_CITY = "Posadas, Misiones, AR";
@@ -710,11 +710,11 @@ export default function AdvancedJarvis() {
 
   // 🗺️ MANEJAR INSTRUCCIONES DE NAVEGACIÓN
   const handleNavigationUpdate = async (instruction: string) => {
-    console.log("🧭 NAVIGATION INSTRUCTION:", instruction)
+    console.log(" NAVIGATION INSTRUCTION:", instruction)
     await speak(instruction)
   }
 
-  // 🗺️ INICIAR NAVEGACIÓN EN MAPA
+  // INICIAR NAVEGACIÓN EN MAPA
   const handleStartMapNavigation = async () => {
     const startMsg = "Iniciando navegación por voz hacia " + currentDestination + ", Señor."
     setCurrentText(startMsg)
@@ -727,8 +727,19 @@ export default function AdvancedJarvis() {
     }
   }
 
+  // CENTRAR MAPA EN MI UBICACIÓN
+  const handleCenterMapOnUser = async () => {
+    const msg = "Centrando el mapa en su ubicación actual, Señor."
+    setCurrentText(msg)
+    await speak(msg)
+    setCurrentText("")
+    if (mapViewerRef.current && mapViewerRef.current.centerOnUser) {
+      mapViewerRef.current.centerOnUser()
+    }
+  }
+
   const handlePasswordCheck = async (password: string) => {
-    console.log("🔐 CHECKING PASSWORD:", password)
+    console.log(" CHECKING PASSWORD:", password)
     setMessages((prev) => [...prev, { text: password, type: "user" }])
     setIsProcessing(true)
 
@@ -815,7 +826,7 @@ export default function AdvancedJarvis() {
     saveMessageToConversation(message, "user")
 
     // 🧠 GUARDAR EN MEMORIA DE NEXUS
-    JarvisMemory.saveMemory("context", message, ["user_input"])
+    NexusMemory.saveMemory("context", message, ["user_input"])
 
     try {
     // 🚦 CANCELAR NAVEGACIÓN SI SE ESTÁ ESPERANDO DIRECCIÓN
@@ -954,7 +965,7 @@ export default function AdvancedJarvis() {
 
       if (data.success) {
         // 🧠 REGISTRAR INTERACCIÓN EN MEMORIA
-        JarvisMemory.recordInteraction(message, data.response)
+        NexusMemory.recordInteraction(message, data.response)
 
         // 🖼️ PROCESAR RESPUESTA CON IMAGEN
         if (data.hasImage && data.imageUrl) {
@@ -1609,6 +1620,12 @@ export default function AdvancedJarvis() {
               </div>
             )}
 
+            {/* Indicaciones de comandos */}
+            <div className="mb-2 text-xs text-cyan-300">
+              <span role="img" aria-label="nota musical">🎵</span> Para reproducir música di: <span className="bg-cyan-800/40 px-1 rounded">"pon [nombre de la canción o artista]"</span> o <span className="bg-cyan-800/40 px-1 rounded">"reproduce [nombre de la canción]"</span><br />
+              <span role="img" aria-label="teléfono">📞</span> Para llamar di: <span className="bg-cyan-800/40 px-1 rounded">"llama a [nombre]"</span> o <span className="bg-cyan-800/40 px-1 rounded">"NEXUS llama a [nombre]"</span>
+            </div>
+
             {/* Input de Texto para Chat */}
             <div className="border-t border-cyan-500/20 pt-4">
               <div className="flex items-center space-x-2">
@@ -1648,6 +1665,9 @@ export default function AdvancedJarvis() {
           <p className="text-cyan-400 text-xs mt-1">💡 Modos: Modo Normal | Modo Inteligente | Modo Funcional</p>
           <p className="text-cyan-300 text-xs mt-1">
             🎵 <b>Para reproducir música</b> di: <span className="bg-cyan-900 px-1 rounded">"pon [nombre de la canción o artista]"</span> o <span className="bg-cyan-900 px-1 rounded">"reproduce [nombre de la canción]"</span>
+          </p>
+          <p className="text-cyan-300 text-xs mt-1">
+            📞 <b>Para llamar</b> di: <span className="bg-cyan-900 px-1 rounded">"llama a [nombre]"</span> o <span className="bg-cyan-900 px-1 rounded">"NEXUS llama a [nombre]"</span>
           </p>
           <p className="text-blue-300 text-xs mt-1">
             🗺️ <b>Para navegar a una ubicación</b> di: <span className="bg-blue-900 px-1 rounded">"ir a [nombre de la ubicación]"</span> o <span className="bg-blue-900 px-1 rounded">"navega a [nombre de la ubicación]"</span>
@@ -1731,6 +1751,7 @@ export default function AdvancedJarvis() {
   </div>
 )}
 <MapViewer
+  ref={mapViewerRef}
   isActive={isMapActive}
   destination={currentDestination}
   destinationAddress={currentDestinationAddress}

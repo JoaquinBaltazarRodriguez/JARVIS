@@ -13,24 +13,24 @@
 }
 
 @layer components {
-  .jarvis-glow {
+  .nexus-glow {
     box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
   }
 
-  .jarvis-pulse {
-    animation: jarvis-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  .nexus-pulse {
+    animation: nexus-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  .jarvis-listening {
-    animation: jarvis-listening 1.5s ease-in-out infinite;
+  .nexus-listening {
+    animation: nexus-listening 1.5s ease-in-out infinite;
   }
 
-  .jarvis-speaking {
-    animation: jarvis-speaking 0.8s ease-in-out infinite;
+  .nexus-speaking {
+    animation: nexus-speaking 0.8s ease-in-out infinite;
   }
 }
 
-@keyframes jarvis-pulse {
+@keyframes nexus-pulse {
   0%,
   100% {
     opacity: 1;
@@ -42,7 +42,7 @@
   }
 }
 
-@keyframes jarvis-listening {
+@keyframes nexus-listening {
   0%,
   100% {
     box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
@@ -52,7 +52,7 @@
   }
 }
 
-@keyframes jarvis-speaking {
+@keyframes nexus-speaking {
   0%,
   100% {
     box-shadow: 0 0 30px rgba(0, 212, 255, 0.6), 0 0 60px rgba(0, 212, 255, 0.4), 0 0 90px rgba(0, 212, 255, 0.2);

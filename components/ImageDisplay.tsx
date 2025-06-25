@@ -32,7 +32,7 @@ export function ImageDisplay({ imageUrl, prompt, onClose, fallback, message }: I
       // Crear elemento de descarga
       const link = document.createElement("a")
       link.href = url
-      link.download = `jarvis-image-${Date.now()}.png`
+      link.download = `nexus-image-${Date.now()}.png`
       document.body.appendChild(link)
       link.click()
 

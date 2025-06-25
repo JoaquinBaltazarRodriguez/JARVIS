@@ -83,7 +83,7 @@ export function FileUploader({ onFileAnalyzed, isProcessing }: FileUploaderProps
   return (
     <Card className="bg-gray-900/80 border-purple-500/30 p-6 mb-4">
       <div className="text-center mb-4">
-        <h3 className="text-purple-400 font-bold text-lg mb-2">📁 Análisis de Archivos JARVIS</h3>
+        <h3 className="text-purple-400 font-bold text-lg mb-2">📁 Análisis de Archivos NEXUS</h3>
         <p className="text-purple-300 text-sm">Sube imágenes, documentos o código para análisis inteligente</p>
       </div>
 
@@ -149,7 +149,7 @@ export function FileUploader({ onFileAnalyzed, isProcessing }: FileUploaderProps
             disabled={isProcessing}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white"
           >
-            {isProcessing ? "Analizando..." : "🧠 Analizar con JARVIS"}
+            {isProcessing ? "Analizando..." : "🧠 Analizar con NEXUS"}
           </Button>
         </div>
       )}

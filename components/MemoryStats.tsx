@@ -3,25 +3,25 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { JarvisMemory } from "@/lib/jarvisMemory"
+import { NexusMemory } from "@/lib/jarvisMemory"
 import { Brain, Trash2, BarChart3 } from "lucide-react"
 
 export function MemoryStats() {
-  const [stats, setStats] = useState(JarvisMemory.getStats())
+  const [stats, setStats] = useState(NexusMemory.getStats())
   const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats(JarvisMemory.getStats())
+      setStats(NexusMemory.getStats())
     }, 10000) // Actualizar cada 10 segundos
 
     return () => clearInterval(interval)
   }, [])
 
   const handleClearMemory = () => {
-    if (confirm("¿Está seguro de que desea limpiar toda la memoria de JARVIS?")) {
-      JarvisMemory.clearMemory()
-      setStats(JarvisMemory.getStats())
+    if (confirm("¿Está seguro de que desea limpiar toda la memoria de NEXUS?")) {
+      NexusMemory.clearMemory()
+      setStats(NexusMemory.getStats())
     }
   }
 
@@ -30,7 +30,7 @@ export function MemoryStats() {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Brain className="h-4 w-4 text-purple-400" />
-          <span className="text-purple-300 text-sm font-bold">Memoria JARVIS</span>
+          <span className="text-purple-300 text-sm font-bold">Memoria NEXUS</span>
         </div>
         <div className="flex gap-1">
           <Button

@@ -1,9 +1,9 @@
-// utils/jarvisMemory.ts
+// utils/nexusMemory.ts
 import fs from 'fs';
 import path from 'path';
 import stringSimilarity from 'string-similarity';
 
-const MEMORY_FILE = path.join(process.cwd(), 'jarvis-memory.json');
+const MEMORY_FILE = path.join(process.cwd(), 'nexus-memory.json');
 
 // Carga la memoria desde archivo o crea una nueva si no existe
 function loadMemory() {

@@ -1,5 +1,5 @@
-import { clearMemory } from './utils/jarvisMemory';
+import { clearMemory } from './utils/nexusMemory';
 
 clearMemory();
 
-console.log('Memoria de Jarvis borrada exitosamente.');
+console.log('Memoria de Nexus borrada exitosamente.');

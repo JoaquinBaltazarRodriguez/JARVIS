@@ -55,7 +55,7 @@ export function useAutoSpeech() {
   const setSpeakingState = useCallback(
     (speaking: boolean) => {
       isSpeakingRef.current = speaking
-      console.log("🔇 JARVIS SPEAKING STATE:", speaking)
+      console.log("🔇 NEXUS SPEAKING STATE:", speaking)
 
       if (speaking) {
         stopAllRecognition()
@@ -74,7 +74,7 @@ export function useAutoSpeech() {
 
       const startRecognition = () => {
         if (isActiveRef.current || isSpeakingRef.current) {
-          console.log("⏸️ Skipping recognition - already active or JARVIS speaking")
+          console.log("⏸️ Skipping recognition - already active or NEXUS speaking")
           return
         }
 
@@ -94,7 +94,7 @@ export function useAutoSpeech() {
 
           recognition.onresult = (event: any) => {
             if (isSpeakingRef.current) {
-              console.log("🔇 Ignoring speech - JARVIS is speaking")
+              console.log("🔇 Ignoring speech - NEXUS is speaking")
               return
             }
 
@@ -198,7 +198,7 @@ export function useAutoSpeech() {
   // 🎯 ESCUCHA AUTOMÁTICA MEJORADA
   const startAutoListening = useCallback(() => {
     if (!isSupported || isActiveRef.current || isSpeakingRef.current) {
-      console.log("❌ Cannot start auto listening - not supported, already active, or JARVIS speaking")
+      console.log("❌ Cannot start auto listening - not supported, already active, or NEXUS speaking")
       return
     }
 
@@ -224,7 +224,7 @@ export function useAutoSpeech() {
 
       recognition.onresult = (event: any) => {
         if (isSpeakingRef.current) {
-          console.log("🔇 Ignoring speech - JARVIS is speaking")
+          console.log("🔇 Ignoring speech - NEXUS is speaking")
           return
         }
 

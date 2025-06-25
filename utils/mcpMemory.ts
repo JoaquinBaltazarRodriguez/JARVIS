@@ -1,5 +1,5 @@
 // utils/mcpMemory.ts
-// MCP Memory module: stores prompts, context, and answers for hybrid Jarvis.
+// MCP Memory module: stores prompts, context, and answers for hybrid Nexus.
 import fs from 'fs';
 import path from 'path';
 

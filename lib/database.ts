@@ -25,7 +25,7 @@ export class ContactsDB {
     return false;
   }
 
-  private static STORAGE_KEY = "jarvis_contacts"
+  private static STORAGE_KEY = "nexus_contacts"
 
   static getAll(): Contact[] {
     if (typeof window === "undefined") return []
@@ -39,9 +39,11 @@ export class ContactsDB {
 
   private static getDefaultContacts(): Contact[] {
     return [
-      { id: "1", name: "María García", phone: "+34 600 123 456", category: "family" },
-      { id: "2", name: "Carlos López", phone: "+34 600 789 012", category: "work" },
-      { id: "3", name: "Ana Martín", phone: "+34 600 345 678", category: "friend" },
+      { id: "1", name: "Mi número", phone: "3764 645806", category: "other" },
+      { id: "2", name: "Prueba", phone: "+1234567890", category: "other" },
+      { id: "3", name: "María García", phone: "+34 600 123 456", category: "family" },
+      { id: "4", name: "Carlos López", phone: "+34 600 789 012", category: "work" },
+      { id: "5", name: "Ana Martín", phone: "+34 600 345 678", category: "friend" },
     ]
   }
 
@@ -96,7 +98,7 @@ export class LocationsDB {
     return false;
   }
 
-  private static STORAGE_KEY = "jarvis_locations"
+  private static STORAGE_KEY = "nexus_locations"
 
   static getAll(): Location[] {
     if (typeof window === "undefined") return []
@@ -129,16 +131,41 @@ export class LocationsDB {
     return newLocation
   }
 
-  static findByName(name: string): Location | null {
-    const locations = this.getAll()
-    const searchName = name.toLowerCase().trim()
+  static normalize(str: string): string {
+    return str
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[^\w\s]/g, "")
+      .trim();
+  }
 
-    return (
-      locations.find((location) => {
-        const locationName = location.name.toLowerCase()
-        return locationName.includes(searchName) || searchName.includes(locationName)
-      }) || null
-    )
+  static findByName(name: string): Location | null {
+    const locations = this.getAll();
+    const searchName = this.normalize(name);
+
+    // 1. Buscar coincidencia exacta normalizada
+    let exactMatch = locations.find(location => {
+      const locationName = this.normalize(location.name);
+      return locationName === searchName;
+    });
+    if (exactMatch) {
+      console.log(`[LocationsDB] Exact match found for '${name}' → '${exactMatch.name}'`);
+      return exactMatch;
+    }
+
+    // 2. Buscar coincidencia parcial (fallback)
+    let partialMatch = locations.find(location => {
+      const locationName = this.normalize(location.name);
+      return locationName.includes(searchName) || searchName.includes(locationName);
+    });
+    if (partialMatch) {
+      console.log(`[LocationsDB] Partial match found for '${name}' → '${partialMatch.name}'`);
+      return partialMatch;
+    }
+
+    console.log(`[LocationsDB] No match found for '${name}'`);
+    return null;
   }
 }
 
@@ -151,7 +178,7 @@ export interface SpotifyPlaylist {
 }
 
 export class SpotifyDB {
-  private static STORAGE_KEY = "jarvis_spotify_playlists"
+  private static STORAGE_KEY = "nexus_spotify_playlists"
 
   static getAll(): SpotifyPlaylist[] {
     if (typeof window === "undefined") return []

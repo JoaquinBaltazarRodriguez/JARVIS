@@ -37,7 +37,7 @@ function generateAlternativeImage(prompt: string) {
   const imageConfig = {
     backgroundColor: "333333",
     textColor: "ffffff",
-    text: "JARVIS",
+    text: "NEXUS",
     category: "abstract",
   }
 

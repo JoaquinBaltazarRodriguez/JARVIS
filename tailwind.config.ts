@@ -61,7 +61,7 @@ const config: Config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        jarvis: {
+        nexus: {
           blue: "#00d4ff",
           dark: "#0a0a0a",
           gray: "#1a1a1a",
@@ -89,7 +89,7 @@ const config: Config = {
             height: "0",
           },
         },
-        "jarvis-pulse": {
+        "nexus-pulse": {
           "0%, 100%": {
             opacity: "1",
           },
@@ -97,7 +97,7 @@ const config: Config = {
             opacity: ".5",
           },
         },
-        "jarvis-listening": {
+        "nexus-listening": {
           "0%": {
             transform: "scale(1)",
             opacity: "0.25",
@@ -115,8 +115,8 @@ const config: Config = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "jarvis-pulse": "jarvis-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-        "jarvis-listening": "jarvis-listening 1.5s ease-in-out infinite",
+        "nexus-pulse": "nexus-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "nexus-listening": "nexus-listening 1.5s ease-in-out infinite",
       },
     },
   },

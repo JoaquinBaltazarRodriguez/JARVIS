@@ -52,7 +52,7 @@ export function SpotifyPlayerReal({
 
     (window as any).onSpotifyWebPlaybackSDKReady = () => {
       const player = new (window as any).Spotify.Player({
-        name: "JARVIS Player",
+        name: "NEXUS Player",
         getOAuthToken: (cb: any) => cb(accessToken),
         volume: 0.7,
       });

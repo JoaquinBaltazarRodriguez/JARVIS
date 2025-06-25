@@ -95,7 +95,7 @@ export function useFuturisticSounds() {
         createElevatorTone(523, 0, 0.6, 0.1) // Do agudo final
       }, 2500)
 
-      console.log("🏢 ELEGANT ELEVATOR JARVIS startup sequence completed")
+      console.log("🏢 ELEGANT ELEVATOR NEXUS startup sequence completed")
     } catch (error) {
       console.error("❌ Error playing elevator startup sound:", error)
     }
@@ -148,7 +148,7 @@ export function useFuturisticSounds() {
       createElevatorTone(277, 600, 0.8, 0.08) // Do#
       createElevatorTone(220, 900, 1.2, 0.06) // La grave (más largo)
 
-      console.log("🔌 ELEGANT ELEVATOR JARVIS shutdown sequence completed")
+      console.log("🔌 ELEGANT ELEVATOR NEXUS shutdown sequence completed")
     } catch (error) {
       console.error("❌ Error playing elevator shutdown sound:", error)
     }

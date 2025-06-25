@@ -254,7 +254,7 @@ export class WeatherMCP {
     return this.getCurrentWeather(cityName)
   }
 
-  // 📊 GENERAR RESPUESTA INTELIGENTE PARA JARVIS
+  // 📊 GENERAR RESPUESTA INTELIGENTE PARA NEXUS
   static async generateWeatherResponse(query: string): Promise<string> {
     const weather = await this.getCurrentWeather()
 

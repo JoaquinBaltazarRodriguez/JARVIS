@@ -23,7 +23,7 @@ let collection: Collection | null = null;
 export async function initMemory() {
   if (!collection) {
     collection = await client.getOrCreateCollection({
-      name: 'jarvis-memory',
+      name: 'nexus-memory',
       embeddingFunction: undefined // No usar embeddingFunction por defecto
     });
   }

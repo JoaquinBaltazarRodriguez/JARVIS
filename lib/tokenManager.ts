@@ -17,7 +17,7 @@ interface TokenAlert {
 }
 
 export class TokenManager {
-  private static STORAGE_KEY = "jarvis_token_usage"
+  private static STORAGE_KEY = "nexus_token_usage"
   private static DAILY_LIMIT = 1000 // tokens por día
   private static MONTHLY_BUDGET = 5.0 // $5 USD
   private static COST_PER_1K_TOKENS = 0.002 // $0.002 por 1K tokens (gpt-4o-mini)

@@ -29,6 +29,8 @@ interface MapViewerProps {
 
 export interface MapViewerRef {
   startNavigation: () => void
+  centerOnUser: () => void
+  stopNavigation: () => void
 }
 
 export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
@@ -298,29 +300,59 @@ export const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(
         {/* Controles Inferiores */}
         <div className="p-4 bg-gray-900/80 border-t border-blue-500/30">
           <div className="flex justify-center space-x-4">
-            <Button onClick={handleCenterOnUser} variant="outline" className="border-blue-400 text-blue-200">
-              <MapPin className="h-4 w-4 mr-2" /> Centrar en mi ubicación
-            </Button>
+            <Button
+  onClick={async () => {
+    handleCenterOnUser();
+    if (window.speechSynthesis) {
+      const utter = new window.SpeechSynthesisUtterance("Centrando el mapa en su ubicación actual, Señor.");
+      utter.lang = "es-ES";
+      window.speechSynthesis.speak(utter);
+    }
+  }}
+  variant="outline"
+  className="border-blue-400 text-blue-200"
+>
+  <MapPin className="h-4 w-4 mr-2" /> Centrar en mi ubicación
+</Button>
             {!isNavigating ? (
-              <Button onClick={() => setIsNavigating(true)} className="bg-blue-500 hover:bg-blue-600 text-black">
-                <Navigation className="h-4 w-4 mr-2" /> Iniciar Navegación
-              </Button>
-            ) : (
-              <Button
-                onClick={() => setIsNavigating(false)}
-                variant="outline"
-                className="border-red-500/50 text-red-400"
-              >
-                Detener Navegación
-              </Button>
-            )}
+  <Button
+    onClick={async () => {
+      setIsNavigating(true);
+      if (window.speechSynthesis) {
+        const utter = new window.SpeechSynthesisUtterance("Iniciando navegación, Señor.");
+        utter.lang = "es-ES";
+        window.speechSynthesis.speak(utter);
+      }
+    }}
+    className="bg-blue-500 hover:bg-blue-600 text-black"
+  >
+    <Navigation className="h-4 w-4 mr-2" /> Iniciar Navegación
+  </Button>
+) : (
+  <Button
+    onClick={async () => {
+      setIsNavigating(false);
+      if (window.speechSynthesis) {
+        const utter = new window.SpeechSynthesisUtterance("Navegación detenida, Señor.");
+        utter.lang = "es-ES";
+        window.speechSynthesis.speak(utter);
+      }
+    }}
+    variant="outline"
+    className="border-red-500/50 text-red-400"
+  >
+    Detener Navegación
+  </Button>
+)}
             <Button onClick={onClose} variant="outline" className="border-blue-500/50 text-blue-400">
               Cerrar Mapa
             </Button>
           </div>
-          <p className="text-center text-blue-300 text-xs mt-3">
-            🎤 <strong>Control por voz:</strong> "JARVIS quitar mapa" para cerrar | "JARVIS iniciar navegación" para comenzar
-          </p>
+          {!isNavigating && (
+            <p className="text-center text-blue-300 text-xs mt-3">
+              🎤 <strong>Control por voz:</strong> "NEXUS quitar mapa" para cerrar | "NEXUS iniciar navegación" para comenzar
+            </p>
+          )}
           <p className="text-center text-blue-200 text-xs mt-1">
             🗺️ <strong>Mapa:</strong> OpenStreetMap + Rutas reales por OpenRouteService
           </p>

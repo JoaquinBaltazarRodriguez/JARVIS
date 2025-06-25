@@ -68,7 +68,7 @@ export function useSmartSpeech() {
 
               // Detectar palabras de activación
               if (
-      transcript.includes("jarvis") ||
+      transcript.includes("nexus") ||
       transcript.includes("yarvis") ||
       transcript.includes("nexus")
     ) {

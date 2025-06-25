@@ -89,7 +89,7 @@ async function analyzeImage(file: File, prompt: string) {
 
     // 🧠 ANÁLISIS SIMULADO DE IMAGEN (en producción usarías OpenAI Vision)
     const analysis = {
-      description: "Imagen analizada por JARVIS",
+      description: "Imagen analizada por NEXUS",
       detectedObjects: ["objeto1", "objeto2", "objeto3"],
       colors: ["azul", "verde", "rojo"],
       composition: "La imagen muestra una composición equilibrada con elementos bien distribuidos.",

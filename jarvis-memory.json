@@ -1,6 +1,6 @@
 [
   {
-    "question": "Jarvis, háblame sobre Tesla.",
+    "question": "Nexus, háblame sobre Tesla.",
     "answer": "Tesla es una empresa estadounidense innovadora en el sector automotriz centrada en la fabricación y venta de vehículos eléctricos e híbridos full-electricidad desde 2008, con sede en Palo Alto, California. Fundada por el ingeniero serbio-americano Serbian inventor Elon Musk junto a Jorg Neumann entre otros, ha sido líder mundial debido al avance tecnológico y la visión de disruptiva innovación para un futuro sustentable energético automovilístico global.",
     "date": "2025-06-24T06:47:04.768Z",
     "verified": false
@@ -24,8 +24,8 @@
     "verified": false
   },
   {
-    "question": "¿Hello, jarvis, where are you?",
-    "answer": "\"Jarvis is an AI assistant residing on a computer and does not have a physical location.\"",
+    "question": "¿Hello, nexus, where are you?",
+    "answer": "\"Nexus is an NEXUS assistant residing on a computer and does not have a physical location.\"",
     "date": "2025-06-24T07:14:04.026Z",
     "verified": false
   }

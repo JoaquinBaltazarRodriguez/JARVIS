@@ -3,7 +3,7 @@
 export interface ConversationMessage {
   id: string
   text: string
-  type: "user" | "jarvis"
+  type: "user" | "nexus"
   timestamp: Date
   imageUrl?: string
   imagePrompt?: string
@@ -19,7 +19,7 @@ export interface Conversation {
 }
 
 export class ConversationsDB {
-  private static STORAGE_KEY = "jarvis_conversations"
+  private static STORAGE_KEY = "nexus_conversations"
 
   static getAll(): Conversation[] {
     if (typeof window === "undefined") return []
@@ -104,7 +104,7 @@ export class ConversationsDB {
   // 🧠 CONSTRUIR CONTEXTO PARA MCP
   private static buildContext(messages: ConversationMessage[]): string {
     const recentMessages = messages.slice(-10) // Últimos 10 mensajes
-    return recentMessages.map((msg) => `${msg.type === "user" ? "Usuario" : "JARVIS"}: ${msg.text}`).join("\n")
+    return recentMessages.map((msg) => `${msg.type === "user" ? "Usuario" : "NEXUS"}: ${msg.text}`).join("\n")
   }
 
   // 🧠 GENERAR TÍTULO AUTOMÁTICO BASADO EN CONTENIDO

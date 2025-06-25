@@ -4,7 +4,7 @@ import { useState } from 'react';
 interface ChatMessageProps {
   message: string;
   question: string;
-  from: 'user' | 'jarvis';
+  from: 'user' | 'nexus';
 }
 
 export default function ChatMessage({ message, question, from }: ChatMessageProps) {
@@ -21,16 +21,16 @@ export default function ChatMessage({ message, question, from }: ChatMessageProp
 
   return (
     <div style={{
-      background: from === 'jarvis' ? '#f0f4ff' : '#e2ffe2',
+      background: from === 'nexus' ? '#f0f4ff' : '#e2ffe2',
       margin: '12px 0',
       padding: 12,
       borderRadius: 8,
       maxWidth: 600,
-      alignSelf: from === 'jarvis' ? 'flex-start' : 'flex-end',
+      alignSelf: from === 'nexus' ? 'flex-start' : 'flex-end',
       position: 'relative',
     }}>
       <div>{message}</div>
-      {from === 'jarvis' && question && (
+      {from === 'nexus' && question && (
         <div style={{ marginTop: 8 }}>
           <button
             onClick={() => handleFeedback('verify')}

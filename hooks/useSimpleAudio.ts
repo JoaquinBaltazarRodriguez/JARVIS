@@ -44,7 +44,7 @@ export function useSimpleAudio() {
 
   const speak = (text: string) => {
     return new Promise<void>((resolve) => {
-      console.log("🗣️ JARVIS SPEAKING:", text)
+      console.log("🗣️ NEXUS SPEAKING:", text)
       setIsSpeaking(true)
 
       speechSynthesis.cancel()
@@ -53,13 +53,13 @@ export function useSimpleAudio() {
       setTimeout(() => {
         const utterance = new SpeechSynthesisUtterance(text)
         utterance.lang = "es-ES"
-        utterance.rate = 1.2 // 🚀 VELOCIDAD OPTIMIZADA PARA JARVIS
-        utterance.pitch = 0.4 // 🤖 MÁS GRAVE PARA EFECTO ROBÓTICO JARVIS
+        utterance.rate = 1.2 // 🚀 VELOCIDAD OPTIMIZADA PARA NEXUS
+        utterance.pitch = 0.4 // 🤖 MÁS GRAVE PARA EFECTO ROBÓTICO NEXUS
         utterance.volume = 0.95 // 🔊 VOLUMEN ALTO
 
-        // 🎤 BUSCAR VOZ MASCULINA Y GRAVE PARA JARVIS
+        // 🎤 BUSCAR VOZ MASCULINA Y GRAVE PARA NEXUS
         const voices = speechSynthesis.getVoices()
-        const jarvisVoice = voices.find(
+        const nexusVoice = voices.find(
           (voice) =>
             (voice.lang.includes("es") || voice.lang.includes("en")) &&
             (voice.name.toLowerCase().includes("male") ||
@@ -74,9 +74,9 @@ export function useSimpleAudio() {
               voice.name.toLowerCase().includes("enhanced")),
         )
 
-        if (jarvisVoice) {
-          utterance.voice = jarvisVoice
-          console.log("🤖 Using JARVIS-like voice:", jarvisVoice.name)
+        if (nexusVoice) {
+          utterance.voice = nexusVoice
+          console.log("🤖 Using NEXUS-like voice:", nexusVoice.name)
         } else {
           const maleVoice = voices.find((voice) => voice.name.toLowerCase().includes("male"))
           if (maleVoice) {
@@ -88,19 +88,19 @@ export function useSimpleAudio() {
         }
 
         utterance.onend = () => {
-          console.log("✅ JARVIS speech completed")
+          console.log("✅ NEXUS speech completed")
           setIsSpeaking(false)
           resolve()
         }
 
         utterance.onerror = (event) => {
-          console.error("❌ JARVIS speech error:", event.error)
+          console.error("❌ NEXUS speech error:", event.error)
           setIsSpeaking(false)
           resolve()
         }
 
         utterance.onstart = () => {
-          console.log("🤖 JARVIS voice activated")
+          console.log("🤖 NEXUS voice activated")
 
           // 🎛️ APLICAR EFECTO ROBÓTICO AVANZADO
           if (audioContext) {

@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
     let contextPrompt = '';
     if (isAmbiguousQuestion(message) && contextData && contextData.lastTopic && contextData.lastQ && contextData.lastA) {
       // Construye un pequeño historial para el modelo
-      contextPrompt = `Conversación previa:\nUsuario: ${contextData.lastQ}\nJarvis: ${contextData.lastA}\nUsuario: ${message}\n`;
+      contextPrompt = `Conversación previa:\nUsuario: ${contextData.lastQ}\nNexus: ${contextData.lastA}\nUsuario: ${message}\n`;
       processedMessage = `${message} (Se refiere a: ${contextData.lastTopic})`;
       console.log("[CTX] Pregunta ambigua detectada. Se reconstruye como:", processedMessage);
     }

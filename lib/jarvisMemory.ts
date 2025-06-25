@@ -17,9 +17,9 @@ interface UserProfile {
   interactionPatterns: Record<string, number>
 }
 
-export class JarvisMemory {
-  private static MEMORY_KEY = "jarvis_memory"
-  private static PROFILE_KEY = "jarvis_user_profile"
+export class NexusMemory {
+  private static MEMORY_KEY = "nexus_memory"
+  private static PROFILE_KEY = "nexus_user_profile"
   private static MAX_MEMORIES = 1000
 
   // 🧠 GUARDAR MEMORIA

@@ -136,7 +136,7 @@ export function ContactsManager({ isOpen, onClose }: ContactsManagerProps) {
 
         <div className="mt-6 p-3 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
           <p className="text-cyan-300 text-sm">
-            <strong>💡 Tip:</strong> Di "JARVIS llama a [nombre]" para llamar a cualquier contacto guardado.
+            <strong>💡 Tip:</strong> Di "NEXUS llama a [nombre]" para llamar a cualquier contacto guardado.
           </p>
         </div>
       </Card>
