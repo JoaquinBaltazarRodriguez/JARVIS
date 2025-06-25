@@ -39,6 +39,8 @@ import { NexusMemory } from "@/lib/jarvisMemory"
 import Starfield from "@/components/Starfield"
 import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation"
 import TypewriterText from "@/components/TypewriterText"
+import { SettingsModal } from "@/components/SettingsModal"
+import { Settings } from "lucide-react"
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 const DEFAULT_CITY = "Posadas, Misiones, AR";
@@ -120,6 +122,8 @@ type Message = {
 }
 
 export default function AdvancedJarvis() {
+  // Estado para abrir/cerrar el modal de settings
+  const [showSettings, setShowSettings] = useState(false);
   // --- HANDLER DE PRONÓSTICO ---
   const handleWeatherCommand = async (text: string) => {
     let day: "today" | "tomorrow" = "today";
@@ -1536,17 +1540,25 @@ export default function AdvancedJarvis() {
           >
             <MessageCircle className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => window.location.reload()} className="text-cyan-400">
-            <Power className="w-6 h-6" />
-          </Button>
-          {/* Botón de Playlist */}
+          {/* Botón Playlist */}
           <Button
             variant="ghost"
+            size="icon"
             className="rounded-full p-2 hover:bg-cyan-900"
             title="Ver playlists"
             onClick={() => setShowPlaylistSelector(true)}
           >
             <Music className="w-6 h-6 text-cyan-400" />
+          </Button>
+          {/* Botón Settings */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full p-2 hover:bg-cyan-900 ml-2"
+            onClick={() => setShowSettings(true)}
+            title="Configuraciones"
+          >
+            <Settings className="w-6 h-6 text-cyan-400 animate-spin-slow" />
           </Button>
         </div>
       </div>
@@ -1939,6 +1951,12 @@ export default function AdvancedJarvis() {
         currentConversationId={currentConversation?.id}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+      />
+
+      {/* ⚙️ SETTINGS MODAL */}
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
       />
     </div>
   )
