@@ -24,7 +24,9 @@ import { ContactsManager } from "@/components/ContactsManager"
 import { LocationsManager } from "@/components/LocationsManager"
 import YouTubePlayer, { YouTubePlayerRef } from "@/components/YoutubePlayer"
 import { searchYouTube } from "@/lib/youtubeSearch"
-import { MapViewer, type MapViewerRef } from "@/components/MapViewer"
+import dynamic from "next/dynamic"
+const MapViewer = dynamic(() => import("@/components/MapViewer").then(mod => mod.MapViewer), { ssr: false })
+import type { MapViewerRef } from "@/components/MapViewer"
 import { ContactsDB, LocationsDB, CommandDetector, TimeUtils } from "@/lib/database"
 import { ConversationsManager } from "@/components/ConversationsManager"
 import { ConversationsDB, type Conversation, type ConversationMessage } from "@/lib/conversations"
@@ -1719,7 +1721,6 @@ export default function AdvancedJarvis() {
   </div>
 )}
 <MapViewer
-  ref={mapViewerRef}
   isActive={isMapActive}
   destination={currentDestination}
   destinationAddress={currentDestinationAddress}
