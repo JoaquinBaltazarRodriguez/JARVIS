@@ -15,6 +15,8 @@ import {
   Brain,
   Mail,
   MessageCircle,
+  RefreshCw,
+  Settings
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -40,7 +42,6 @@ import Starfield from "@/components/Starfield"
 import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation"
 import TypewriterText from "@/components/TypewriterText"
 import { SettingsModal } from "@/components/SettingsModal"
-import { Settings } from "lucide-react"
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 const DEFAULT_CITY = "Posadas, Misiones, AR";
@@ -122,6 +123,23 @@ type Message = {
 }
 
 export default function AdvancedJarvis() {
+  // --- Estados principales de la app ---
+  const [appState, setAppState] = useState<AppState>("sleeping")
+  const [messages, setMessages] = useState<Message[]>([])
+  const [currentText, setCurrentText] = useState("")
+  const [currentImage, setCurrentImage] = useState<{ url: string; prompt: string } | null>(null)
+  const [hasInitialized, setHasInitialized] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [startupAnim, setStartupAnim] = useState(false)
+  // --- Estados para input y sugerencias de comandos ---
+  const startupAudioRef = useRef<HTMLAudioElement | null>(null)
+  const [userInput, setUserInput] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  // Sugerencias según modo actual (no filtrar por texto, solo mostrar todas)
+  const getCommandMode = () => appState === "functional_mode" ? "functional" : "normal";
+  const allSuggestions = LocalCommands.getAvailableCommands(getCommandMode());
   // Estado para abrir/cerrar el modal de settings
   const [showSettings, setShowSettings] = useState(false);
   // --- HANDLER DE PRONÓSTICO ---
@@ -141,16 +159,6 @@ export default function AdvancedJarvis() {
     await speak(msg);
     setCurrentText("");
   }
-
-  const [appState, setAppState] = useState<AppState>("sleeping")
-  const [messages, setMessages] = useState<Message[]>([])
-  const [currentText, setCurrentText] = useState("")
-  const [currentImage, setCurrentImage] = useState<{ url: string; prompt: string } | null>(null)
-  const [hasInitialized, setHasInitialized] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [mounted, setMounted] = useState(false)
-  const [startupAnim, setStartupAnim] = useState(false)
-  const startupAudioRef = useRef<HTMLAudioElement | null>(null)
 
   // ESTADOS PARA FUNCIONALIDADES
   const [pendingCall, setPendingCall] = useState<{ name: string; phone: string } | null>(null)
@@ -247,8 +255,27 @@ export default function AdvancedJarvis() {
 
   const playlists = [playlist80s, playlistArcane, playlistEstudio]; // 'Musica de estudio' actualizado
 
-  // Estado para mostrar/ocultar el selector de playlists
+  // Estados para mostrar/ocultar el selector de playlists
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
+
+  // --- ACCESIBILIDAD GLOBAL ---
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(true);
+  const [focusedElement, setFocusedElement] = useState<string | null>(null);
+
+  // Handler accesible universal
+  function handleAccessibleAction(key: string, label: string, action: () => void) {
+    if (screenReaderEnabled) {
+      if (focusedElement === key) {
+        setFocusedElement(null);
+        action();
+      } else {
+        setFocusedElement(key);
+        if (typeof speak === 'function') speak(label);
+      }
+    } else {
+      action();
+    }
+  }
 
   // 🗺️ ESTADOS PARA MAPA
   const [isMapActive, setIsMapActive] = useState(false)
@@ -878,6 +905,34 @@ export default function AdvancedJarvis() {
   }
 
   const handleUserMessage = async (message: string) => {
+    // --- COMANDOS DE VOZ PARA LECTOR DE PANTALLA ---
+    // Mejorar reconocimiento de comandos de voz para lector de pantalla
+    const normalized = message.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    // Variantes aceptadas para activar/desactivar
+    const activarLector = [
+      "activar lector de pantalla", "activa el lector de pantalla", "activa lector de pantalla", "activar el lector de pantalla",
+      "activar talkback", "activa talkback", "enciende el lector de pantalla", "enciende lector de pantalla", "prende el lector de pantalla", "prende lector de pantalla"
+    ];
+    const desactivarLector = [
+      "desactivar lector de pantalla", "desactiva el lector de pantalla", "desactiva lector de pantalla", "desactivar el lector de pantalla",
+      "desactivar talkback", "desactiva talkback", "apaga el lector de pantalla", "apaga lector de pantalla"
+    ];
+    // Reconocimiento flexible: permite frases con palabras adicionales
+    if (activarLector.some(variant => normalized.includes(variant))) {
+      setScreenReaderEnabled(true);
+      setCurrentText("Lector de pantalla activado, Señor.");
+      if (typeof speak === 'function') await speak("Lector de pantalla activado, Señor.");
+      setCurrentText("");
+      return;
+    }
+    if (desactivarLector.some(variant => normalized.includes(variant))) {
+      setScreenReaderEnabled(false);
+      setCurrentText("Lector de pantalla desactivado, Señor.");
+      if (typeof speak === 'function') await speak("Lector de pantalla desactivado, Señor.");
+      setCurrentText("");
+      setFocusedElement(null);
+      return;
+    }
   // --- DETECTOR DE PRONÓSTICO ---
   if (message.toLowerCase().includes("pronóstico de hoy") || message.toLowerCase().includes("pronóstico de mañana")) {
     await handleWeatherCommand(message);
@@ -1513,30 +1568,52 @@ export default function AdvancedJarvis() {
         </div>
 
         <div className="flex gap-2">
+          {/* Botón Reiniciar NEXUS */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowContactsManager(true)}
-            className="text-cyan-400"
+            onClick={() => handleAccessibleAction('reset', 'Reiniciar NEXUS', () => window.location.reload())}
+            className={`text-cyan-400 ${focusedElement === 'reset' && screenReaderEnabled ? 'border-2 border-green-400 bg-green-900/30' : ''}`}
+            title="Reiniciar NEXUS"
+            aria-label="Reiniciar NEXUS"
+            tabIndex={0}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleAccessibleAction('reset', 'Reiniciar NEXUS', () => window.location.reload())}
+          >
+            <RefreshCw className="h-5 w-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleAccessibleAction('contacts', 'Gestor de contactos', () => setShowContactsManager(true))}
+            className={`text-cyan-400 ${focusedElement === 'contacts' && screenReaderEnabled ? 'border-2 border-green-400 bg-green-900/30' : ''}`}
             title="Gestionar Contactos"
+            aria-label="Gestionar Contactos"
+            tabIndex={0}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleAccessibleAction('contacts', 'Gestor de contactos', () => setShowContactsManager(true))}
           >
             <Phone className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowLocationsManager(true)}
-            className="text-cyan-400"
+            onClick={() => handleAccessibleAction('locations', 'Gestor de ubicaciones', () => setShowLocationsManager(true))}
+            className={`text-cyan-400 ${focusedElement === 'locations' && screenReaderEnabled ? 'border-2 border-green-400 bg-green-900/30' : ''}`}
             title="Gestionar Ubicaciones"
+            aria-label="Gestionar Ubicaciones"
+            tabIndex={0}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleAccessibleAction('locations', 'Gestor de ubicaciones', () => setShowLocationsManager(true))}
           >
             <MapPin className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setShowConversationsManager(true)}
-            className="text-cyan-400"
+            onClick={() => handleAccessibleAction('conversations', 'Historial de conversaciones', () => setShowConversationsManager(true))}
+            className={`text-cyan-400 ${focusedElement === 'conversations' && screenReaderEnabled ? 'border-2 border-green-400 bg-green-900/30' : ''}`}
             title="Historial de Conversaciones"
+            aria-label="Historial de Conversaciones"
+            tabIndex={0}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleAccessibleAction('conversations', 'Historial de conversaciones', () => setShowConversationsManager(true))}
           >
             <MessageCircle className="h-5 w-5" />
           </Button>
@@ -1544,9 +1621,12 @@ export default function AdvancedJarvis() {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full p-2 hover:bg-cyan-900"
+            onClick={() => handleAccessibleAction('playlists', 'Panel de música', () => setShowPlaylistSelector(true))}
+            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === 'playlists' && screenReaderEnabled ? 'border-2 border-green-400 bg-green-900/30' : ''}`}
             title="Ver playlists"
-            onClick={() => setShowPlaylistSelector(true)}
+            aria-label="Ver playlists"
+            tabIndex={0}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleAccessibleAction('playlists', 'Panel de música', () => setShowPlaylistSelector(true))}
           >
             <Music className="w-6 h-6 text-cyan-400" />
           </Button>
@@ -1554,9 +1634,12 @@ export default function AdvancedJarvis() {
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full p-2 hover:bg-cyan-900 ml-2"
-            onClick={() => setShowSettings(true)}
+            onClick={() => handleAccessibleAction('settings', 'Configuraciones', () => setShowSettings(true))}
+            className={`rounded-full p-2 hover:bg-cyan-900 ml-2 ${focusedElement === 'settings' && screenReaderEnabled ? 'border-2 border-green-400 bg-green-900/30' : ''}`}
             title="Configuraciones"
+            aria-label="Configuraciones"
+            tabIndex={0}
+            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && handleAccessibleAction('settings', 'Configuraciones', () => setShowSettings(true))}
           >
             <Settings className="w-6 h-6 text-cyan-400 animate-spin-slow" />
           </Button>
@@ -1804,19 +1887,69 @@ export default function AdvancedJarvis() {
             <div className="border-t border-cyan-500/20 pt-4">
               <div className="flex items-center space-x-2">
                 <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    placeholder="Escribe a NEXUS..."
-                    className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && e.currentTarget.value.trim()) {
-                        const message = e.currentTarget.value.trim()
-                        e.currentTarget.value = ""
-                        handleUserMessage(message)
-                      }
-                    }}
-                    disabled={isProcessing || isSpeaking || appState === "sleeping" || appState === "waiting_password"}
-                  />
+                  <div className="relative">
+  <input
+    type="text"
+    placeholder="Escribe o selecciona un comando..."
+    className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm"
+    value={userInput}
+    onFocus={() => setShowSuggestions(true)}
+    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+    onChange={e => setUserInput(e.target.value)}
+    onKeyDown={e => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => Math.min(prev + 1, allSuggestions.length - 1));
+        setShowSuggestions(true);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev => Math.max(prev - 1, 0));
+        setShowSuggestions(true);
+      } else if (e.key === "Enter") {
+        if (showSuggestions && selectedSuggestionIndex >= 0 && allSuggestions[selectedSuggestionIndex]) {
+          const cmd = allSuggestions[selectedSuggestionIndex];
+          setUserInput("");
+          setShowSuggestions(false);
+          setSelectedSuggestionIndex(-1);
+          handleUserMessage(cmd);
+        } else if (userInput.trim()) {
+          handleUserMessage(userInput.trim());
+          setUserInput("");
+          setShowSuggestions(false);
+          setSelectedSuggestionIndex(-1);
+        }
+      } else if (e.key === "Escape") {
+        setShowSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+      }
+    }}
+    disabled={isProcessing || isSpeaking || appState === "sleeping" || appState === "waiting_password"}
+    autoComplete="off"
+  />
+  {/* Sugerencias de comandos (todas las funciones) */}
+  {showSuggestions && allSuggestions.length > 0 && (
+    <ul
+      className="absolute left-0 right-0 bg-gray-900 border border-cyan-700 mt-1 rounded shadow-lg z-50 max-h-48 overflow-y-auto"
+      onMouseDown={e => e.preventDefault()}
+    >
+      {allSuggestions.map((suggestion, idx) => (
+        <li
+          key={suggestion}
+          className={`px-4 py-2 cursor-pointer ${idx === selectedSuggestionIndex ? 'bg-cyan-800 text-white' : 'text-cyan-200 hover:bg-cyan-900'}`}
+          onMouseDown={() => {
+            setUserInput("");
+            setShowSuggestions(false);
+            setSelectedSuggestionIndex(-1);
+            handleUserMessage(suggestion);
+          }}
+          onMouseEnter={() => setSelectedSuggestionIndex(idx)}
+        >
+          {suggestion}
+        </li>
+      ))}
+    </ul>
+  )}
+</div>
                 </div>
                 <div className="text-cyan-400 text-xs font-mono opacity-70">{">"} CHAT_INPUT</div>
               </div>

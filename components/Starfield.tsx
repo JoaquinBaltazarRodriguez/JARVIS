@@ -13,8 +13,8 @@ export interface StarfieldProps {
 }
 
 const STAR_COUNT = 300;
-const SPEED_IDLE = 0.7;
-const SPEED_SPEAKING = 3.5;
+const SPEED_IDLE = 0.4;
+const SPEED_SPEAKING = 1;
 // Eliminado SPEED_STARTUP y VIBRATE_STARTUP
 const VIBRATE_INTENSITY = 2.5; // vibración leve sólo cuando habla
 
