@@ -74,6 +74,10 @@ export function useSimpleAudio() {
               voice.name.toLowerCase().includes("enhanced")),
         )
 
+        utterance.rate = 1.4
+        utterance.pitch = 0.1
+        utterance.volume = 10
+
         if (nexusVoice) {
           utterance.voice = nexusVoice
           console.log("🤖 Using NEXUS-like voice:", nexusVoice.name)

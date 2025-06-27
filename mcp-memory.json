@@ -118,5 +118,17 @@
     "context": "22 de abril. | Bienvenido, Señor. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy? | Dime el pronóstico | Señor, Para consultas libres, active el modo inteligente. En modo normal puedo ejecutar comandos como llamadas, navegación y música. | Nexus activa el modo inteligente | Señor, para consultas libres debe activar el modo inteligente. En modo normal solo ejecuto comandos básicos. | Nexus activa el modo funcional | Señor, para consultas libres debe activar el modo inteligente. En modo normal solo ejecuto comandos básicos. | Nexus activa el modo funcional | Señor, para consultas libres debe activar el modo inteligente. En modo normal solo ejecuto comandos básicos. | Nexus activa el modo normal | Acción cancelada, Señor. | Nexus reproduce una playlist | Abriendo reproductor de música, Señor. | Estación. | Señor, para consultas libres debe activar el modo inteligente. En modo normal solo ejecuto comandos básicos. | Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle?",
     "answer": "Lo siento, Señor.  No pude comunicarme con mi modelo local.",
     "date": "2025-06-27T00:04:57.500Z"
+  },
+  {
+    "prompt": "Háblame sobre las inteligencias artificiales.",
+    "context": "22 de abril. | Bienvenido, Señor. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy? | Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle? | He subido 1 archivo(s) | He subido 1 archivo(s)",
+    "answer": "La Inteligencia Artificial (IA) es un campo del conocimiento científico y tecnológico que tiene como objetivo la creación de sistemas capaces de realizar tareas humanas, especialmente aquellas relacionadas con el razonamiento lógico, la percepción visual, el reconocimiento de voz y procesamiento de lenguaje natural.  La IA se ha convertido en un área clave para diversas industrias como la salud, finanzas e industria automotriz. \n\nLos sistemas inteligentes utilizan algoritmos complejos para aprender y mejorar su rendimiento a medida que reciben más datos.",
+    "date": "2025-06-27T02:37:04.381Z"
+  },
+  {
+    "prompt": "O hola.",
+    "context": "instituto de peña. | Contraseña incorrecta. Por favor, proporcione la contraseña de reconocimiento. | 22 de abril. | Bienvenido, Señor. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy? | Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle? | Eres capaz de analisar este archivo pdf? | He recibido 1 archivo(s) para analizar. Contenido: Actividad sobre ciberocupación.pdf",
+    "answer": "Lo siento, Señor.  No pude comunicarme con mi modelo local.",
+    "date": "2025-06-27T02:45:00.731Z"
   }
 ]

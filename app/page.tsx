@@ -114,11 +114,20 @@ type AppState =
   | "functional_mode"
   | "image_download_confirmation"
 
+type FileType = {
+  name: string
+  url: string
+  type: 'image' | 'document' | 'audio' | 'video' | 'other' | 'text'
+  size: number
+  file?: File
+}
+
 type Message = {
   text: string
   type: "user" | "nexus"
   imageUrl?: string
   imagePrompt?: string
+  files?: FileType[]
   source?: "memory" | "ollama" | "wikipedia" | "none"
 }
 
@@ -135,6 +144,149 @@ export default function AdvancedJarvis() {
   // --- Estados para input y sugerencias de comandos ---
   const startupAudioRef = useRef<HTMLAudioElement | null>(null)
   const [userInput, setUserInput] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<FileType[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Manejar la selección de archivos
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    
+    // Procesar cada archivo
+    const filePromises = Array.from(files).map(file => {
+      return new Promise<FileType>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const fileType = getFileType(file.type);
+          resolve({
+            name: file.name,
+            url: URL.createObjectURL(file),
+            type: fileType,
+            size: file.size,
+            file: file // Guardamos la referencia al archivo original
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    // Cuando todos los archivos estén procesados
+    Promise.all(filePromises).then((filesData) => {
+      setSelectedFiles(prev => [...prev, ...filesData]);
+      setIsUploading(false);
+      
+      // Resetear el input de archivo
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    });
+  };
+  
+  // Eliminar un archivo seleccionado
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  // Manejar el envío del mensaje con archivos
+  const handleSendMessage = async () => {
+    if ((!userInput || userInput.trim() === '') && selectedFiles.length === 0) return;
+    
+    const messageText = userInput.trim() || `He subido ${selectedFiles.length} archivo(s)`;
+    
+    // Crear el mensaje con los archivos
+    const newMessage: Message = {
+      text: messageText,
+      type: "user",
+      files: [...selectedFiles]
+    };
+    
+    // Agregar el mensaje al chat
+    setMessages(prev => [...prev, newMessage]);
+    saveMessageToConversation(messageText, "user");
+    
+    // Si hay archivos, prepararlos para enviar a la API
+    if (selectedFiles.length > 0) {
+      try {
+        setIsProcessing(true);
+        
+        // Aquí iría la lógica para enviar los archivos a la API de Ollama
+        // Por ahora, simulamos una respuesta de NEXUS
+        const responseText = `He recibido ${selectedFiles.length} archivo(s) para analizar. ` +
+                           `Contenido: ${selectedFiles.map(f => f.name).join(', ')}`;
+        
+        // Agregar la respuesta de NEXUS
+        setMessages(prev => [...prev, { 
+          text: responseText, 
+          type: "nexus" 
+        }]);
+        saveMessageToConversation(responseText, "nexus");
+        
+        // Leer el contenido de los archivos y enviarlo a la API
+        for (const file of selectedFiles) {
+          if (file.type === 'document' || file.type === 'text') {
+            // Para archivos de texto, leer su contenido
+            const text = await readFileAsText(file.file);
+            console.log('Contenido del archivo:', text);
+            // Aquí enviarías el contenido a la API de Ollama
+          } else if (file.type === 'image') {
+            // Para imágenes, podrías usar la API de visión de Ollama si es compatible
+            console.log('Procesando imagen:', file.name);
+            // Aquí enviarías la imagen a la API de visión de Ollama
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error al procesar archivos:', error);
+        const errorMsg = 'Lo siento, hubo un error al procesar los archivos.';
+        setMessages(prev => [...prev, { text: errorMsg, type: "nexus" }]);
+        saveMessageToConversation(errorMsg, "nexus");
+      } finally {
+        setIsProcessing(false);
+        setSelectedFiles([]);
+      }
+    } else {
+      // Si no hay archivos, enviar el mensaje normal
+      handleUserMessage(messageText);
+    }
+    
+    // Limpiar el input
+    setUserInput('');
+  };
+  
+  // Función auxiliar para leer archivos de texto
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string || '');
+      reader.onerror = (e) => reject(reader.error);
+      reader.readAsText(file);
+    });
+  };
+
+  // Función para activar el input de archivo
+  const triggerFileInput = () => {
+    // Si ya hay archivos seleccionados, limpiar la selección
+    if (selectedFiles.length > 0) {
+      setSelectedFiles([]);
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  // Obtener el tipo de archivo basado en el MIME type
+  const getFileType = (mimeType: string): 'image' | 'document' | 'audio' | 'video' | 'other' => {
+    if (!mimeType) return 'other';
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
+    if (['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'].includes(mimeType)) {
+      return 'document';
+    }
+    return 'other';
+  };
 
   // Sugerencias según modo actual (no filtrar por texto, solo mostrar todas)
   const getCommandMode = () => appState === "functional_mode" ? "functional" : "normal";
@@ -1827,7 +1979,70 @@ export default function AdvancedJarvis() {
                         {msg.type === "user" ? "> SEÑOR:" : "> NEXUS:"}
                       </p>
                       <p>{msg.text}</p>
-                      {msg.imageUrl && (
+                      
+                      {/* Mostrar archivos adjuntos */}
+                      {msg.files && msg.files.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {msg.files.map((file, fileIdx) => (
+                            <div key={fileIdx} className="flex items-center p-2 bg-gray-800/50 rounded-lg border border-cyan-500/20">
+                              {/* Icono según el tipo de archivo */}
+                              <div className="mr-2 text-cyan-400">
+                                {file.type === 'image' && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                                {file.type === 'document' && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                )}
+                                {file.type === 'audio' && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                  </svg>
+                                )}
+                                {file.type === 'video' && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                                {file.type === 'other' && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                )}
+                              </div>
+                              
+                              {/* Información del archivo */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-cyan-100 truncate" title={file.name}>
+                                  {file.name}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  {(file.size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+                              
+                              {/* Botón de vista previa/descarga */}
+                              <a 
+                                href={file.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="ml-2 p-1 text-cyan-400 hover:text-cyan-300"
+                                title="Abrir archivo"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Mostrar imagen del mensaje (para compatibilidad con mensajes antiguos) */}
+                      {msg.imageUrl && !msg.files?.some(f => f.type === 'image') && (
                         <div className="mt-2 rounded overflow-hidden border border-cyan-500/30">
                           <img
                             src={msg.imageUrl || "/placeholder.svg"}
@@ -1886,38 +2101,90 @@ export default function AdvancedJarvis() {
             <div className="border-t border-cyan-500/20 pt-4">
               <div className="flex items-center space-x-2">
                 <div className="flex-1 relative">
-                  <div className="relative">
-  <input
-    type="text"
-    placeholder="Escribe o selecciona un comando..."
-    className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm"
-    value={userInput}
-
-    onChange={e => setUserInput(e.target.value)}
-    onKeyDown={e => {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-
-      } else if (e.key === "Enter") {
-        if (userInput.trim()) {
-          handleUserMessage(userInput.trim());
-          setUserInput("");
-        }
-      } else if (e.key === "Escape") {
-
-      }
-    }}
-    disabled={isProcessing || isSpeaking || appState === "sleeping" || appState === "waiting_password"}
-    autoComplete="off"
-  />
-  {/* Sugerencias de comandos (todas las funciones) */}
-
-</div>
+                  <div className="relative flex items-center">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        placeholder={selectedFiles.length > 0 ? "Escribe un mensaje sobre los archivos..." : "Escribe un mensaje..."}
+                        className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm pr-10"
+                        value={userInput}
+                        onChange={e => setUserInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            handleSendMessage();
+                          }
+                        }}
+                        disabled={isProcessing || isSpeaking || isUploading || appState === "sleeping" || appState === "waiting_password"}
+                        autoComplete="off"
+                      />
+                      
+                      {/* Mostrar miniaturas de archivos seleccionados */}
+                      {selectedFiles.length > 0 && (
+                        <div className="absolute -top-12 left-0 right-0 flex space-x-2 overflow-x-auto pb-2">
+                          {selectedFiles.map((file, idx) => (
+                            <div key={idx} className="flex-shrink-0 relative group">
+                              <div className="w-10 h-10 bg-gray-700/80 rounded flex items-center justify-center">
+                                {file.type === 'image' ? (
+                                  <img src={file.url} alt={file.name} className="w-full h-full object-cover rounded" />
+                                ) : (
+                                  <span className="text-xs text-cyan-300">{file.name.split('.').pop()?.toUpperCase()}</span>
+                                )}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeSelectedFile(idx);
+                                }}
+                                className="absolute -top-2 -right-2 bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Eliminar archivo"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Botón de adjuntar archivo */}
+                    <button
+                      type="button"
+                      onClick={triggerFileInput}
+                      disabled={isUploading}
+                      className={`absolute right-2 p-1 ${selectedFiles.length > 0 ? 'text-red-400 hover:text-red-300' : 'text-cyan-400 hover:text-cyan-300'} disabled:opacity-50`}
+                      title={selectedFiles.length > 0 ? `Quitar ${selectedFiles.length} archivo(s)` : "Adjuntar archivo"}
+                    >
+                      {selectedFiles.length > 0 ? (
+                        <span className="text-xs font-bold">{selectedFiles.length}</span>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                      )}
+                    </button>
+                    
+                    {/* Input de archivo oculto */}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                      multiple
+                      accept="image/*,.pdf,.doc,.docx,.txt,.mp3,.mp4"
+                    />
+                  </div>
+                  
+                  {isUploading && (
+                    <div className="mt-2 text-xs text-cyan-400 flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Subiendo archivos...
+                    </div>
+                  )}
                 </div>
-                <div className="text-cyan-400 text-xs font-mono opacity-70">{">"} CHAT_INPUT</div>
+                <div className="text-cyan-400 text-xs font-mono opacity-70">{">"} CHAT</div>
               </div>
               <p className="text-gray-500 text-xs mt-2 text-center">
                 💬 Escribe y presiona Enter para chatear por texto (NEXUS responderá por voz)

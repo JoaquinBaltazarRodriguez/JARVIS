@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { askOllama } from "@/utils/ollama"
 
 export async function POST(request: NextRequest) {
   try {
@@ -141,20 +142,60 @@ async function analyzeTextFile(file: File, prompt: string) {
 // 📋 ANALIZAR PDF
 async function analyzePDF(file: File, prompt: string) {
   try {
-    // En producción usarías una librería como pdf-parse
-    const analysis = {
-      summary: "Archivo PDF detectado",
-      pages: "Estimado: múltiples páginas",
-      size: `${Math.round(file.size / 1024)} KB`,
-      aiResponse: prompt
-        ? `He recibido tu PDF y tu solicitud "${prompt}". Aunque no puedo leer el contenido completo en este momento, puedo ayudarte con análisis general del documento.`
-        : "PDF recibido. Para análisis completo, especifica qué información necesitas extraer.",
+    // Extraer texto del PDF usando pdf-parse
+    const pdf = await import("pdf-parse")
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const data = await pdf.default(buffer)
+    
+    // Si hay un prompt específico, usarlo para analizar con el modelo MCP
+    if (prompt) {
+      try {
+        // Enviar el texto completo al modelo MCP para análisis
+        const response = await askOllama(
+          `Analiza el siguiente documento PDF y responde a la siguiente solicitud:\n\n` +
+          `Solicitud: ${prompt}\n\n` +
+          `Contenido del documento (extracto):\n${data.text.substring(0, 15000)}`,
+          'llama3'  // Usar el modelo configurado en Ollama
+        )
+        
+        return {
+          content: data.text.substring(0, 3000) + (data.text.length > 3000 ? "..." : ""),
+          pageCount: data.numpages,
+          metadata: data.info,
+          summary: `Análisis del documento usando MCP: ${response.response.substring(0, 200)}...`,
+          aiResponse: response.response,
+          processed: true
+        }
+      } catch (error) {
+        console.error("Error al analizar con MCP:", error)
+        // En caso de error, devolver el texto sin análisis
+        return {
+          content: data.text.substring(0, 5000) + (data.text.length > 5000 ? "..." : ""),
+          pageCount: data.numpages,
+          metadata: data.info,
+          summary: `Documento PDF con ${data.numpages} páginas. No se pudo analizar con MCP.`,
+          aiResponse: "No pude analizar el documento con el modelo MCP. Aquí está el contenido sin procesar.",
+          error: true
+        }
+      }
+    } else {
+      // Si no hay prompt, devolver el texto sin procesar
+      return {
+        content: data.text.substring(0, 5000) + (data.text.length > 5000 ? "..." : ""),
+        pageCount: data.numpages,
+        metadata: data.info,
+        text: data.text,
+        summary: `Documento PDF con ${data.numpages} páginas.`,
+        aiResponse: "Documento PDF procesado exitosamente. ¿Hay algo específico que te gustaría saber sobre este documento?",
+      }
     }
-
-    return analysis
   } catch (error) {
     console.error("❌ PDF analysis error:", error)
-    return { error: "Error analizando PDF" }
+    return { 
+      error: "Error procesando el archivo PDF",
+      details: error instanceof Error ? error.message : String(error)
+    }
   }
 }
 
