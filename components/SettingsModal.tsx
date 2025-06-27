@@ -16,6 +16,8 @@ const COMMANDS = [
       { cmd: "Nexus activa el modo inteligente", desc: "Cambia al modo inteligente." },
       { cmd: "Nexus activa el modo funcional", desc: "Cambia al modo funcional." },
       { cmd: "Nexus activa el modo normal", desc: "Vuelve al modo normal." },
+      { cmd: "Nexus activa el lector de pantalla", desc: "Activa el lector para usuarios con discapacidad visual." },
+      { cmd: "Nexus apaga el lector de pantalla", desc: "Desactiva el lector para volver a modo visual normal." },
     ],
   },
   {

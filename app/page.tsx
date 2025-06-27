@@ -135,11 +135,10 @@ export default function AdvancedJarvis() {
   // --- Estados para input y sugerencias de comandos ---
   const startupAudioRef = useRef<HTMLAudioElement | null>(null)
   const [userInput, setUserInput] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+
   // Sugerencias según modo actual (no filtrar por texto, solo mostrar todas)
   const getCommandMode = () => appState === "functional_mode" ? "functional" : "normal";
-  const allSuggestions = LocalCommands.getAvailableCommands(getCommandMode());
+
   // Estado para abrir/cerrar el modal de settings
   const [showSettings, setShowSettings] = useState(false);
   // --- HANDLER DE PRONÓSTICO ---
@@ -1893,62 +1892,29 @@ export default function AdvancedJarvis() {
     placeholder="Escribe o selecciona un comando..."
     className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm"
     value={userInput}
-    onFocus={() => setShowSuggestions(true)}
-    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+
     onChange={e => setUserInput(e.target.value)}
     onKeyDown={e => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedSuggestionIndex(prev => Math.min(prev + 1, allSuggestions.length - 1));
-        setShowSuggestions(true);
+
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setSelectedSuggestionIndex(prev => Math.max(prev - 1, 0));
-        setShowSuggestions(true);
+
       } else if (e.key === "Enter") {
-        if (showSuggestions && selectedSuggestionIndex >= 0 && allSuggestions[selectedSuggestionIndex]) {
-          const cmd = allSuggestions[selectedSuggestionIndex];
-          setUserInput("");
-          setShowSuggestions(false);
-          setSelectedSuggestionIndex(-1);
-          handleUserMessage(cmd);
-        } else if (userInput.trim()) {
+        if (userInput.trim()) {
           handleUserMessage(userInput.trim());
           setUserInput("");
-          setShowSuggestions(false);
-          setSelectedSuggestionIndex(-1);
         }
       } else if (e.key === "Escape") {
-        setShowSuggestions(false);
-        setSelectedSuggestionIndex(-1);
+
       }
     }}
     disabled={isProcessing || isSpeaking || appState === "sleeping" || appState === "waiting_password"}
     autoComplete="off"
   />
   {/* Sugerencias de comandos (todas las funciones) */}
-  {showSuggestions && allSuggestions.length > 0 && (
-    <ul
-      className="absolute left-0 right-0 bg-gray-900 border border-cyan-700 mt-1 rounded shadow-lg z-50 max-h-48 overflow-y-auto"
-      onMouseDown={e => e.preventDefault()}
-    >
-      {allSuggestions.map((suggestion, idx) => (
-        <li
-          key={suggestion}
-          className={`px-4 py-2 cursor-pointer ${idx === selectedSuggestionIndex ? 'bg-cyan-800 text-white' : 'text-cyan-200 hover:bg-cyan-900'}`}
-          onMouseDown={() => {
-            setUserInput("");
-            setShowSuggestions(false);
-            setSelectedSuggestionIndex(-1);
-            handleUserMessage(suggestion);
-          }}
-          onMouseEnter={() => setSelectedSuggestionIndex(idx)}
-        >
-          {suggestion}
-        </li>
-      ))}
-    </ul>
-  )}
+
 </div>
                 </div>
                 <div className="text-cyan-400 text-xs font-mono opacity-70">{">"} CHAT_INPUT</div>

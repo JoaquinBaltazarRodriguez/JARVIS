@@ -143,6 +143,8 @@ export class LocalCommands {
       "Navegar a [lugar]",
       "Pon música / Reproduce [playlist]",
       "Cancelar acción",
+      "Activar lector de pantalla (Activa el lector para usuarios con discapacidad visual)",
+      "Apagar lector de pantalla (Desactiva el lector para volver a modo visual normal)",
     ]
 
     if (mode === "functional") {
