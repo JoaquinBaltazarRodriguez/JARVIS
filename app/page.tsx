@@ -351,12 +351,10 @@ export default function AdvancedJarvis() {
   const [currentVideoId, setCurrentVideoId] = useState("")
   const [waitingForSong, setWaitingForSong] = useState(false)
   const youtubePlayerRef = useRef<YouTubePlayerRef>(null)
-
   // ESTADOS DE PLAYLIST
   const [playlistMode, setPlaylistMode] = useState(false)
   const [currentPlaylist, setCurrentPlaylist] = useState<any>(null)
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(0)
-
   // NUEVO ESTADO: esperando nombre de playlist
   const [awaitingPlaylistName, setAwaitingPlaylistName] = useState(false)
 
@@ -475,7 +473,6 @@ export default function AdvancedJarvis() {
   const { speak, isSpeaking } = useSimpleAudio()
   useCineSound(isSpeaking) // Efecto cine cuando NEXUS habla
   useNexusStartupAnimation(startupAnim, () => setStartupAnim(false))
-
   const {
     isListening,
     transcript,
@@ -574,7 +571,6 @@ export default function AdvancedJarvis() {
         }, 1000)
       }
     }
-
     // 🎵 ESCUCHA ESPECIAL CUANDO ESTÁ REPRODUCIENDO MÚSICA
     else if (appState === "music_playing") {
       if (!isListening && !isSpeaking && !isProcessing) {
@@ -586,7 +582,6 @@ export default function AdvancedJarvis() {
         }, 1000)
       }
     }
-
     // 🗺️ ESCUCHA ESPECIAL CUANDO ESTÁ EL MAPA ACTIVO
     else if (appState === "map_active") {
       if (!isListening && !isSpeaking && !isProcessing) {
@@ -681,19 +676,16 @@ export default function AdvancedJarvis() {
           console.log("🔌 SHUTDOWN COMMAND DETECTED")
           handleShutdown()
         }
-
         // 🧠 COMANDOS DE MODO INTELIGENTE
         else if (text.includes("modo inteligente") || text.includes("activación inteligente")) {
           console.log("🧠 INTELLIGENT MODE COMMAND DETECTED")
           handleIntelligentMode()
         }
-
         // 🔧 COMANDOS DE MODO FUNCIONAL
         else if (text.includes("modo funcional") || text.includes("activación funcional")) {
           console.log("🔧 FUNCTIONAL MODE COMMAND DETECTED")
           handleFunctionalMode()
         }
-
         // 🔄 VOLVER AL MODO NORMAL
         else if (text.includes("modo normal") || text.includes("salir del modo")) {
           console.log("🔄 NORMAL MODE COMMAND DETECTED")
@@ -714,7 +706,6 @@ export default function AdvancedJarvis() {
           handleUserMessage(transcript)
         }
       }
-
       resetTranscript()
     }
   }, [transcript, appState, isProcessing])
@@ -790,7 +781,6 @@ export default function AdvancedJarvis() {
     if (conversation) {
       setCurrentConversation(conversation)
       setConversationMessages(conversation.messages)
-
       // Convertir mensajes de conversación a formato de la interfaz
       const interfaceMessages: Message[] = conversation.messages.map((msg) => ({
         text: msg.text,
@@ -798,7 +788,6 @@ export default function AdvancedJarvis() {
         imageUrl: msg.imageUrl,
         imagePrompt: msg.imagePrompt,
       }))
-
       setMessages(interfaceMessages)
       console.log("💬 CONVERSATION LOADED:", conversation.title)
     }
@@ -1738,7 +1727,6 @@ export default function AdvancedJarvis() {
           </div>
         </div>
       )}
-
       {/* ✨ ANIMACIONES DE FONDO ÉPICAS CUANDO HABLA */}
       {isSpeaking && (
         <>
@@ -1945,7 +1933,6 @@ export default function AdvancedJarvis() {
           </div>
         </div>
       )}
-
       {/* Main Interface - Solo mostrar si no hay mapa o música activa */}
       {!isMapActive && !isPlayingMusic && (
         <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10">
