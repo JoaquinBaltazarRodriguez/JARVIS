@@ -1,0 +1,32 @@
+[33ma4789a4[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Conflicto resuelto (1)
+[33m0ee47c5[m Integracion de pantalla de carga (inicializacion)
+[33m762794f[m Insercion de imagenes + prompt
+[33m99645b8[m Correccion de botones (listado de opciones preestablecidas en el chat - borrado) / Windsurf
+[33m9ce8f0a[m Implementacion de lector de pantalla / Windsurf
+[33m916ff12[m Sistema de playlist arreglado - Implementacion de 'configuracion' con manual de comandos / Windsurf
+[33mf5ddfcb[m Agregado de playlist (mas canciones
+[33m51f5ec6[m Correccion en playlist (canciones con links fallidos) / Windsurf
+[33m3c1c631[m Cambio total de interfaz de NEXUS - Efectos de estrella (estrellas fugaces) , background espacial + nebulosa
+[33m8fc52e4[m Implementacion de numero telefonico (Optimizacion de panel de agendas y funciones del geolocalizador) / Windsurf
+[33m27f5088[m Integracion de mapa con exito / Windsurf
+[33m0959f5a[m Rollback - resolucion de problemas (prueba) / Windsurf
+[33mdf9753c[m Rollback - fixear errores
+[33m7755de3[m Rollback (Renombrado de JARVIS --> NEXUS y fixes de SSR /WindSurf
+[33mad43399[m Redeploy (Cambio de nombre JARVIS --> NEXUS / Windsurf
+[33mc3d87c2[m Redeploy (Cambio de nombre JARVIS --> NEXUS / Windsurf
+[33m92548d9[m Cambio de nombre JARVIS -> NEXUS /Windsurf
+[33m4cc7869[m Cambio de nombre JARVIS --> NEXUS - Mejoria en la velocidad de respuesta / Windsurf
+[33mb7ae88d[m Implementacion de Ollama y otras apis para brindar mas informacion a JARVIS - Windsurf
+[33m76b0d04[m Integracion de la API del clima en Posadas misiones - Argentina - Windsurf
+[33mbb4af82[m Agregado de playlist - Windsurf
+[33m3d85e3b[m Migracion de Spotify a Youtube con exito - hecho en windsurf
+[33me4ed1bd[m Correccion de errores - eliminar lineas de codigo referencia a Spotify / Prueba WindSurf
+[33m2efe17b[m Reemplazo de spotify por youtube para la seccion de musica - Prueba Windsurf
+[33mb38f55e[m Primera prueba (Windsurf) - arreglo seccion spotify
+[33m60f5ab0[m Arreglo de interfaz - seccion de musica
+[33mc424aec[m Arreglo del manejo de Token
+[33m5b351ef[m Fix: Usar variable de entorno para Spotify redirect URI
+[33mb104d8a[m Configuracion de Spotify con Vercel HTTPS
+[33mf676cab[m Incorporacion de 'Modo inteligente | Modo funcional' con cambios de interfaz - Posibilidad de escribir a JARVIS y escucharlo en audio
+[33m215dcd6[m JARVIS posee la integracion de funciones como Spotify, un sistema de localizacion por mapa (con navegación e instruccion en tiempo real) en la propia aplicación 1. Permite guardar playlists de Spotify y luego mediante los comandos de voz reproducirlas 2. Permite guardar direcciones en el mapa (con asignacion de nombre caracteristico a la direccion) y luego mediante comandos de voz, hacer una navegación en tiempo real, con la guia de JARVIS
+[33mc37d3c5[m Fase 1 JARVIS 0.1.0 - Asistente funcional con agenda y mapa localizador

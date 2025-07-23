@@ -438,7 +438,7 @@ export default function AdvancedJarvis() {
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
 
   // --- ACCESIBILIDAD GLOBAL ---
-  const [screenReaderEnabled, setScreenReaderEnabled] = useState(true)
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false) // Disabled by default
   const [focusedElement, setFocusedElement] = useState<string | null>(null)
 
   // Handler accesible universal
@@ -1110,6 +1110,49 @@ export default function AdvancedJarvis() {
       "apaga el lector de pantalla",
       "apaga lector de pantalla",
     ]
+
+    // Reconocimiento flexible: permite frases con palabras adicionales
+    if (activarLector.some((variant) => normalized.includes(variant))) {
+      setScreenReaderEnabled(true)
+      setCurrentText("Lector de pantalla activado, Señor.")
+      if (typeof speak === "function") await speak("Lector de pantalla activado, Señor.")
+      setCurrentText("")
+      return
+    }
+
+    if (desactivarLector.some((variant) => normalized.includes(variant))) {
+      setScreenReaderEnabled(false)
+      setCurrentText("Lector de pantalla desactivado, Señor.")
+      if (typeof speak === "function") await speak("Lector de pantalla desactivado, Señor.")
+      setCurrentText("")
+      setFocusedElement(null)
+      return
+    }
+
+    // --- SOLO RESPONDER A COMANDOS PREDEFINIDOS ---
+    const mode = appState === "functional_mode" ? "functional" : "normal"
+    const availableCommands = LocalCommands.getAvailableCommands(mode).map(cmd => cmd.toLowerCase())
+    // Revisar si el mensaje coincide con algún comando predefinido
+    const isRecognized = availableCommands.some(cmd => {
+      // Permitir variables como [contacto] o [lugar]
+      if (cmd.includes("[contacto]")) {
+        return normalized.startsWith("llama a ") || normalized.startsWith("llamar a ")
+      }
+      if (cmd.includes("[lugar]")) {
+        return normalized.startsWith("navegar a ") || normalized.startsWith("navega a ")
+      }
+      if (cmd.includes("[playlist]")) {
+        return normalized.includes("pon ") || normalized.includes("reproduce ")
+      }
+      // Comando exacto
+      return normalized === cmd.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
+    })
+
+    if (!isRecognized) {
+      // Si no es comando válido ni de lector, ignorar por completo (no respuesta, no feedback)
+      setIsProcessing(false);
+      return;
+    }
 
     // Reconocimiento flexible: permite frases con palabras adicionales
     if (activarLector.some((variant) => normalized.includes(variant))) {
