@@ -411,8 +411,41 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   const playlistArcane = {
   name: "Arcane",
   songs: [
-    { title: "Enemy", videoId: "h1B7XhJqKmU" },
-    { title: "Dynasties & Dystopia", videoId: "fXmAurh012s" },
+    { title: "Meilleure enemmie", videoId: "XbLemOwzdxk" },
+    { title: "Isha song", videoId: "IzKQBo1gLYg" },
+    { title: "What could have been", videoId: "exAfcktnzVA" },
+    { title: "Playground", videoId: "mtHJvyGasS4" },
+    { title: "Goodbye", videoId: "omgSWqwVTjY" },
+    { title: "to ashes and blood", videoId: "HFVM4QE1qBA" },
+    { title: "The Line", videoId: "E2Rj2gQAyPA" },
+    { title: "Enemy", videoId: "F5tSoaJ93ac" },
+    { title: "Dynasties and Dystopia", videoId: "atx7AlYB_z4" },
+    { title: "Our love", videoId: "2Yr3sKPi8mM" },
+    { title: "Get Jinxed", videoId: "coDc2Ek2pWQ" },
+    { title: "Guns of fire", videoId: "pKNEx-9OqRM" },
+    { title: "Wasteland", videoId: "WPDpgSBEWaI" },
+  ],
+}
+
+const playlistEstudio2 = {
+  name: "musica para estudiar",
+  songs: [
+    { title: "Isha song", videoId: "r7cwj7UPM8Q" },
+    { title: "Romantic Homicide", videoId: "eKL3TceSxvk" },
+    { title: "Bangbang", videoId: "zd9rtEyZY6w" },
+    { title: "Solitude", videoId: "h_F5WVmTugY" },
+    { title: "After sex", videoId: "sElE_BfQ67s" },
+    { title: "Me and the devil", videoId: "x-mar1osQdY" },
+    { title: "The Line", videoId: "E2Rj2gQAyPA" },
+    { title: "Creep", videoId: "XFkzRNyygfk" },
+    { title: "No surprises", videoId: "u5CVsCnxyXg" },
+  ],
+}
+
+const playlistSodaStereo = {
+  name: "Soda Stereo",
+  songs: [
+    { title: "Mix Soda Stereo", videoId: "m8eZlQELWNI" },
   ],
 }
 
@@ -437,7 +470,7 @@ const playlistEstudio = {
         }
       }
     }
-    return [playlist80s, playlistArcane, playlistEstudio]
+    return [playlist80s, playlistArcane, playlistEstudio, playlistEstudio2, playlistSodaStereo]
   })
   const [selectedPlaylistIdx, setSelectedPlaylistIdx] = useState<number | null>(null)
   const [newPlaylistName, setNewPlaylistName] = useState("")
