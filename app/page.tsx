@@ -875,7 +875,7 @@ const playlistEstudio = {
   const handleIntelligentMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
     setAppState("intelligent_mode");
     const intelligentMsg =
-      "Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle?";
+      "Modo inteligente activado, Señor. Bienvenido al PORTAL-NEXUS, en que proyecto quiere trabajar hoy señor?";
     setMessages((prev) => [...prev, { text: intelligentMsg, type: "nexus" }]);
     if (silent) {
       stopListening();
@@ -902,7 +902,7 @@ const playlistEstudio = {
   const handleFunctionalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
     setAppState("functional_mode");
     const functionalMsg =
-      "Modo funcional activado, Señor. Puedo gestionar correos electrónicos, WhatsApp, aplicaciones y realizar tareas administrativas. ¿Qué función necesita que ejecute?";
+      "Modo funcional activado señor. Tiene a su disposición un gestor de espacio de trabajo, con acceso a calendario, notas, y mas funcionalidades.";
     setMessages((prev) => [...prev, { text: functionalMsg, type: "nexus" }]);
     if (silent) {
       stopListening();
