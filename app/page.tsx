@@ -358,6 +358,25 @@ export default function AdvancedJarvis() {
   // NUEVO ESTADO: esperando nombre de playlist
   const [awaitingPlaylistName, setAwaitingPlaylistName] = useState(false)
 
+  // FUNCIONES PARA PLAYLISTS DINÁMICAS UI
+  function parseYouTubeId(url: string): string | undefined {
+    // Soporta links tipo https://www.youtube.com/watch?v=ID o https://youtu.be/ID
+    try {
+      const yt = url.match(/(?:v=|youtu\.be\/)([\w-]{11})/)
+      return yt ? yt[1] : undefined
+    } catch { return undefined }
+  }
+  function addSongToPlaylist() {
+    if (selectedPlaylistIdx === null) return
+    const videoId = parseYouTubeId(newSongLink.trim())
+    if (!videoId) { alert("Link de YouTube inválido"); return }
+    setPlaylists(prev => prev.map((pl, i) => i === selectedPlaylistIdx ? {
+      ...pl,
+      songs: [...pl.songs, { title: newSongTitle.trim(), videoId }]
+    } : pl))
+    setNewSongTitle(""); setNewSongLink("")
+  }
+
   // PLAYLISTS REGISTRADAS
   const playlist80s = {
     name: "música de los 80",
@@ -372,31 +391,6 @@ export default function AdvancedJarvis() {
       { title: "Tonight you belong to me", videoId: "NJd0MLBuJjA" },
       { title: "Cant take my eyes off you", videoId: "J36z7AnhvOM" },
       { title: "You dont own me", videoId: "OYB1rbL8EHo" },
-      { title: "Everybody loves somebody", videoId: "z-2_OstpR5c" },
-      { title: "Everybody wants to rule the world", videoId: "7p2HqW9J1iU" },
-      { title: "We belong together", videoId: "EONn2gj1ngA" },
-      { title: "California Dreamin", videoId: "oU6uUEwZ8FM" },
-      { title: "All i have to do is dream", videoId: "56cKlT62wrQ" },
-      { title: "Happy together", videoId: "pSw8an1u3rc" },
-      { title: "Stand by me", videoId: "einn_UJgGGM" },
-      { title: "Tarzan boy", videoId: "_r0n9Dv6XnY" },
-      { title: "Look what you've done", videoId: "XD1cxSE25ck" },
-      { title: "Karma chameleon", videoId: "JmcA9LIIXWw" },
-      { title: "Cuando pase el temblor", videoId: "ZNzYr4U7Zs8" },
-      { title: "A little respect", videoId: "x34icYC8zA0" },
-      { title: "Self control", videoId: "RP0_8J7uxhs" },
-      { title: "Forever young", videoId: "YHRvDo8rUoQ" },
-      { title: "Running up that hill", videoId: "wp43OdtAAkM" },
-      { title: "Every breath you take", videoId: "OMOGaugKpzs" },
-      { title: "Boys don't cry", videoId: "9GkVhgIeGJQ" },
-      { title: "Its been a long time", videoId: "Chs2bmqzyUs" },
-      { title: "Have you ever seen the rain", videoId: "u1V8YRJnr4Q" },
-      { title: "Sunshine", videoId: "atY7ymXAcRQ" },
-      { title: "Imagine", videoId: "VOgFZfRVaww" },
-      { title: "This charming man", videoId: "cJRP3LRcUFg" },
-      { title: "Knockin on heaven's door", videoId: "k04tX2fvh0o" },
-      { title: "Love me do", videoId: "0pGOFX1D_jg" },
-      { title: "Only you", videoId: "5p2k55F-uag" },
       { title: "Dont dream its over", videoId: "J9gKyRmic20" },
       { title: "Who can it be now", videoId: "SECVGN4Bsgg" },
       { title: "Heav over heels", videoId: "CsHiG-43Fzg" },
@@ -406,34 +400,37 @@ export default function AdvancedJarvis() {
       { title: "Just the two of us", videoId: "Uw5OLnN7UvM" },
       { title: "Hold the line", videoId: "htgr3pvBr-I" },
       { title: "Pretty little baby", videoId: "egPVvFYxLe4" },
-    ],
-  }
-
-  const playlistArcane = {
-    name: "ARCANE",
-    songs: [
-      { title: "ma meilleure ennemie", videoId: "XbLemOwzdxk" },
-      { title: "Isha death song", videoId: "r7cwj7UPM8Q" },
-      { title: "To Ashes of blood", videoId: "Gj-jmBi0aK8" },
-      { title: "Enemy", videoId: "D9G1VOjN_84" },
-    ],
-  }
-
-  const playlistEstudio = {
-    name: "Musica de estudio",
-    songs: [
-      { title: "Solitude M83", videoId: "h_F5WVmTugY" },
-      { title: "The line", videoId: "E2Rj2gQAyPA" },
-      { title: "Bang bang bang", videoId: "zd9rtEyZY6w" },
-      { title: "This is what falling in love feels like", videoId: "BOyO8sZOaOQ" },
-      { title: "Wasteland", videoId: "WPDpgSBEWaI" },
       { title: "No surprises", videoId: "u5CVsCnxyXg" },
       { title: "Cant help falling in love", videoId: "eTKeQhYVvbQ" },
     ],
   }
 
-  const playlists = [playlist80s, playlistArcane, playlistEstudio] // 'Musica de estudio' actualizado
+  const playlistArcane = {
+  name: "Arcane",
+  songs: [
+    { title: "Enemy", videoId: "h1B7XhJqKmU" },
+    { title: "Dynasties & Dystopia", videoId: "fXmAurh012s" },
+  ],
+}
 
+const playlistEstudio = {
+  name: "Estudio",
+  songs: [
+    { title: "Lo-Fi Beats", videoId: "jfKfPfyJRdk" },
+    { title: "Coding Music", videoId: "WPni755-Krg" },
+  ],
+}
+
+// --- PLAYLISTS DINÁMICAS (editable por UI) ---
+  const [playlists, setPlaylists] = useState([
+    playlist80s,
+    playlistArcane,
+    playlistEstudio,
+  ])
+  const [selectedPlaylistIdx, setSelectedPlaylistIdx] = useState<number | null>(null)
+  const [newPlaylistName, setNewPlaylistName] = useState("")
+  const [newSongTitle, setNewSongTitle] = useState("")
+  const [newSongLink, setNewSongLink] = useState("")
   // Estados para mostrar/ocultar el selector de playlists
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
 
@@ -441,6 +438,7 @@ export default function AdvancedJarvis() {
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false) // Disabled by default
   const [focusedElement, setFocusedElement] = useState<string | null>(null)
 
+  // ... Resto del código ...
   // Handler accesible universal
   function handleAccessibleAction(key: string, label: string, action: () => void) {
     if (screenReaderEnabled) {
@@ -1954,28 +1952,91 @@ export default function AdvancedJarvis() {
 
       {/* Modal de Playlists */}
       {showPlaylistSelector && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
-          <div className="bg-gray-900 rounded-lg p-8 shadow-xl border border-cyan-800 relative min-w-[320px] max-w-[90vw]">
-            <h2 className="text-cyan-300 text-xl font-bold mb-4 flex items-center gap-2">
-              <Music className="inline-block w-6 h-6 text-cyan-400" /> Playlists Registradas
-            </h2>
-            <ul className="space-y-2 mb-4">
-              {playlists.map((pl, idx) => (
-                <li key={pl.name} className="flex items-center justify-between bg-cyan-950/40 rounded px-4 py-2">
-                  <span className="text-cyan-100 font-semibold">{pl.name}</span>
-                  <span className="text-cyan-400 text-xs">{pl.songs.length} canciones</span>
-                </li>
-              ))}
-            </ul>
+  <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
+    <div className="bg-gray-900 rounded-lg p-8 shadow-xl border border-cyan-800 relative min-w-[340px] max-w-[90vw] min-h-[400px]">
+      <h2 className="text-cyan-300 text-xl font-bold mb-4 flex items-center gap-2">
+        <Music className="inline-block w-6 h-6 text-cyan-400" /> Playlists Registradas
+      </h2>
+      {/* CREAR NUEVA PLAYLIST */}
+      <div className="mb-4 flex gap-2">
+        <input
+          className="flex-1 rounded px-2 py-1 bg-gray-800 text-cyan-100 border border-cyan-700"
+          placeholder="Nueva playlist"
+          value={newPlaylistName}
+          onChange={e => setNewPlaylistName(e.target.value)}
+          onKeyDown={e => { if(e.key==="Enter" && newPlaylistName.trim()){ setPlaylists(prev=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}}
+        />
+        <Button
+          className="bg-cyan-700 hover:bg-cyan-800 text-white"
+          disabled={!newPlaylistName.trim()}
+          onClick={()=>{ setPlaylists(prev=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}
+        >Crear</Button>
+      </div>
+      {/* LISTA DE PLAYLISTS */}
+      <ul className="space-y-2 mb-4">
+        {playlists.map((pl, idx) => (
+          <li key={pl.name} className={`flex items-center justify-between bg-cyan-950/40 rounded px-4 py-2 ${selectedPlaylistIdx===idx?"border-2 border-cyan-400":""}`}>
+            <span className="text-cyan-100 font-semibold cursor-pointer" onClick={()=>setSelectedPlaylistIdx(idx)}>{pl.name}</span>
+            <span className="text-cyan-400 text-xs">{pl.songs.length} canciones</span>
             <Button
-              className="w-full bg-cyan-700 hover:bg-cyan-800 text-white mt-2"
-              onClick={() => setShowPlaylistSelector(false)}
-            >
-              Cerrar
-            </Button>
+              size="sm"
+              className="ml-2 bg-red-700 hover:bg-red-800 text-white px-2 py-0.5"
+              onClick={()=>{
+                setPlaylists(prev=>prev.filter((_,i)=>i!==idx));
+                if(selectedPlaylistIdx===idx) setSelectedPlaylistIdx(null)
+                else if(selectedPlaylistIdx && selectedPlaylistIdx>idx) setSelectedPlaylistIdx(selectedPlaylistIdx-1)
+              }}
+              title="Eliminar playlist"
+            >🗑️</Button>
+          </li>
+        ))}
+      </ul>
+      {/* DETALLE DE PLAYLIST SELECCIONADA */}
+      {selectedPlaylistIdx!==null && playlists[selectedPlaylistIdx] && (
+        <div className="mb-4 p-4 rounded bg-cyan-950/60">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-cyan-200 font-bold">{playlists[selectedPlaylistIdx].name}</span>
+            <span className="text-cyan-400 text-xs">{playlists[selectedPlaylistIdx].songs.length} canciones</span>
+          </div>
+          <ul className="space-y-1 mb-2 max-h-32 overflow-y-auto">
+            {playlists[selectedPlaylistIdx].songs.map((song, sidx) => (
+              <li key={song.title+sidx} className="flex items-center justify-between text-cyan-100 text-sm bg-cyan-900/30 rounded px-2 py-1">
+                <span>{song.title}</span>
+                <a className="ml-2 text-cyan-400 underline" href={`https://youtube.com/watch?v=${song.videoId}`} target="_blank" rel="noopener noreferrer">Ver</a>
+              </li>
+            ))}
+            {playlists[selectedPlaylistIdx].songs.length===0 && <li className="text-cyan-400 text-xs">Sin canciones</li>}
+          </ul>
+          {/* FORM AGREGAR CANCIÓN */}
+          <div className="flex gap-2 mb-2">
+            <input
+              className="flex-1 rounded px-2 py-1 bg-gray-800 text-cyan-100 border border-cyan-700"
+              placeholder="Título de la canción"
+              value={newSongTitle}
+              onChange={e=>setNewSongTitle(e.target.value)}
+            />
+            <input
+              className="flex-1 rounded px-2 py-1 bg-gray-800 text-cyan-100 border border-cyan-700"
+              placeholder="Link de YouTube"
+              value={newSongLink}
+              onChange={e=>setNewSongLink(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"){addSongToPlaylist()}}}
+            />
+            <Button
+              className="bg-cyan-700 hover:bg-cyan-800 text-white"
+              disabled={!newSongTitle.trim()||!newSongLink.trim()}
+              onClick={()=>addSongToPlaylist()}
+            >Añadir</Button>
           </div>
         </div>
       )}
+      <Button
+        className="w-full bg-cyan-700 hover:bg-cyan-800 text-white mt-2"
+        onClick={() => { setShowPlaylistSelector(false); setSelectedPlaylistIdx(null); }}
+      >Cerrar</Button>
+    </div>
+  </div>
+)}
       {/* Main Interface - Solo mostrar si no hay mapa o música activa */}
       {!isMapActive && !isPlayingMusic && (
         <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10">
