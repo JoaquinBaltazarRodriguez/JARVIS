@@ -12,6 +12,8 @@ export function useAutoSpeech() {
   const finalTranscriptRef = useRef("")
   const isSpeakingRef = useRef(false)
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // --- Contador de reintentos para "no-speech" ---
+  const noSpeechRetryCountRef = useRef(0)
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -85,7 +87,6 @@ export function useAutoSpeech() {
           recognition.continuous = true
           recognition.interimResults = true
           recognition.lang = "es-ES"
-          recognition.maxAlternatives = 1
 
           recognition.onstart = () => {
             console.log("🎧 Continuous listening started")
@@ -97,6 +98,9 @@ export function useAutoSpeech() {
               console.log("🔇 Ignoring speech - NEXUS is speaking")
               return
             }
+
+            // Reiniciar contador de no-speech al detectar voz
+            noSpeechRetryCountRef.current = 0;
 
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const transcript = event.results[i][0].transcript.toLowerCase()
@@ -119,58 +123,28 @@ export function useAutoSpeech() {
           }
 
           recognition.onerror = (event: any) => {
-            console.error("❌ Continuous listening error:", event.error)
+            console.error("❌ [SIEMPRE] Continuous listening error:", event.error)
             isActiveRef.current = false
-
-            // 🔧 MANEJO MEJORADO DE ERRORES
-            switch (event.error) {
-              case "network":
-                console.log("🌐 Network error - retrying in 5 seconds...")
-                retryTimeoutRef.current = setTimeout(() => {
-                  if (!isActiveRef.current && !isSpeakingRef.current) {
-                    startRecognition()
-                  }
-                }, 5000)
-                break
-              case "aborted":
-                console.log("⏹️ Recognition aborted - retrying in 2 seconds...")
-                retryTimeoutRef.current = setTimeout(() => {
-                  if (!isActiveRef.current && !isSpeakingRef.current) {
-                    startRecognition()
-                  }
-                }, 2000)
-                break
-              case "not-allowed":
-                console.error("🚫 Microphone permission denied")
-                break
-              case "no-speech":
-                // Ignorar este error, es normal
-                retryTimeoutRef.current = setTimeout(() => {
-                  if (!isActiveRef.current && !isSpeakingRef.current) {
-                    startRecognition()
-                  }
-                }, 1000)
-                break
-              default:
-                console.log(`🔄 Unknown error (${event.error}) - retrying in 3 seconds...`)
-                retryTimeoutRef.current = setTimeout(() => {
-                  if (!isActiveRef.current && !isSpeakingRef.current) {
-                    startRecognition()
-                  }
-                }, 3000)
+            // Siempre reiniciar excepto si está hablando
+            if (!isSpeakingRef.current) {
+              if (!isActiveRef.current) {
+                startRecognition()
+              }
+            } else {
+              console.log("🔇 No se reinicia porque NEXUS está hablando (onerror)")
             }
           }
 
           recognition.onend = () => {
-            console.log("🔚 Continuous listening ended")
+            console.log("🔚 [SIEMPRE] Continuous listening ended, reiniciando inmediatamente...")
             isActiveRef.current = false
-
             if (!isSpeakingRef.current) {
-              retryTimeoutRef.current = setTimeout(() => {
-                if (!isActiveRef.current && !isSpeakingRef.current) {
-                  startRecognition()
-                }
-              }, 1000)
+              // Reiniciar inmediatamente sin delay
+              if (!isActiveRef.current) {
+                startRecognition()
+              }
+            } else {
+              console.log("🔇 No se reinicia porque NEXUS está hablando")
             }
           }
 

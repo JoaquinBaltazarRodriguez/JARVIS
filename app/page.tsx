@@ -148,6 +148,8 @@ type Message = {
 }
 
 export default function AdvancedJarvis() {
+  // ...otros estados
+  const [backgroundSubtitle, setBackgroundSubtitle] = useState<string>("");
   // --- Estados principales de la app ---
   const [appState, setAppState] = useState<AppState>("sleeping")
   const [messages, setMessages] = useState<Message[]>([])
@@ -347,6 +349,7 @@ export default function AdvancedJarvis() {
 
   // ESTADOS PARA YOUTUBE
   const [isPlayingMusic, setIsPlayingMusic] = useState(false)
+const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   const [currentSongTitle, setCurrentSongTitle] = useState("")
   const [currentVideoId, setCurrentVideoId] = useState("")
   const [waitingForSong, setWaitingForSong] = useState(false)
@@ -422,17 +425,39 @@ const playlistEstudio = {
 }
 
 // --- PLAYLISTS DINÁMICAS (editable por UI) ---
-  const [playlists, setPlaylists] = useState([
-    playlist80s,
-    playlistArcane,
-    playlistEstudio,
-  ])
+  const PLAYLISTS_STORAGE_KEY = "nexus_playlists";
+  const [playlists, setPlaylists] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(PLAYLISTS_STORAGE_KEY)
+      if (stored) {
+        try {
+          return JSON.parse(stored)
+        } catch (e) {
+          // Si hay error, usar las predefinidas
+        }
+      }
+    }
+    return [playlist80s, playlistArcane, playlistEstudio]
+  })
   const [selectedPlaylistIdx, setSelectedPlaylistIdx] = useState<number | null>(null)
   const [newPlaylistName, setNewPlaylistName] = useState("")
   const [newSongTitle, setNewSongTitle] = useState("")
   const [newSongLink, setNewSongLink] = useState("")
   // Estados para mostrar/ocultar el selector de playlists
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
+
+  // Persistir playlists en localStorage automáticamente
+  useEffect(() => {
+    try {
+      localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(playlists))
+    } catch (e) { /* ignorar */ }
+  }, [playlists])
+
+  // Función para borrar playlists guardadas
+  function clearPersistedPlaylists() {
+    localStorage.removeItem(PLAYLISTS_STORAGE_KEY)
+    setPlaylists([playlist80s, playlistArcane, playlistEstudio])
+  }
 
   // --- ACCESIBILIDAD GLOBAL ---
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false) // Disabled by default
@@ -631,18 +656,50 @@ const playlistEstudio = {
         // 🖼️ MANEJAR CONFIRMACIÓN DE DESCARGA DE IMAGEN
         handleImageDownloadConfirmation(text)
       } else if (appState === "music_playing") {
-        // 🎵 CONTROLES DE YOUTUBE POR VOZ
-        if (isYouTubeVoiceControlCommand(text)) {
-          console.log("🎵 YOUTUBE VOICE CONTROL COMMAND DETECTED")
-          handleYouTubeVoiceControl(text)
-        }
-
-        // ���� COMANDO DE QUITAR MÚSICA
-        else if (text.includes("quitar música") || text.includes("cerrar música") || text.includes("apagar música")) {
-          console.log("🎵 MUSIC CONTROL COMMAND DETECTED")
-          handleMusicControl(text)
+        // 🎵 Lógica especial para música en segundo plano
+        if (musicBackgroundMode) {
+          // Permitir comandos de modo, quitar música y TODOS los comandos de control de música
+          if (
+            text.includes("modo inteligente") || text.includes("activación inteligente")
+          ) {
+            console.log("🧠 INTELLIGENT MODE COMMAND DETECTED (BG MUSIC)");
+            handleIntelligentMode({ silent: true, subtitle: "Cambiando a modo inteligente..." });
+          } else if (
+            text.includes("modo funcional") || text.includes("activación funcional")
+          ) {
+            console.log("🔧 FUNCTIONAL MODE COMMAND DETECTED (BG MUSIC)");
+            handleFunctionalMode({ silent: true, subtitle: "Cambiando a modo funcional..." });
+          } else if (
+            text.includes("modo normal") || text.includes("salir del modo")
+          ) {
+            console.log("🔄 NORMAL MODE COMMAND DETECTED (BG MUSIC)");
+            handleNormalMode({ silent: true, subtitle: "Cambiando a modo normal..." });
+          } else if (
+            text.includes("quitar música") || text.includes("cerrar música") || text.includes("apagar música")
+          ) {
+            console.log("🎵 MUSIC CONTROL COMMAND DETECTED (BG MUSIC)");
+            handleMusicControl(text);
+          } else if (isYouTubeVoiceControlCommand(text)) {
+            console.log("🎵 YOUTUBE VOICE CONTROL COMMAND DETECTED (BG MUSIC)");
+            handleYouTubeVoiceControl(text);
+          } else {
+            // Ignorar otros comandos irrelevantes
+            console.log("🎵 IGNORING NON-MODE/NON-MUSIC COMMAND WHILE PLAYING IN BACKGROUND");
+          }
         } else {
-          console.log("🎵 IGNORING NON-MUSIC COMMAND WHILE PLAYING")
+          // 🎵 CONTROLES DE YOUTUBE POR VOZ
+          if (isYouTubeVoiceControlCommand(text)) {
+            console.log("🎵 YOUTUBE VOICE CONTROL COMMAND DETECTED")
+            handleYouTubeVoiceControl(text)
+          }
+
+          // 🎵 COMANDO DE QUITAR MÚSICA
+          else if (text.includes("quitar música") || text.includes("cerrar música") || text.includes("apagar música")) {
+            console.log("🎵 MUSIC CONTROL COMMAND DETECTED")
+            handleMusicControl(text)
+          } else {
+            console.log("🎵 IGNORING NON-MUSIC COMMAND WHILE PLAYING")
+          }
         }
       } else if (appState === "map_active") {
         // 🗺️ COMANDOS ESPECÍFICOS PARA MAPA
@@ -815,35 +872,85 @@ const playlistEstudio = {
     }
   }
 
-  const handleIntelligentMode = async () => {
-    setAppState("intelligent_mode")
+  const handleIntelligentMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
+    setAppState("intelligent_mode");
     const intelligentMsg =
-      "Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle?"
-    setCurrentText(intelligentMsg)
-    setMessages((prev) => [...prev, { text: intelligentMsg, type: "nexus" }])
-    await speak(intelligentMsg)
-    setCurrentText("")
+      "Modo inteligente activado, Señor. Ahora tengo acceso a capacidades avanzadas de IA. Puedo ayudarle con programación, análisis técnico, resolución de problemas complejos y generación de imágenes. ¿En qué puedo asistirle?";
+    setMessages((prev) => [...prev, { text: intelligentMsg, type: "nexus" }]);
+    if (silent) {
+      stopListening();
+      if (subtitle) {
+        setBackgroundSubtitle(subtitle);
+        setTimeout(() => setBackgroundSubtitle(""), 3000);
+      }
+      if (forceListen) {
+        startAutoListening();
+        
+        return;
+      }
+      setTimeout(() => {
+        startAutoListening();
+      }, 500);
+      return;
+    }
+    setCurrentText(intelligentMsg);
+    await speak(intelligentMsg);
+    setCurrentText("");
   }
 
   // 🔧 MANEJAR MODO FUNCIONAL
-  const handleFunctionalMode = async () => {
-    setAppState("functional_mode")
+  const handleFunctionalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
+    setAppState("functional_mode");
     const functionalMsg =
-      "Modo funcional activado, Señor. Puedo gestionar correos electrónicos, WhatsApp, aplicaciones y realizar tareas administrativas. ¿Qué función necesita que ejecute?"
-    setCurrentText(functionalMsg)
-    setMessages((prev) => [...prev, { text: functionalMsg, type: "nexus" }])
-    await speak(functionalMsg)
-    setCurrentText("")
+      "Modo funcional activado, Señor. Puedo gestionar correos electrónicos, WhatsApp, aplicaciones y realizar tareas administrativas. ¿Qué función necesita que ejecute?";
+    setMessages((prev) => [...prev, { text: functionalMsg, type: "nexus" }]);
+    if (silent) {
+      stopListening();
+      if (subtitle) {
+        setBackgroundSubtitle(subtitle);
+        setTimeout(() => setBackgroundSubtitle(""), 3000);
+      }
+      if (forceListen) {
+        startAutoListening();
+        
+        return;
+      }
+      setTimeout(() => {
+        startAutoListening();
+      }, 500);
+      return;
+    }
+    setCurrentText(functionalMsg);
+    await speak(functionalMsg);
+    setCurrentText("");
   }
 
   // 🔄 VOLVER AL MODO NORMAL
-  const handleNormalMode = async () => {
-    setAppState("active")
-    const normalMsg = "Volviendo al modo normal, Señor. ¿En qué más puedo asistirle?"
-    setCurrentText(normalMsg)
-    setMessages((prev) => [...prev, { text: normalMsg, type: "nexus" }])
-    await speak(normalMsg)
-    setCurrentText("")
+  type ModeHandlerOptions = { silent?: boolean; subtitle?: string; forceListen?: boolean };
+
+const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
+    setAppState("active");
+    const normalMsg = "Volviendo al modo normal, Señor. ¿En qué más puedo asistirle?";
+    setMessages((prev) => [...prev, { text: normalMsg, type: "nexus" }]);
+    if (silent) {
+      stopListening();
+      if (subtitle) {
+        setBackgroundSubtitle(subtitle);
+        setTimeout(() => setBackgroundSubtitle(""), 3000);
+      }
+      if (forceListen) {
+        startAutoListening();
+        
+        return;
+      }
+      setTimeout(() => {
+        startAutoListening();
+      }, 500);
+      return;
+    }
+    setCurrentText(normalMsg);
+    await speak(normalMsg);
+    setCurrentText("");
   }
 
   // 📱 MANEJAR COMANDO DE LLAMADA
@@ -1076,13 +1183,34 @@ const playlistEstudio = {
   }
 
   const handleUserMessage = async (message: string) => {
-    // --- COMANDOS DE VOZ PARA LECTOR DE PANTALLA ---
-    // Mejorar reconocimiento de comandos de voz para lector de pantalla
-    const normalized = message
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim()
+  // --- Comandos de segundo plano ---
+  const normalized = message
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+
+  // Comando para segundo plano
+  if (isPlayingMusic && (
+    normalized.includes("reproduce en segundo plano") || normalized.includes("segundo plano")
+  )) {
+    setMusicBackgroundMode(true)
+    setCurrentText("Música en segundo plano activada.")
+    setTimeout(() => setCurrentText(""), 1500)
+    return
+  }
+  // Comando para primer plano
+  if (isPlayingMusic && (
+    normalized.includes("reproduce en primer plano") || normalized.includes("primer plano")
+  )) {
+    setMusicBackgroundMode(false)
+    setCurrentText("Música en primer plano.")
+    setTimeout(() => setCurrentText(""), 1500)
+    return
+  }
+
+  // --- COMANDOS DE VOZ PARA LECTOR DE PANTALLA ---
+  // Mejorar reconocimiento de comandos de voz para lector de pantalla
 
     // Variantes aceptadas para activar/desactivar
     const activarLector = [
@@ -2523,7 +2651,8 @@ const playlistEstudio = {
       {/* Instrucciones de uso */}
       {appState !== "sleeping" &&
         appState !== "waiting_password" &&
-        appState !== "initializing" && ( // <- EXCLUIR INITIALIZING
+        appState !== "initializing" &&
+        !musicBackgroundMode && (
           <div className="p-4 text-center relative z-10">
             <p className="text-gray-500 text-xs">
               Estado: {appState} | Escuchando: {isListening ? "Sí" : "No"} | Hablando: {isSpeaking ? "Sí" : "No"} |
@@ -2566,39 +2695,150 @@ const playlistEstudio = {
         </div>
       )}
 
-      {/* 🎵 REPRODUCTOR DE YOUTUBE INTEGRADO */}
+      {/* Reproductor YouTube siempre montado (oculto en segundo plano) */}
       {isPlayingMusic && currentVideoId && (
-        <div className="fixed inset-0 flex items-center justify-center z-40 bg-black/80">
-          <YouTubePlayer
-            ref={youtubePlayerRef}
-            videoId={currentVideoId}
-            title={currentSongTitle || ""}
-            onEnd={async () => {
+        <div className={musicBackgroundMode ? "hidden" : "fixed inset-0 z-50 flex items-center justify-center bg-black/80"}>
+          <div className="relative w-full max-w-xl">
+            <YouTubePlayer
+              ref={youtubePlayerRef}
+              videoId={currentVideoId}
+              onEnd={async () => {
+                if (playlistMode && currentPlaylist && currentPlaylistIndex < currentPlaylist.songs.length - 1) {
+                  const nextIndex = currentPlaylistIndex + 1
+                  setCurrentPlaylistIndex(nextIndex)
+                  setCurrentSongTitle(currentPlaylist.songs[nextIndex].title)
+                  setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId)
+                } else {
+                  setIsPlayingMusic(false)
+                  setCurrentSongTitle("")
+                  setCurrentVideoId("")
+                  setPlaylistMode(false)
+                  setCurrentPlaylist(null)
+                  setCurrentPlaylistIndex(0)
+                  setAppState("active")
+                }
+              }}
+            />
+            {!musicBackgroundMode && (
+              <div className="flex gap-2 mt-4 justify-end">
+                <Button onClick={() => setMusicBackgroundMode(true)} variant="secondary">
+                  Reproducir en segundo plano
+                </Button>
+                <Button onClick={() => handleMusicControl("quitar")}>Quitar música</Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mini barra de música en segundo plano con controles */}
+      {isPlayingMusic && currentVideoId && musicBackgroundMode && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-cyan-900/90 rounded-full shadow-lg flex items-center px-4 py-2 z-40 border border-cyan-600 gap-2">
+          {/* Indicador de modo y escucha */}
+          <div className="flex flex-col items-center justify-center mr-3">
+            <span className="text-xs font-bold text-cyan-200">
+              {appState === "intelligent_mode" ? "🧠 Inteligente" : appState === "functional_mode" ? "🔧 Funcional" : "✨ Normal"}
+            </span>
+            {/* Subtítulo animado solo si hay mensaje y música en segundo plano */}
+            {backgroundSubtitle && (
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-20 bg-black/80 text-white px-4 py-2 rounded-xl text-lg shadow-lg z-50 transition-opacity duration-300">
+                {backgroundSubtitle}
+              </div>
+            )}
+            <span className={`text-xs flex items-center mt-1 ${isListening ? "text-green-400" : "text-gray-400"}`}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M12 1v22"/><rect x="8" y="5" width="8" height="14" rx="4"/></svg>
+              {isListening ? "Escuchando" : "En espera"}
+            </span>
+            <span className="text-[10px] text-cyan-400 mt-1 bg-cyan-800 px-2 py-0.5 rounded-full">Música en segundo plano</span>
+          </div>
+
+          {/* --- Botones de modo, alineados a la derecha de la barra --- */}
+          {musicBackgroundMode && (
+            <div className="flex gap-2 ml-auto">
+              <button
+                className="bg-slate-800 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg border-2 border-blue-400 transition-colors duration-200"
+                onClick={() => handleNormalMode({ silent: true, subtitle: "Cambiando a modo normal...", forceListen: true })}
+              >
+                Modo Normal
+              </button>
+              <button
+                className="bg-slate-800 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg border-2 border-purple-400 transition-colors duration-200"
+                onClick={() => handleIntelligentMode({ silent: true, subtitle: "Cambiando a modo inteligente...", forceListen: true })}
+              >
+                Modo Inteligente
+              </button>
+              <button
+                className="bg-slate-800 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg border-2 border-orange-400 transition-colors duration-200"
+                onClick={() => handleFunctionalMode({ silent: true, subtitle: "Cambiando a modo funcional...", forceListen: true })}
+              >
+                Modo Funcional
+              </button>
+            </div>
+          )}
+          <Music className="mr-2 text-cyan-300" />
+          <span className="text-cyan-100 font-medium mr-2 truncate max-w-[140px]">{currentSongTitle || "Música en segundo plano"}</span>
+
+          {/* Botón anterior */}
+          <Button size="icon" variant="ghost" aria-label="Anterior"
+            disabled={!playlistMode || !currentPlaylist || currentPlaylistIndex === 0}
+            onClick={() => {
+              if (playlistMode && currentPlaylist && currentPlaylistIndex > 0) {
+                const prevIndex = currentPlaylistIndex - 1
+                setCurrentPlaylistIndex(prevIndex)
+                setCurrentSongTitle(currentPlaylist.songs[prevIndex].title)
+                setCurrentVideoId(currentPlaylist.songs[prevIndex].videoId)
+              }
+            }}
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 19l-7-7 7-7" /><path d="M19 5v14" /></svg>
+          </Button>
+
+          {/* Botón play/pause */}
+          <Button size="icon" variant="ghost" aria-label="Play/Pause"
+            onClick={() => {
+              if (youtubePlayerRef.current) {
+                const player = youtubePlayerRef.current;
+                // @ts-ignore
+                if (player.getPlayerState && player.getPlayerState() === 1) {
+                  // playing
+                  // @ts-ignore
+                  player.pauseVideo();
+                } else {
+                  // @ts-ignore
+                  player.playVideo();
+                }
+              }
+            }}
+          >
+            {/* Icono dinámico play/pause */}
+            {youtubePlayerRef.current && youtubePlayerRef.current.getPlayerState && youtubePlayerRef.current.getPlayerState() === 1 ? (
+              // Pausa
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            ) : (
+              // Play
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+            )}
+          </Button>
+
+          {/* Botón siguiente */}
+          <Button size="icon" variant="ghost" aria-label="Siguiente"
+            disabled={!playlistMode || !currentPlaylist || currentPlaylistIndex >= (currentPlaylist?.songs.length - 1)}
+            onClick={() => {
               if (playlistMode && currentPlaylist && currentPlaylistIndex < currentPlaylist.songs.length - 1) {
                 const nextIndex = currentPlaylistIndex + 1
                 setCurrentPlaylistIndex(nextIndex)
                 setCurrentSongTitle(currentPlaylist.songs[nextIndex].title)
                 setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId)
-                setCurrentText(`Siguiente: ${currentPlaylist.songs[nextIndex].title}`)
-                await speak(`Siguiente: ${currentPlaylist.songs[nextIndex].title}`)
-                setCurrentText("")
-              } else {
-                setIsPlayingMusic(false)
-                setCurrentVideoId("")
-                setCurrentSongTitle("")
-                setPlaylistMode(false)
-                setCurrentPlaylist(null)
-                setCurrentPlaylistIndex(0)
-                setAppState("active")
               }
             }}
-          />
-          <Button
-            className="absolute top-6 right-6 bg-cyan-700 text-white"
-            onClick={() => handleMusicControl("quitar")}
           >
-            Quitar música
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 5l7 7-7 7" /><path d="M5 5v14" /></svg>
           </Button>
+
+          <Button size="sm" variant="ghost" onClick={() => setMusicBackgroundMode(false)}>
+            Volver a primer plano
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => handleMusicControl("quitar")}>Quitar música</Button>
         </div>
       )}
 

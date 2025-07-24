@@ -27,6 +27,14 @@ const COMMANDS = [
       { cmd: "Nexus generame una imagen", desc: "Genera una imagen por IA." },
     ],
   },
+  {
+    title: "MÚSICA",
+    commands: [
+      { cmd: "Reproduce en segundo plano", desc: "Activa el modo de reproducción de música en segundo plano (minimiza el reproductor y mantiene la música sonando)." },
+      { cmd: "Reproduce en primer plano", desc: "Vuelve a mostrar el reproductor de música en pantalla." },
+      { cmd: "Pausa la música / Play / Siguiente / Anterior / Quitar música", desc: "Controla la música por voz en cualquier modo." },
+    ],
+  },
 ];
 
 export function SettingsModal({ open, onClose }: {
