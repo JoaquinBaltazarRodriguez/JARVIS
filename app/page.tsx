@@ -2,7 +2,8 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 
 import { useCineSound } from "@/hooks/useCineSound"
 
@@ -32,7 +33,6 @@ import { ContactsManager } from "@/components/ContactsManager"
 import { LocationsManager } from "@/components/LocationsManager"
 import YouTubePlayer, { type YouTubePlayerRef } from "@/components/YoutubePlayer"
 import { searchYouTube } from "@/lib/youtubeSearch"
-import dynamic from "next/dynamic"
 
 const MapViewer = dynamic(() => import("@/components/MapViewer").then((mod) => mod.MapViewer), { ssr: false })
 import type { MapViewerRef } from "@/components/MapViewer"
@@ -41,11 +41,12 @@ import { ContactsDB, LocationsDB, CommandDetector, TimeUtils } from "@/lib/datab
 import { ConversationsManager } from "@/components/ConversationsManager"
 import { ConversationsDB, type Conversation, type ConversationMessage } from "@/lib/conversations"
 import { usePillReminder } from "@/hooks/usePillReminder"
-import { TokenDisplay } from "@/components/TokenDisplay"
+// importación eliminada para limpiar la UI
 import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { NexusMemory } from "@/lib/jarvisMemory"
 import Starfield from "@/components/Starfield"
+import FunctionalModeShell from "@/components/FunctionalModeShell"
 import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation"
 import { SettingsModal } from "@/components/SettingsModal"
 import { LoadingScreen } from "@/components/LoadingScreen"
@@ -150,7 +151,10 @@ type Message = {
 export default function AdvancedJarvis() {
   // ...otros estados
   const [backgroundSubtitle, setBackgroundSubtitle] = useState<string>("");
-  // --- Estados principales de la app ---
+  // Componentes cargados dinámicamente
+const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspace"), { ssr: false });
+
+// --- Estados principales de la app ---
   const [appState, setAppState] = useState<AppState>("sleeping")
   const [messages, setMessages] = useState<Message[]>([])
   const [currentText, setCurrentText] = useState("")
@@ -491,6 +495,8 @@ const playlistEstudio = {
     localStorage.removeItem(PLAYLISTS_STORAGE_KEY)
     setPlaylists([playlist80s, playlistArcane, playlistEstudio])
   }
+  
+
 
   // --- ACCESIBILIDAD GLOBAL ---
   const [screenReaderEnabled, setScreenReaderEnabled] = useState(false) // Disabled by default
@@ -910,25 +916,23 @@ const playlistEstudio = {
     const intelligentMsg =
       "Modo inteligente activado, Señor. Bienvenido al PORTAL-NEXUS, en que proyecto quiere trabajar hoy señor?";
     setMessages((prev) => [...prev, { text: intelligentMsg, type: "nexus" }]);
-    if (silent) {
-      stopListening();
+    if (!silent) {
+      setCurrentText(intelligentMsg);
+      await speak(intelligentMsg);
+      setCurrentText("");
+    } else {
       if (subtitle) {
         setBackgroundSubtitle(subtitle);
         setTimeout(() => setBackgroundSubtitle(""), 3000);
       }
       if (forceListen) {
         startAutoListening();
-        
-        return;
+      } else {
+        setTimeout(() => {
+          startAutoListening();
+        }, 500);
       }
-      setTimeout(() => {
-        startAutoListening();
-      }, 500);
-      return;
     }
-    setCurrentText(intelligentMsg);
-    await speak(intelligentMsg);
-    setCurrentText("");
   }
 
   // 🔧 MANEJAR MODO FUNCIONAL
@@ -937,54 +941,82 @@ const playlistEstudio = {
     const functionalMsg =
       "Modo funcional activado señor. Tiene a su disposición un gestor de espacio de trabajo, con acceso a calendario, notas, y mas funcionalidades.";
     setMessages((prev) => [...prev, { text: functionalMsg, type: "nexus" }]);
-    if (silent) {
-      stopListening();
+    if (!silent) {
+      setCurrentText(functionalMsg);
+      await speak(functionalMsg);
+      setCurrentText("");
+    } else {
       if (subtitle) {
         setBackgroundSubtitle(subtitle);
         setTimeout(() => setBackgroundSubtitle(""), 3000);
       }
       if (forceListen) {
         startAutoListening();
-        
-        return;
+      } else {
+        setTimeout(() => {
+          startAutoListening();
+        }, 500);
       }
-      setTimeout(() => {
-        startAutoListening();
-      }, 500);
-      return;
     }
-    setCurrentText(functionalMsg);
-    await speak(functionalMsg);
-    setCurrentText("");
   }
 
   // 🔄 VOLVER AL MODO NORMAL
   type ModeHandlerOptions = { silent?: boolean; subtitle?: string; forceListen?: boolean };
 
 const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
-    setAppState("active");
-    const normalMsg = "Volviendo al modo normal, Señor. ¿En qué más puedo asistirle?";
-    setMessages((prev) => [...prev, { text: normalMsg, type: "nexus" }]);
-    if (silent) {
-      stopListening();
-      if (subtitle) {
-        setBackgroundSubtitle(subtitle);
-        setTimeout(() => setBackgroundSubtitle(""), 3000);
-      }
-      if (forceListen) {
-        startAutoListening();
-        
-        return;
-      }
-      setTimeout(() => {
-        startAutoListening();
-      }, 500);
+  setAppState("active");
+  const normalMsg = "Volviendo al modo normal, Señor. ¿En qué más puedo asistirle?";
+  setMessages((prev) => [...prev, { text: normalMsg, type: "nexus" }]);
+  if (silent) {
+    stopListening();
+    if (subtitle) {
+      setBackgroundSubtitle(subtitle);
+      setTimeout(() => setBackgroundSubtitle(""), 3000);
+    }
+    if (forceListen) {
+      startAutoListening();
       return;
     }
-    setCurrentText(normalMsg);
-    await speak(normalMsg);
-    setCurrentText("");
+    setTimeout(() => {
+      startAutoListening();
+    }, 500);
+    return;
   }
+  setCurrentText(normalMsg);
+  await speak(normalMsg);
+  setCurrentText("");
+} 
+
+// 🔄 FUNCIÓN PARA REINICIAR NEXUS
+const handleReset = async () => {
+  // Detener cualquier reproducción de música
+  if (isPlayingMusic) {
+    if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
+      youtubePlayerRef.current.stopVideo();
+    }
+    setIsPlayingMusic(false);
+    setCurrentSongTitle("");
+    setCurrentVideoId("");
+    setPlaylistMode(false);
+    setCurrentPlaylist(null);
+    setCurrentPlaylistIndex(0);
+    setMusicBackgroundMode(false);
+  }
+  
+  // Detener la escucha
+  if (isListening) {
+    stopListening();
+  }
+  
+  // Reiniciar estados
+  setAppState("active");
+  setCurrentText("NEXUS reiniciado correctamente.");
+  await speak("NEXUS reiniciado correctamente.");
+  setCurrentText("");
+  
+  // Reproducir sonido de inicio
+  playStartupSound();
+};
 
   // 📱 MANEJAR COMANDO DE LLAMADA
   const handleCallCommand = async (text: string) => {
@@ -1423,7 +1455,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
                   handleNavigationStart(`ir a ${localCommand.data.destination}`)
                 }
                 break
-              case "youtube":
+              case "youtube" as any:
                 handleYouTubeMusicCommand()
                 break
               case "cancel":
@@ -1623,7 +1655,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
           .toLowerCase()
       const input = normalize(text.trim())
 
-      const foundPlaylist = playlists.find((pl) => {
+      const foundPlaylist = playlists.find((pl: { name: string; songs: any[] }) => {
         const plName = normalize(pl.name)
         return plName.includes(input) || input.includes(plName)
       })
@@ -1658,7 +1690,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
     if (isPlaylistRequest && /reproduce una playlist|pon una playlist|quiero escuchar una playlist/i.test(text)) {
       setAwaitingPlaylistName(true)
       setCurrentText(
-        "¿Qué playlist desea reproducir, Señor? (Opciones: " + playlists.map((pl) => pl.name).join(", ") + ")",
+        "¿Qué playlist desea reproducir, Señor? (Opciones: " + playlists.map((pl: { name: string }) => pl.name).join(", ") + ")",
       )
       await speak("¿Qué playlist desea reproducir, Señor?")
       setCurrentText("")
@@ -1667,7 +1699,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
 
     // Si el usuario dice directamente "reproduce la playlist X"
     if (isPlaylistRequest) {
-      const foundPlaylist = playlists.find((pl) => {
+      const foundPlaylist = playlists.find((pl: { name: string; songs: any[] }) => {
         const plName = pl.name.toLowerCase().replace(/[^a-záéíóúüñ0-9 ]/gi, "")
         const input = cleaned.replace(/[^a-záéíóúüñ0-9 ]/gi, "")
         return input.includes(plName) || plName.includes(input)
@@ -1705,8 +1737,13 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
       setWaitingForSong(false)
       setPlaylistMode(false)
       setCurrentPlaylist(null)
-      setAppState("music_playing")
-
+      setMusicBackgroundMode(true) // Iniciar siempre en modo background
+      // Mantener el modo actual en lugar de cambiar a music_playing
+      // Solo cambiar a music_playing si no estamos en functional_mode o intelligent_mode
+      if (appState !== ("functional_mode" as AppState) && appState !== "intelligent_mode") {
+        setAppState("music_playing")
+      }
+      
       setCurrentText(`Reproduciendo: ${result.title}`)
       await speak(`Reproduciendo: ${result.title}`)
       setCurrentText("")
@@ -1719,7 +1756,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
 
   const handleMusicControl = async (text: string) => {
     if (text.includes("quitar") || text.includes("cerrar") || text.includes("apagar")) {
-      const stopMsg = "Cerrando reproductor de música, Señor. Volviendo al modo normal."
+      const stopMsg = "Cerrando reproductor de música, Señor."
       setCurrentText(stopMsg)
       await speak(stopMsg)
       setCurrentText("")
@@ -1729,7 +1766,12 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
       setPlaylistMode(false)
       setCurrentPlaylist(null)
       setCurrentPlaylistIndex(0)
-      setAppState("active")
+      setMusicBackgroundMode(false)
+      
+      // No cambiar el modo si estamos en modo funcional o inteligente
+      if (appState !== ("functional_mode" as AppState) && appState !== "intelligent_mode") {
+        setAppState("active")
+      }
     }
   }
 
@@ -1773,13 +1815,24 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
     }
   }
 
-  const getMainIcon = () => {
-    if (isSpeaking) return <Volume2 className="h-20 w-20 text-cyan-400 animate-pulse" />
-    if (isProcessing) return <Loader2 className="h-20 w-20 text-yellow-400 animate-spin" />
-    if (appState === "sleeping") return <Power className="h-20 w-20 text-gray-500" />
-    if (appState === "waiting_password") return <Lock className="h-20 w-20 text-yellow-400" />
-    if (appState === "initializing") return <Loader2 className="h-20 w-20 text-cyan-400 animate-spin" /> // <- NUEVO ICONO
-    if (appState === "calling_confirmation") return <Phone className="h-20 w-20 text-green-400 animate-pulse" />
+  // --- ICONO PRINCIPAL CON CICLO DE ANIMACIÓN EN MODO NORMAL + MÚSICA ---
+// --- ICONO PRINCIPAL: Modo normal + música fondo = solo una nota musical vibrando ---
+// No se requiere ciclo ni useState/useEffect
+
+
+const getMainIcon = () => {
+  // --- LOGO: Modo normal + música fondo = solo nota musical vibrando ---
+  if (appState === "active" && isPlayingMusic && musicBackgroundMode) {
+    return (
+      <Music className="h-20 w-20 text-green-400 animate-pulse" />
+    );
+  }
+  if (isSpeaking) return <Volume2 className="h-20 w-20 text-cyan-400 animate-pulse" />
+  if (isProcessing) return <Loader2 className="h-20 w-20 text-yellow-400 animate-spin" />
+  if (appState === "sleeping") return <Power className="h-20 w-20 text-gray-500" />
+  if (appState === "waiting_password") return <Lock className="h-20 w-20 text-yellow-400" />
+  if (appState === "initializing") return <Loader2 className="h-20 w-20 text-cyan-400 animate-spin" /> // <- NUEVO ICONO
+  if (appState === "calling_confirmation") return <Phone className="h-20 w-20 text-green-400 animate-pulse" />
     if (appState === "navigation_mode") return <MapPin className="h-20 w-20 text-blue-400 animate-pulse" />
     if (appState === "music_mode") return <Music className="h-20 w-20 text-green-400 animate-pulse" />
     if (appState === "music_playing") return <Music className="h-20 w-20 text-green-400 animate-bounce" />
@@ -1792,68 +1845,73 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
   }
 
   const getCircleClasses = () => {
-    const baseClasses =
-      "w-64 h-64 rounded-full border-4 flex items-center justify-center transition-all duration-500 relative"
+  const baseClasses =
+    "w-64 h-64 rounded-full border-4 flex items-center justify-center transition-all duration-500 relative";
 
-    if (isSpeaking) {
-      return `${baseClasses} border-cyan-500 shadow-cyan-500/50 animate-pulse`
-    }
-
-    if (isProcessing) {
-      return `${baseClasses} border-yellow-500 shadow-yellow-500/50 animate-pulse`
-    }
-
-    if (isListening) {
-      return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`
-    }
-
-    if (appState === "sleeping") {
-      return `${baseClasses} border-gray-600 opacity-60`
-    }
-
-    if (appState === "waiting_password") {
-      return `${baseClasses} border-yellow-500 shadow-yellow-500/30`
-    }
-
-    if (appState === "initializing") {
-      // <- NUEVO ESTILO
-      return `${baseClasses} border-cyan-500 shadow-cyan-500/50 animate-pulse`
-    }
-
-    if (appState === "calling_confirmation") {
-      return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`
-    }
-
-    if (appState === "navigation_mode") {
-      return `${baseClasses} border-blue-500 shadow-blue-500/50 animate-pulse`
-    }
-
-    if (appState === "music_mode") {
-      return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`
-    }
-
-    if (appState === "music_playing") {
-      return `${baseClasses} border-green-500 shadow-green-500/70 animate-pulse`
-    }
-
-    if (appState === "map_active") {
-      return `${baseClasses} border-blue-500 shadow-blue-500/70 animate-pulse`
-    }
-
-    if (appState === "intelligent_mode") {
-      return `${baseClasses} border-purple-500 shadow-purple-500/50 animate-pulse`
-    }
-
-    if (appState === "functional_mode") {
-      return `${baseClasses} border-orange-500 shadow-orange-500/50 animate-pulse`
-    }
-
-    if (appState === "image_download_confirmation") {
-      return `${baseClasses} border-cyan-500 shadow-cyan-500/50 animate-pulse`
-    }
-
-    return `${baseClasses} border-cyan-500 shadow-cyan-500/30`
+  // PRIORIDAD: Modo normal + música fondo SIEMPRE círculo verde vibrante
+  if (appState === "active" && isPlayingMusic && musicBackgroundMode) {
+    return `${baseClasses} border-green-500 shadow-green-500/70 animate-pulse`;
   }
+
+  if (isSpeaking) {
+    return `${baseClasses} border-cyan-500 shadow-cyan-500/50 animate-pulse`;
+  }
+
+  if (isProcessing) {
+    return `${baseClasses} border-yellow-500 shadow-yellow-500/50 animate-pulse`;
+  }
+
+  if (isListening) {
+    return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`;
+  }
+
+  if (appState === "sleeping") {
+    return `${baseClasses} border-gray-600 opacity-60`;
+  }
+
+  if (appState === "waiting_password") {
+    return `${baseClasses} border-yellow-500 shadow-yellow-500/30`;
+  }
+
+  if (appState === "initializing") {
+    // <- NUEVO ESTILO
+    return `${baseClasses} border-cyan-500 shadow-cyan-500/50 animate-pulse`;
+  }
+
+  if (appState === "calling_confirmation") {
+    return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`;
+  }
+
+  if (appState === "navigation_mode") {
+    return `${baseClasses} border-blue-500 shadow-blue-500/50 animate-pulse`;
+  }
+
+  if (appState === "music_mode") {
+    return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`;
+  }
+
+  if (appState === "music_playing") {
+    return `${baseClasses} border-green-500 shadow-green-500/70 animate-pulse`;
+  }
+
+  if (appState === "map_active") {
+    return `${baseClasses} border-blue-500 shadow-blue-500/70 animate-pulse`;
+  }
+
+  if (appState === "intelligent_mode") {
+    return `${baseClasses} border-purple-500 shadow-purple-500/50 animate-pulse`;
+  }
+
+  if (appState === "functional_mode") {
+    return `${baseClasses} border-orange-500 shadow-orange-500/50 animate-pulse`;
+  }
+
+  if (appState === "image_download_confirmation") {
+    return `${baseClasses} border-cyan-500 shadow-cyan-500/50 animate-pulse`;
+  }
+
+  return `${baseClasses} border-cyan-500 shadow-cyan-500/30`;
+}
 
   const getStatusText = () => {
     if (appState === "sleeping") return "Di: 'NEXUS enciéndete'"
@@ -1892,10 +1950,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
       return "Modo inteligente activo (automático)"
     }
     if (appState === "functional_mode") {
-      if (isSpeaking) return "NEXUS hablando..."
-      if (isProcessing) return "Ejecutando función..."
-      if (isListening) return "Modo funcional - Escuchando... (automático)"
-      return "Modo funcional activo (automático)"
+      return "Modo funcional"
     }
     if (isSpeaking) return "NEXUS hablando..."
     if (isProcessing) return "Procesando con ChatGPT..."
@@ -1911,26 +1966,98 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
     )
   }
 
+  // --- INTERFAZ ESTÁTICA PARA MODO FUNCIONAL ---
+  if (appState === "functional_mode" as AppState) {
+    // Usamos el componente memoizado FunctionalModeShell que nunca se vuelve a renderizar
+    // gracias al comparador personalizado (siempre retorna true)
+    const handleMusicControlInFunctional = (action: string) => {
+      console.log('Music control action en modo funcional:', action) // Para debug
+      
+      if (action === 'toggle') {
+        if (youtubePlayerRef.current && 
+            typeof youtubePlayerRef.current.pauseVideo === 'function' && 
+            typeof youtubePlayerRef.current.playVideo === 'function') {
+          if (!isPlayingMusic) {
+            youtubePlayerRef.current.playVideo();
+            setIsPlayingMusic(true);
+          } else {
+            youtubePlayerRef.current.pauseVideo();
+            setIsPlayingMusic(false);
+          }
+        }
+      } else if (action === 'quitar' || action === 'close') {
+        // Detener la música
+        if (youtubePlayerRef.current && 
+            typeof youtubePlayerRef.current.stopVideo === 'function') {
+          youtubePlayerRef.current.stopVideo();
+          setCurrentSongTitle("");
+          setMusicBackgroundMode(false);
+          setIsPlayingMusic(false);
+        }
+      } else if (action === 'foreground') {
+        // Cambiar a modo música
+        setAppState('music_mode');
+      } else if (action === 'next' && playlistMode && currentPlaylist) {
+        // Reproducir siguiente canción
+        if (currentPlaylistIndex < currentPlaylist.songs.length - 1) {
+          const nextIndex = currentPlaylistIndex + 1;
+          setCurrentPlaylistIndex(nextIndex);
+          const nextSong = currentPlaylist.songs[nextIndex];
+          setCurrentSongTitle(nextSong.title);
+          setCurrentVideoId(nextSong.videoId);
+          
+          // Actualizar el reproductor
+          if (youtubePlayerRef.current && 
+              typeof youtubePlayerRef.current.loadVideoById === 'function') {
+            youtubePlayerRef.current.loadVideoById(nextSong.videoId);
+          }
+        }
+      } else if (action === 'previous' && playlistMode && currentPlaylist) {
+        // Reproducir canción anterior
+        if (currentPlaylistIndex > 0) {
+          const prevIndex = currentPlaylistIndex - 1;
+          setCurrentPlaylistIndex(prevIndex);
+          const prevSong = currentPlaylist.songs[prevIndex];
+          setCurrentSongTitle(prevSong.title);
+          setCurrentVideoId(prevSong.videoId);
+          
+          // Actualizar el reproductor
+          if (youtubePlayerRef.current && 
+              typeof youtubePlayerRef.current.loadVideoById === 'function') {
+            youtubePlayerRef.current.loadVideoById(prevSong.videoId);
+          }
+        }
+      } else if (action === 'foreground') {
+        // Cambiar a modo primer plano
+        setMusicBackgroundMode(false);
+      }
+    };
+    
+    return (
+      <FunctionalModeShell 
+        onNormal={() => handleNormalMode({ silent: true, subtitle: "Cambiando a modo normal" })} 
+        onIntelligent={() => handleIntelligentMode({ silent: true, subtitle: "Cambiando a modo inteligente" })} 
+        onFunctional={() => handleFunctionalMode({ silent: true, subtitle: "Cambiando a modo funcional" })} 
+        musicBackgroundMode={musicBackgroundMode}
+        currentSongTitle={currentSongTitle}
+        onShowSettings={() => setShowSettings(true)}
+        onShowConversations={() => setShowConversationsManager(true)}
+        onShowLocations={() => setShowLocationsManager(true)}
+        onMusicControl={handleMusicControlInFunctional}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black/95 relative overflow-hidden">
-      {/* Fondo de estrellas futurista */}
-      <Starfield isSpeaking={isSpeaking} startupMode={startupAnim} />
+      {/* El modo funcional se maneja completamente con el componente memoizado FunctionalModeShell */}
+      {appState !== "functional_mode" && (
+        <>
+          {/* Fondo de estrellas futurista */}
+          <Starfield isSpeaking={isSpeaking} startupMode={startupAnim} />
 
-      {/* PANEL DE ESTADO IMPONENTE SOLO PARA ESTADO DE NEXUS */}
-      {((appState !== "sleeping" && appState !== "waiting_password") || isListening || isProcessing) && (
-        <div className="fixed left-1/2 -translate-x-1/2 top-6 md:top-8 z-50 flex justify-center w-full pointer-events-none select-none">
-          <div
-            className="max-w-2xl px-6 py-3 rounded-xl bg-black/60 border border-cyan-400/30 shadow-lg backdrop-blur-md"
-            style={{ textShadow: "0 2px 16px #00fff9, 0 1px 2px #000", minWidth: "240px" }}
-          >
-            <span className="text-xl md:text-2xl font-semibold text-cyan-100 tracking-wide text-center">
-              {getStatusText()}
-            </span>
-          </div>
-        </div>
-      )}
-      {/* ✨ ANIMACIONES DE FONDO ÉPICAS CUANDO HABLA */}
-      {isSpeaking && (
+          {/* ✨ ANIMACIONES DE FONDO ÉPICAS CUANDO HABLA */}
+          {isSpeaking && (
         <>
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border border-cyan-400/30 rounded-full animate-ping"></div>
@@ -1962,134 +2089,157 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
       )}
 
       {/* Animated Background Normal */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
-
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          </div>
+        </>
+      )}
       {/* Header */}
       <div className="flex justify-between items-center p-6 border-b border-cyan-500/20 relative z-10">
         <div className="flex items-center space-x-4">
           <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">NEXUS</h1>
-          {/* 💰 DISPLAY DE TOKENS */}
-          <TokenDisplay />
-
-          {/* 🧠 MODO INTELIGENTE HEADER */}
-          {appState === "intelligent_mode" && (
-            <div className="flex items-center space-x-2 bg-purple-900/30 px-4 py-2 rounded-full border border-purple-500/50">
-              <Brain className="h-5 w-5 text-purple-400" />
-              <span className="text-purple-300 text-sm font-bold">🧠 MODO INTELIGENTE</span>
-            </div>
-          )}
-
-          {/* 🔧 MODO FUNCIONAL HEADER */}
-          {appState === "functional_mode" && (
-            <div className="flex items-center space-x-2 bg-orange-900/30 px-4 py-2 rounded-full border border-orange-500/50">
-              <Mail className="h-5 w-5 text-orange-400" />
-              <span className="text-orange-300 text-sm font-bold">📧 MODO FUNCIONAL</span>
-            </div>
-          )}
-
-          {/* 🖼️ MODO CONFIRMACIÓN DESCARGA */}
-          {appState === "image_download_confirmation" && (
-            <div className="flex items-center space-x-2 bg-cyan-900/30 px-4 py-2 rounded-full border border-cyan-500/50">
-              <ImageIcon className="h-5 w-5 text-cyan-400" />
-              <span className="text-cyan-300 text-sm font-bold">🖼️ CONFIRMAR DESCARGA</span>
-            </div>
-          )}
+          {/* Status text e indicador de modo en el header */}
+          <div className="flex items-center ml-6 gap-3">
+            <span className="text-cyan-200 text-base font-semibold drop-shadow-md" style={{textShadow:'0 2px 8px #000'}}>{getStatusText()}</span>
+            {appState === "intelligent_mode" && (
+              <span className="flex items-center gap-1 px-3 py-1 bg-purple-900/60 rounded-full border border-purple-500 ml-2">
+                <Brain className="w-5 h-5 text-purple-400" />
+                <span className="text-purple-300 text-xs font-semibold">MODO INTELIGENTE</span>
+              </span>
+            )}
+            {appState === "functional_mode" && (
+              <span className="flex items-center gap-1 px-3 py-1 bg-orange-900/60 rounded-full border border-orange-500 ml-2">
+                <Mail className="w-5 h-5 text-orange-400" />
+                <span className="text-orange-300 text-xs font-semibold">MODO FUNCIONAL</span>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-2">
+          {/* Botón Playlists */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleAccessibleAction("playlists", "Playlists de música", () => setShowPlaylistSelector(true))}
+            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "playlists" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
+            title="Playlists de música"
+            aria-label="Playlists de música"
+            tabIndex={0}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") &&
+              handleAccessibleAction("playlists", "Playlists de música", () => setShowPlaylistSelector(true))
+            }
+          >
+            <Music className="w-6 h-6 text-cyan-400" />
+          </Button>
+
+          {/* Botón Mapa */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleAccessibleAction("locations", "Ubicaciones", () => setShowLocationsManager(true))}
+            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "locations" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
+            title="Ubicaciones"
+            aria-label="Ubicaciones"
+            tabIndex={0}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") &&
+              handleAccessibleAction("locations", "Ubicaciones", () => setShowLocationsManager(true))
+            }
+          >
+            <MapPin className="w-6 h-6 text-cyan-400" />
+          </Button>
+
+          {/* Botón Agenda */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleAccessibleAction("conversations", "Conversaciones", () => setShowConversationsManager(true))}
+            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "conversations" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
+            title="Conversaciones"
+            aria-label="Conversaciones"
+            tabIndex={0}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") &&
+              handleAccessibleAction("conversations", "Conversaciones", () => setShowConversationsManager(true))
+            }
+          >
+            <MessageCircle className="w-6 h-6 text-cyan-400" />
+          </Button>
+
           {/* Botón Reiniciar NEXUS */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => handleAccessibleAction("reset", "Reiniciar NEXUS", () => window.location.reload())}
-            className={`text-cyan-400 ${focusedElement === "reset" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
+            onClick={() => handleAccessibleAction("reset", "Reiniciar NEXUS", async () => {
+              // Detener cualquier reproducción de música
+              if (isPlayingMusic) {
+                if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
+                  youtubePlayerRef.current.stopVideo();
+                }
+                setIsPlayingMusic(false);
+                setCurrentSongTitle("");
+                setCurrentVideoId("");
+                setPlaylistMode(false);
+                setCurrentPlaylist(null);
+                setCurrentPlaylistIndex(0);
+                setMusicBackgroundMode(false);
+              }
+              
+              // Detener la escucha
+              if (isListening) {
+                stopListening();
+              }
+              
+              // Reiniciar estados
+              setAppState("active");
+              setCurrentText("NEXUS reiniciado correctamente.");
+              await speak("NEXUS reiniciado correctamente.");
+              setCurrentText("");
+              
+              // Reproducir sonido de inicio
+              playStartupSound();
+            })}
+            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "reset" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
             title="Reiniciar NEXUS"
             aria-label="Reiniciar NEXUS"
             tabIndex={0}
             onKeyDown={(e) =>
               (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("reset", "Reiniciar NEXUS", () => window.location.reload())
+              handleAccessibleAction("reset", "Reiniciar NEXUS", async () => {
+                // Detener cualquier reproducción de música
+                if (isPlayingMusic) {
+                  if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
+                    youtubePlayerRef.current.stopVideo();
+                  }
+                  setIsPlayingMusic(false);
+                  setCurrentSongTitle("");
+                  setCurrentVideoId("");
+                  setPlaylistMode(false);
+                  setCurrentPlaylist(null);
+                  setCurrentPlaylistIndex(0);
+                  setMusicBackgroundMode(false);
+                }
+                
+                // Detener la escucha
+                if (isListening) {
+                  stopListening();
+                }
+                
+                // Reiniciar estados
+                setAppState("active");
+                setCurrentText("NEXUS reiniciado correctamente.");
+                await speak("NEXUS reiniciado correctamente.");
+                setCurrentText("");
+                
+                // Reproducir sonido de inicio
+                playStartupSound();
+              })
             }
           >
-            <RefreshCw className="h-5 w-5" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              handleAccessibleAction("contacts", "Gestor de contactos", () => setShowContactsManager(true))
-            }
-            className={`text-cyan-400 ${focusedElement === "contacts" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
-            title="Gestionar Contactos"
-            aria-label="Gestionar Contactos"
-            tabIndex={0}
-            onKeyDown={(e) =>
-              (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("contacts", "Gestor de contactos", () => setShowContactsManager(true))
-            }
-          >
-            <Phone className="h-5 w-5" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              handleAccessibleAction("locations", "Gestor de ubicaciones", () => setShowLocationsManager(true))
-            }
-            className={`text-cyan-400 ${focusedElement === "locations" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
-            title="Gestionar Ubicaciones"
-            aria-label="Gestionar Ubicaciones"
-            tabIndex={0}
-            onKeyDown={(e) =>
-              (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("locations", "Gestor de ubicaciones", () => setShowLocationsManager(true))
-            }
-          >
-            <MapPin className="h-5 w-5" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              handleAccessibleAction("conversations", "Historial de conversaciones", () =>
-                setShowConversationsManager(true),
-              )
-            }
-            className={`text-cyan-400 ${focusedElement === "conversations" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
-            title="Historial de Conversaciones"
-            aria-label="Historial de Conversaciones"
-            tabIndex={0}
-            onKeyDown={(e) =>
-              (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("conversations", "Historial de conversaciones", () =>
-                setShowConversationsManager(true),
-              )
-            }
-          >
-            <MessageCircle className="h-5 w-5" />
-          </Button>
-
-          {/* Botón Playlist */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleAccessibleAction("playlists", "Panel de música", () => setShowPlaylistSelector(true))}
-            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "playlists" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
-            title="Ver playlists"
-            aria-label="Ver playlists"
-            tabIndex={0}
-            onKeyDown={(e) =>
-              (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("playlists", "Panel de música", () => setShowPlaylistSelector(true))
-            }
-          >
-            <Music className="w-6 h-6 text-cyan-400" />
+            <RefreshCw className="w-6 h-6 text-cyan-400" />
           </Button>
 
           {/* Botón Settings */}
@@ -2097,7 +2247,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
             variant="ghost"
             size="icon"
             onClick={() => handleAccessibleAction("settings", "Configuraciones", () => setShowSettings(true))}
-            className={`rounded-full p-2 hover:bg-cyan-900 ml-2 ${focusedElement === "settings" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
+            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "settings" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
             title="Configuraciones"
             aria-label="Configuraciones"
             tabIndex={0}
@@ -2125,17 +2275,17 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
           placeholder="Nueva playlist"
           value={newPlaylistName}
           onChange={e => setNewPlaylistName(e.target.value)}
-          onKeyDown={e => { if(e.key==="Enter" && newPlaylistName.trim()){ setPlaylists(prev=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}}
+          onKeyDown={e => { if(e.key==="Enter" && newPlaylistName.trim()){ setPlaylists((prev: { name: string, songs: any[] }[])=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}}
         />
         <Button
           className="bg-cyan-700 hover:bg-cyan-800 text-white"
           disabled={!newPlaylistName.trim()}
-          onClick={()=>{ setPlaylists(prev=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}
+          onClick={()=>{ setPlaylists((prev: { name: string, songs: any[] }[])=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}
         >Crear</Button>
       </div>
       {/* LISTA DE PLAYLISTS */}
       <ul className="space-y-2 mb-4">
-        {playlists.map((pl, idx) => (
+        {playlists.map((pl: { name: string, songs: any[] }, idx: number) => (
           <li key={pl.name} className={`flex items-center justify-between bg-cyan-950/40 rounded px-4 py-2 ${selectedPlaylistIdx===idx?"border-2 border-cyan-400":""}`}>
             <span className="text-cyan-100 font-semibold cursor-pointer" onClick={()=>setSelectedPlaylistIdx(idx)}>{pl.name}</span>
             <span className="text-cyan-400 text-xs">{pl.songs.length} canciones</span>
@@ -2143,7 +2293,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
               size="sm"
               className="ml-2 bg-red-700 hover:bg-red-800 text-white px-2 py-0.5"
               onClick={()=>{
-                setPlaylists(prev=>prev.filter((_,i)=>i!==idx));
+                setPlaylists((prev: { name: string, songs: any[] }[])=>prev.filter((_: { name: string, songs: any[] }, i: number)=>i!==idx));
                 if(selectedPlaylistIdx===idx) setSelectedPlaylistIdx(null)
                 else if(selectedPlaylistIdx && selectedPlaylistIdx>idx) setSelectedPlaylistIdx(selectedPlaylistIdx-1)
               }}
@@ -2160,7 +2310,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
             <span className="text-cyan-400 text-xs">{playlists[selectedPlaylistIdx].songs.length} canciones</span>
           </div>
           <ul className="space-y-1 mb-2 max-h-32 overflow-y-auto">
-            {playlists[selectedPlaylistIdx].songs.map((song, sidx) => (
+            {playlists[selectedPlaylistIdx].songs.map((song: { title: string, videoId: string }, sidx: number) => (
               <li key={song.title+sidx} className="flex items-center justify-between text-cyan-100 text-sm bg-cyan-900/30 rounded px-2 py-1">
                 <span>{song.title}</span>
                 <a className="ml-2 text-cyan-400 underline" href={`https://youtube.com/watch?v=${song.videoId}`} target="_blank" rel="noopener noreferrer">Ver</a>
@@ -2198,11 +2348,26 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
     </div>
   </div>
 )}
+      {/* Selector de Modo NEXUS */}
+
       {/* Main Interface - Solo mostrar si no hay mapa o música activa */}
-      {!isMapActive && !isPlayingMusic && (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 relative z-10">
+      {/* Render central solo cuando música en segundo plano, modo normal y música sonando */}
+      {!isMapActive && isPlayingMusic && musicBackgroundMode && appState === "active" && (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
+          {/* Central Circle SOLO para logo animado música fondo */}
+          <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
+            <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">
+              {getMainIcon()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Render habitual solo cuando NO está en música en segundo plano */}
+      {!isMapActive && (!isPlayingMusic || !musicBackgroundMode || appState !== "active") && appState !== "functional_mode" && (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
           {/* Central Circle */}
-          <div className="relative mb-12">
+          <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
             <div className={getCircleClasses()}>
               {/* ✨ EFECTOS FUTURISTAS EN EL CÍRCULO CUANDO HABLA */}
               {isSpeaking && (
@@ -2234,6 +2399,30 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
               )}
               <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">{getMainIcon()}</div>
             </div>
+
+            {/* Botones de modo centrados debajo del logo, solo si hasInitialized y modo activo */}
+            {hasInitialized && ["active","intelligent_mode"].includes(appState) && (
+              <div className="flex gap-8 mt-10 justify-center items-center w-full">
+                <button
+                  className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState==="active"?"bg-cyan-900/90 text-cyan-200 border-cyan-400 scale-105":"bg-cyan-900/60 text-cyan-400 border-cyan-700 hover:scale-105"}`}
+                  onClick={() => { if (!isSpeaking && appState!=="active") handleNormalMode({silent:false}) }}
+                  tabIndex={0}
+                  aria-label="Modo Normal"
+                >Modo Normal</button>
+                <button
+                  className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState==="intelligent_mode"?"bg-purple-900/90 text-purple-200 border-purple-400 scale-105":"bg-purple-900/60 text-purple-400 border-purple-700 hover:scale-105"}`}
+                  onClick={() => { if (!isSpeaking && appState!=="intelligent_mode") handleIntelligentMode({silent:false}) }}
+                  tabIndex={0}
+                  aria-label="Modo Inteligente"
+                >Modo Inteligente</button>
+                <button
+                  className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState===("functional_mode" as AppState)?"bg-orange-900/90 text-orange-200 border-orange-400 scale-105":"bg-orange-900/60 text-orange-400 border-orange-700 hover:scale-105"}`}
+                  onClick={() => { if (!isSpeaking && appState!==("functional_mode" as AppState)) handleFunctionalMode({silent:false}) }}
+                  tabIndex={0}
+                  aria-label="Modo Funcional"
+                >Modo Funcional</button>
+              </div>
+            )}
 
             {/* Status Text */}
             <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 text-center w-full">
@@ -2277,8 +2466,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
               <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse delay-500"></div>
               <div className="text-center relative z-10">
                 <p className="text-cyan-100 text-sm mb-3 font-medium font-mono">
-                  {">"}{" "}
-                  {appState === "intelligent_mode"
+                  {"> "} {appState === "intelligent_mode"
                     ? "NEXUS_INTELLIGENT_OUTPUT:"
                     : appState === "functional_mode"
                       ? "NEXUS_FUNCTIONAL_OUTPUT:"
@@ -2325,391 +2513,11 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
         </div>
       )}
 
-      {/* Messages con Input de Texto - Solo mostrar si NEXUS está activo */}
-      {!isMapActive &&
-        !isPlayingMusic &&
-        appState !== "sleeping" &&
-        appState !== "waiting_password" &&
-        appState !== "initializing" && ( // <- EXCLUIR INITIALIZING
-          <div className="p-6 max-h-80 overflow-y-auto relative z-10">
-            <Card className="bg-gray-900/60 border-cyan-500/20 p-4 backdrop-blur-sm">
-              {/* Historial de Mensajes */}
-              {messages.length > 0 && (
-                <div className="space-y-3 mb-4">
-                  {messages.slice(-3).map((msg, idx) => (
-                    <div key={idx} className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-xs px-4 py-3 rounded-2xl text-sm ${
-                          msg.type === "user"
-                            ? "bg-cyan-500 text-black"
-                            : appState === "intelligent_mode"
-                              ? "bg-purple-700/80 text-purple-100 border border-purple-500/20"
-                              : appState === "functional_mode"
-                                ? "bg-orange-700/80 text-orange-100 border border-orange-500/20"
-                                : "bg-gray-700/80 text-cyan-100 border border-cyan-500/20"
-                        }`}
-                      >
-                        <p className="font-bold text-xs mb-1 opacity-70 font-mono">
-                          {msg.type === "user" ? "> SEÑOR:" : "> NEXUS:"}
-                        </p>
-                        <p>{msg.text}</p>
+      {/* Footer limpio SOLO con botones de modo NEXUS */}
 
-                        {/* Mostrar archivos adjuntos */}
-                        {msg.files && msg.files.length > 0 && (
-                          <div className="mt-2 space-y-2">
-                            {msg.files.map((file, fileIdx) => (
-                              <div
-                                key={fileIdx}
-                                className="flex items-center p-2 bg-gray-800/50 rounded-lg border border-cyan-500/20"
-                              >
-                                {/* Icono según el tipo de archivo */}
-                                <div className="mr-2 text-cyan-400">
-                                  {file.type === "image" && (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                      />
-                                    </svg>
-                                  )}
-                                  {file.type === "document" && (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                      />
-                                    </svg>
-                                  )}
-                                  {file.type === "audio" && (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                                      />
-                                    </svg>
-                                  )}
-                                  {file.type === "video" && (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                      />
-                                    </svg>
-                                  )}
-                                  {file.type === "other" && (
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      className="h-5 w-5"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                      />
-                                    </svg>
-                                  )}
-                                </div>
 
-                                {/* Información del archivo */}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-cyan-100 truncate" title={file.name}>
-                                    {file.name}
-                                  </p>
-                                  <p className="text-xs text-gray-400">{(file.size / 1024).toFixed(1)} KB</p>
-                                </div>
 
-                                {/* Botón de vista previa/descarga */}
-                                <a
-                                  href={file.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="ml-2 p-1 text-cyan-400 hover:text-cyan-300"
-                                  title="Abrir archivo"
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                    />
-                                  </svg>
-                                </a>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Mostrar imagen del mensaje (para compatibilidad con mensajes antiguos) */}
-                        {msg.imageUrl && !msg.files?.some((f) => f.type === "image") && (
-                          <div className="mt-2 rounded overflow-hidden border border-cyan-500/30">
-                            <img
-                              src={msg.imageUrl || "/placeholder.svg"}
-                              alt={msg.imagePrompt || "Imagen"}
-                              className="w-full h-24 object-cover"
-                            />
-                          </div>
-                        )}
-
-                        {/* Source Badge for Jarvis responses */}
-                        {msg.type === "nexus" && msg.source && (
-                          <div className="mt-2 flex items-center">
-                            <span
-                              className={
-                                `inline-block px-2 py-0.5 rounded-full text-xs font-semibold ml-0 ` +
-                                (msg.source === "memory"
-                                  ? "bg-green-800 text-green-200 border border-green-400"
-                                  : msg.source === "ollama"
-                                    ? "bg-blue-900 text-blue-200 border border-blue-400"
-                                    : msg.source === "wikipedia"
-                                      ? "bg-yellow-900 text-yellow-200 border border-yellow-400"
-                                      : msg.source === "none"
-                                        ? "bg-gray-700 text-gray-300 border border-gray-500"
-                                        : "bg-gray-700 text-cyan-200 border border-cyan-400")
-                              }
-                              title={
-                                msg.source === "memory"
-                                  ? "Respuesta generada desde la memoria de NEXUS"
-                                  : msg.source === "ollama"
-                                    ? "Respuesta generada por el modelo Ollama LLM local"
-                                    : msg.source === "wikipedia"
-                                      ? "Respuesta basada en Wikipedia"
-                                      : msg.source === "none"
-                                        ? "No se encontró información precisa en las fuentes disponibles"
-                                        : "Fuente desconocida"
-                              }
-                            >
-                              {msg.source === "memory"
-                                ? "Memoria"
-                                : msg.source === "ollama"
-                                  ? "Ollama LLM"
-                                  : msg.source === "wikipedia"
-                                    ? "Wikipedia"
-                                    : msg.source === "none"
-                                      ? "Sin fuente precisa"
-                                      : msg.source}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Input de Texto para Chat */}
-              <div className="border-t border-cyan-500/20 pt-4">
-                <div className="flex items-center space-x-2">
-                  <div className="flex-1 relative">
-                    <div className="relative flex items-center">
-                      <div className="flex-1 relative">
-                        <input
-                          type="text"
-                          placeholder={
-                            selectedFiles.length > 0
-                              ? "Escribe un mensaje sobre los archivos..."
-                              : "Escribe un mensaje..."
-                          }
-                          className="w-full bg-gray-800/50 border border-cyan-500/30 rounded-lg px-4 py-2 text-cyan-100 placeholder-gray-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400/50 text-sm pr-10"
-                          value={userInput}
-                          onChange={(e) => setUserInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleSendMessage()
-                            }
-                          }}
-                          disabled={
-                            isProcessing ||
-                            isSpeaking ||
-                            isUploading ||
-                            appState === "sleeping" ||
-                            appState === "waiting_password"
-                          }
-                          autoComplete="off"
-                        />
-
-                        {/* Mostrar miniaturas de archivos seleccionados */}
-                        {selectedFiles.length > 0 && (
-                          <div className="absolute -top-12 left-0 right-0 flex space-x-2 overflow-x-auto pb-2">
-                            {selectedFiles.map((file, idx) => (
-                              <div key={idx} className="flex-shrink-0 relative group">
-                                <div className="w-10 h-10 bg-gray-700/80 rounded flex items-center justify-center">
-                                  {file.type === "image" ? (
-                                    <img
-                                      src={file.url || "/placeholder.svg"}
-                                      alt={file.name}
-                                      className="w-full h-full object-cover rounded"
-                                    />
-                                  ) : (
-                                    <span className="text-xs text-cyan-300">
-                                      {file.name.split(".").pop()?.toUpperCase()}
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    removeSelectedFile(idx)
-                                  }}
-                                  className="absolute -top-2 -right-2 bg-red-500 rounded-full w-4 h-4 flex items-center justify-center text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title="Eliminar archivo"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Botón de adjuntar archivo */}
-                      <button
-                        type="button"
-                        onClick={triggerFileInput}
-                        disabled={isUploading}
-                        className={`absolute right-2 p-1 ${selectedFiles.length > 0 ? "text-red-400 hover:text-red-300" : "text-cyan-400 hover:text-cyan-300"} disabled:opacity-50`}
-                        title={
-                          selectedFiles.length > 0 ? `Quitar ${selectedFiles.length} archivo(s)` : "Adjuntar archivo"
-                        }
-                      >
-                        {selectedFiles.length > 0 ? (
-                          <span className="text-xs font-bold">{selectedFiles.length}</span>
-                        ) : (
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                            />
-                          </svg>
-                        )}
-                      </button>
-
-                      {/* Input de archivo oculto */}
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileInputChange}
-                        className="hidden"
-                        multiple
-                        accept="image/*,.pdf,.doc,.docx,.txt,.mp3,.mp4"
-                      />
-                    </div>
-
-                    {isUploading && (
-                      <div className="mt-2 text-xs text-cyan-400 flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-3 w-3 text-cyan-400"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Subiendo archivos...
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-cyan-400 text-xs font-mono opacity-70">{">"} CHAT</div>
-                </div>
-                <p className="text-gray-500 text-xs mt-2 text-center">
-                  💬 Escribe y presiona Enter para chatear por texto (NEXUS responderá por voz)
-                </p>
-              </div>
-            </Card>
-          </div>
-        )}
-
-      {/* Instrucciones de uso */}
-      {appState !== "sleeping" &&
-        appState !== "waiting_password" &&
-        appState !== "initializing" &&
-        !musicBackgroundMode && (
-          <div className="p-4 text-center relative z-10">
-            <p className="text-gray-500 text-xs">
-              Estado: {appState} | Escuchando: {isListening ? "Sí" : "No"} | Hablando: {isSpeaking ? "Sí" : "No"} |
-              Procesando: {isProcessing ? "Sí" : "No"} | 🎤{" "}
-              {isPlayingMusic ? "SOLO MÚSICA" : isMapActive ? "SOLO MAPA" : "AUTOMÁTICO"}
-            </p>
-            <p className="text-cyan-400 text-xs mt-1">💡 Modos: Modo Normal | Modo Inteligente | Modo Funcional</p>
-            <p className="text-cyan-300 text-xs mt-1">
-              🎵 <b>Para reproducir música</b> di:{" "}
-              <span className="bg-cyan-900 px-1 rounded">"pon [nombre de la canción o artista]"</span> o{" "}
-              <span className="bg-cyan-900 px-1 rounded">"reproduce [nombre de la canción]"</span>
-            </p>
-            <p className="text-cyan-300 text-xs mt-1">
-              📞 <b>Para llamar</b> di: <span className="bg-cyan-900 px-1 rounded">"llama a [nombre]"</span> o{" "}
-              <span className="bg-cyan-900 px-1 rounded">"NEXUS llama a [nombre]"</span>
-            </p>
-            <p className="text-blue-300 text-xs mt-1">
-              🗺️ <b>Para navegar a una ubicación</b> di:{" "}
-              <span className="bg-blue-900 px-1 rounded">"ir a [nombre de la ubicación]"</span> o{" "}
-              <span className="bg-blue-900 px-1 rounded">"navega a [nombre de la ubicación]"</span>
-            </p>
-            {transcript && <p className="text-yellow-400 text-xs mt-1">Último: "{transcript}"</p>}
-          </div>
-        )}
+      
 
       {/* 💊 RECORDATORIO DE PASTILLAS */}
       {showReminder && (
@@ -2748,7 +2556,12 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
                   setPlaylistMode(false)
                   setCurrentPlaylist(null)
                   setCurrentPlaylistIndex(0)
-                  setAppState("active")
+                  setMusicBackgroundMode(false)
+                  
+                  // Mantener el modo actual si estamos en modo funcional o inteligente
+                  if (appState !== ("functional_mode" as AppState) && appState !== "intelligent_mode") {
+                    setAppState("active")
+                  }
                 }
               }}
             />
@@ -2766,11 +2579,11 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
 
       {/* Mini barra de música en segundo plano con controles */}
       {isPlayingMusic && currentVideoId && musicBackgroundMode && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-cyan-900/90 rounded-full shadow-lg flex items-center px-4 py-2 z-40 border border-cyan-600 gap-2">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-cyan-900/90 rounded-lg shadow-xl flex items-center px-4 py-3 z-40 border border-cyan-600 gap-3">
           {/* Indicador de modo y escucha */}
           <div className="flex flex-col items-center justify-center mr-3">
             <span className="text-xs font-bold text-cyan-200">
-              {appState === "intelligent_mode" ? "🧠 Inteligente" : appState === "functional_mode" ? "🔧 Funcional" : "✨ Normal"}
+              {appState === "intelligent_mode" ? "🧠 Inteligente" : appState === ("functional_mode" as AppState) ? "🔧 Funcional" : "✨ Normal"}
             </span>
             {/* Subtítulo animado solo si hay mensaje y música en segundo plano */}
             {backgroundSubtitle && (
@@ -2782,96 +2595,117 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M12 1v22"/><rect x="8" y="5" width="8" height="14" rx="4"/></svg>
               {isListening ? "Escuchando" : "En espera"}
             </span>
-            <span className="text-[10px] text-cyan-400 mt-1 bg-cyan-800 px-2 py-0.5 rounded-full">Música en segundo plano</span>
+          </div>
+          
+          {/* Botones para cambiar de modo */}
+          <div className="flex items-center gap-1 mr-2 border-r border-cyan-700/50 pr-3">
+            <button
+              className="bg-cyan-700 hover:bg-cyan-800 text-white rounded-full p-2 shadow-md border border-cyan-400 w-7 h-7 flex items-center justify-center"
+              onClick={() => handleNormalMode({ silent: true, subtitle: "Cambiando a modo normal" })}
+              title="Modo Normal"
+            >
+              <Unlock className="w-3 h-3" />
+            </button>
+            <button
+              className="bg-purple-700 hover:bg-purple-800 text-white rounded-full p-2 shadow-md border border-purple-400 w-7 h-7 flex items-center justify-center"
+              onClick={() => handleIntelligentMode({ silent: true, subtitle: "Cambiando a modo inteligente" })}
+              title="Modo Inteligente"
+            >
+              <Brain className="w-3 h-3" />
+            </button>
+            <button
+              className="bg-orange-700 hover:bg-orange-800 text-white rounded-full p-2 shadow-md border border-orange-400 w-7 h-7 flex items-center justify-center"
+              onClick={() => handleFunctionalMode({ silent: true, subtitle: "Cambiando a modo funcional" })}
+              title="Modo Funcional"
+            >
+              <Mail className="w-3 h-3" />
+            </button>
           </div>
 
-          {/* --- Botones de modo, alineados a la derecha de la barra --- */}
-          {musicBackgroundMode && (
-            <div className="flex gap-2 ml-auto">
-              <button
-                className="bg-slate-800 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg border-2 border-blue-400 transition-colors duration-200"
-                onClick={() => handleNormalMode({ silent: true, subtitle: "Cambiando a modo normal...", forceListen: true })}
-              >
-                Modo Normal
-              </button>
-              <button
-                className="bg-slate-800 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg border-2 border-purple-400 transition-colors duration-200"
-                onClick={() => handleIntelligentMode({ silent: true, subtitle: "Cambiando a modo inteligente...", forceListen: true })}
-              >
-                Modo Inteligente
-              </button>
-              <button
-                className="bg-slate-800 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg border-2 border-orange-400 transition-colors duration-200"
-                onClick={() => handleFunctionalMode({ silent: true, subtitle: "Cambiando a modo funcional...", forceListen: true })}
-              >
-                Modo Funcional
-              </button>
-            </div>
-          )}
-          <Music className="mr-2 text-cyan-300" />
+          <Music className="mr-1 text-cyan-300" />
           <span className="text-cyan-100 font-medium mr-2 truncate max-w-[140px]">{currentSongTitle || "Música en segundo plano"}</span>
 
-          {/* Botón anterior */}
-          <Button size="icon" variant="ghost" aria-label="Anterior"
-            disabled={!playlistMode || !currentPlaylist || currentPlaylistIndex === 0}
-            onClick={() => {
-              if (playlistMode && currentPlaylist && currentPlaylistIndex > 0) {
-                const prevIndex = currentPlaylistIndex - 1
-                setCurrentPlaylistIndex(prevIndex)
-                setCurrentSongTitle(currentPlaylist.songs[prevIndex].title)
-                setCurrentVideoId(currentPlaylist.songs[prevIndex].videoId)
-              }
-            }}
-          >
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 19l-7-7 7-7" /><path d="M19 5v14" /></svg>
-          </Button>
-
-          {/* Botón play/pause */}
-          <Button size="icon" variant="ghost" aria-label="Play/Pause"
-            onClick={() => {
-              if (youtubePlayerRef.current) {
-                const player = youtubePlayerRef.current;
-                // @ts-ignore
-                if (player.getPlayerState && player.getPlayerState() === 1) {
-                  // playing
-                  // @ts-ignore
-                  player.pauseVideo();
-                } else {
-                  // @ts-ignore
-                  player.playVideo();
+          {/* Controles de reproducción */}
+          <div className="flex items-center gap-2 border-l border-cyan-700/50 pl-3">
+            {/* Botón anterior */}
+            <Button size="icon" variant="ghost" className="hover:bg-cyan-800/50" aria-label="Anterior"
+              disabled={!playlistMode || !currentPlaylist || currentPlaylistIndex === 0}
+              onClick={() => {
+                if (playlistMode && currentPlaylist && currentPlaylistIndex > 0) {
+                  const prevIndex = currentPlaylistIndex - 1
+                  setCurrentPlaylistIndex(prevIndex)
+                  setCurrentSongTitle(currentPlaylist.songs[prevIndex].title)
+                  setCurrentVideoId(currentPlaylist.songs[prevIndex].videoId)
                 }
-              }
-            }}
-          >
-            {/* Icono dinámico play/pause */}
-            {youtubePlayerRef.current && youtubePlayerRef.current.getPlayerState && youtubePlayerRef.current.getPlayerState() === 1 ? (
-              // Pausa
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            ) : (
-              // Play
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
-            )}
-          </Button>
+              }}
+            >
+              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M11 19l-7-7 7-7" /><path d="M19 5v14" /></svg>
+            </Button>
 
-          {/* Botón siguiente */}
-          <Button size="icon" variant="ghost" aria-label="Siguiente"
-            disabled={!playlistMode || !currentPlaylist || currentPlaylistIndex >= (currentPlaylist?.songs.length - 1)}
-            onClick={() => {
-              if (playlistMode && currentPlaylist && currentPlaylistIndex < currentPlaylist.songs.length - 1) {
-                const nextIndex = currentPlaylistIndex + 1
-                setCurrentPlaylistIndex(nextIndex)
-                setCurrentSongTitle(currentPlaylist.songs[nextIndex].title)
-                setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId)
-              }
-            }}
-          >
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 5l7 7-7 7" /><path d="M5 5v14" /></svg>
-          </Button>
+            {/* Botón play/pause */}
+            <Button size="icon" variant="ghost" className="hover:bg-cyan-800/50" aria-label="Play/Pause"
+              onClick={() => {
+                if (youtubePlayerRef.current) {
+                  const player = youtubePlayerRef.current;
+                  // @ts-ignore
+                  if (player.getPlayerState && player.getPlayerState() === 1) {
+                    // playing
+                    player.pause();
+                  } else {
+                    player.play();
+                  }
+                }
+              }}
+            >
+              {/* Icono dinámico play/pause */}
+              {youtubePlayerRef.current && youtubePlayerRef.current.getPlayerState && youtubePlayerRef.current.getPlayerState() === 1 ? (
+                // Pausa
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              ) : (
+                // Play
+                <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+              )}
+            </Button>
 
-          <Button size="sm" variant="ghost" onClick={() => setMusicBackgroundMode(false)}>
-            Volver a primer plano
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => handleMusicControl("quitar")}>Quitar música</Button>
+            {/* Botón siguiente */}
+            <Button size="icon" variant="ghost" className="hover:bg-cyan-800/50" aria-label="Siguiente"
+              disabled={!playlistMode || !currentPlaylist || currentPlaylistIndex >= (currentPlaylist?.songs.length - 1)}
+              onClick={() => {
+                if (playlistMode && currentPlaylist && currentPlaylistIndex < currentPlaylist.songs.length - 1) {
+                  const nextIndex = currentPlaylistIndex + 1
+                  setCurrentPlaylistIndex(nextIndex)
+                  setCurrentSongTitle(currentPlaylist.songs[nextIndex].title)
+                  setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId)
+                }
+              }}
+            >
+              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M13 5l7 7-7 7" /><path d="M5 5v14" /></svg>
+            </Button>
+          </div>
+
+          
+          <div className="flex items-center gap-2 ml-auto">
+            <Button size="sm" variant="outline" className="bg-cyan-950/50 hover:bg-cyan-800" onClick={() => setMusicBackgroundMode(false)}>
+              <svg width="16" height="16" className="mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                <polyline points="10 17 15 12 10 7"/>
+                <line x1="15" y1="12" x2="3" y2="12"/>
+              </svg>
+              Primer plano
+            </Button>
+            <Button size="sm" variant="outline" className="bg-red-950/50 hover:bg-red-900/50" onClick={() => handleMusicControl("quitar")}>
+              <svg width="16" height="16" className="mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Cerrar
+            </Button>
+          </div>
+
+          {/* Indicador de música en segundo plano */}
+          <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] text-cyan-400 bg-cyan-950/90 px-2 py-0.5 rounded-b-lg border border-t-0 border-cyan-700/50">
+            Música en segundo plano
+          </span>
         </div>
       )}
 

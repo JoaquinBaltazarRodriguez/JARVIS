@@ -7,6 +7,10 @@ export type YouTubePlayerRef = {
   next: () => void;
   previous: () => void;
   loadVideoById: (videoId: string) => void;
+  playVideo: () => void;
+  pauseVideo: () => void;
+  stopVideo: () => void;
+  getPlayerState?: () => number;
 };
 
 type Props = {
@@ -24,6 +28,10 @@ const YouTubePlayer = forwardRef<YouTubePlayerRef, Props>(({ videoId, title, onE
     loadVideoById: (id: string) => playerRef.current?.internalPlayer?.loadVideoById(id),
     next: () => {}, // Puedes implementar listas si quieres
     previous: () => {},
+    playVideo: () => playerRef.current?.internalPlayer?.playVideo(),
+    pauseVideo: () => playerRef.current?.internalPlayer?.pauseVideo(),
+    stopVideo: () => playerRef.current?.internalPlayer?.stopVideo(),
+    getPlayerState: () => playerRef.current?.internalPlayer?.getPlayerState(),
   }));
 
   return (
