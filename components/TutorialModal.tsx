@@ -23,7 +23,7 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
         className="bg-gradient-to-b from-gray-900 to-gray-950 rounded-xl border border-cyan-500/50 shadow-lg shadow-cyan-500/20 
         max-w-md w-full p-6 animate-fadeIn relative"
       >
-        <div className="absolute -top-3 -left-3 w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 
+        <div className="absolute -top-3 -right-3 w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 
           flex items-center justify-center shadow-lg">
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -51,7 +51,7 @@ const TutorialModal: React.FC<TutorialModalProps> = ({
             para conocer todas las funcionalidades disponibles?
           </p>
           <p className="text-cyan-200 mt-3 italic text-sm">
-            Nova, nuestra asistente de guía, te presentará todo lo que NEXUS puede hacer por ti.
+            Orión, nuestra asistente de guía, te presentará todo lo que NEXUS puede hacer por ti.
           </p>
         </div>
 

@@ -205,6 +205,11 @@ const handleTutorialDeclined = () => {
   if (activeProfile) {
     const tutorialKey = `nexus_tutorial_shown_${activeProfile.id}`;
     localStorage.setItem(tutorialKey, "true");
+    
+    // Mostrar mensaje de bienvenida después de rechazar el tutorial
+    const welcomeMessage = getWelcomeMessage(activeProfile);
+    setCurrentText(welcomeMessage);
+    speak(welcomeMessage);
   }
 };
 
@@ -217,6 +222,11 @@ const handleTutorialCompleted = () => {
   if (activeProfile) {
     const tutorialKey = `nexus_tutorial_shown_${activeProfile.id}`;
     localStorage.setItem(tutorialKey, "true");
+    
+    // Mostrar mensaje de bienvenida después de completar el tutorial
+    const welcomeMessage = getWelcomeMessage(activeProfile);
+    setCurrentText(welcomeMessage);
+    speak(welcomeMessage);
   }
 };
 
@@ -236,21 +246,22 @@ const handleLoginComplete = (profile: UserProfile) => {
   const tutorialKey = `nexus_tutorial_shown_${profile.id}`;
   const tutorialShown = localStorage.getItem(tutorialKey);
   
-  if (!tutorialShown) {
-    // Si es la primera vez, mostramos el modal de tutorial
-    setShowTutorialModal(true);
-  } else {
-    // Si ya ha visto el tutorial, activamos NEXUS normalmente
-    setAppState("active");
-  }
-  
-  // Reproducir sonido de inicio
+  // Reproducir solo el sonido de inicio en todos los casos
   playStartupSound();
   
-  // Mostrar mensaje de bienvenida adaptado al género del perfil
-  const welcomeMessage = getWelcomeMessage(profile);
-  setCurrentText(welcomeMessage);
-  speak(welcomeMessage);
+  if (!tutorialShown) {
+    // Si es la primera vez, mostramos el modal de tutorial
+    // No reproducimos mensaje de bienvenida aquí, se hará después del tutorial
+    setShowTutorialModal(true);
+  } else {
+    // Si ya ha visto el tutorial, activamos NEXUS normalmente y damos bienvenida
+    setAppState("active");
+    
+    // Mostrar mensaje de bienvenida adaptado al género del perfil
+    const welcomeMessage = getWelcomeMessage(profile);
+    setCurrentText(welcomeMessage);
+    speak(welcomeMessage);
+  }
 }
   
   // Efecto para inicializar el sistema de perfiles
