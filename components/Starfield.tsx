@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 
 interface Star {
   x: number;
@@ -10,6 +10,7 @@ interface Star {
 export interface StarfieldProps {
   isSpeaking: boolean;
   startupMode?: boolean;
+  disableAnimations?: boolean;
 }
 
 const STAR_COUNT = 300;
@@ -18,7 +19,40 @@ const SPEED_SPEAKING = 1;
 // Eliminado SPEED_STARTUP y VIBRATE_STARTUP
 const VIBRATE_INTENSITY = 2.5; // vibración leve sólo cuando habla
 
-export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode }) => {
+export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode, disableAnimations }) => {
+  // Estado local para controlar si las animaciones están deshabilitadas
+  const [isAnimationsDisabled, setIsAnimationsDisabled] = useState(disableAnimations || false);
+  
+  // Escuchar cambios en localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Verificar estado inicial
+    const checkAnimationSettings = () => {
+      const animationsEnabled = localStorage.getItem('nexus_animations_enabled');
+      setIsAnimationsDisabled(animationsEnabled === 'false');
+    };
+    
+    // Verificar al montar
+    checkAnimationSettings(); // Esto ya no necesita argumentos
+    
+    // Escuchar cambios en localStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'nexus_animations_enabled') {
+        checkAnimationSettings();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Crear un intervalo para verificar cambios de localStorage en la misma ventana
+    const checkInterval = setInterval(() => checkAnimationSettings(), 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(checkInterval);
+    };
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>();
   const stars = useRef<Star[]>([]);
@@ -55,9 +89,21 @@ export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode })
       };
     });
 
+    // Definir tipos para la estrella fugaz
+    interface ShootingStar {
+      x: number;
+      y: number;
+      cx: number;
+      cy: number;
+      ex: number;
+      ey: number;
+      t: number;
+      duration: number;
+    }
+    
     // Estrella fugaz curva y elegante
-    let shootingStar = null;
-    let shootingStarTimeout = null;
+    let shootingStar: ShootingStar | null = null;
+    let shootingStarTimeout: NodeJS.Timeout | null = null;
     function launchShootingStar() {
       // Solo esquinas, nunca por el centro
       const corners = [
@@ -77,6 +123,7 @@ export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode })
     launchShootingStar();
 
     function draw() {
+      if (!ctx) return;
       ctx.clearRect(0, 0, w, h);
       // Target speed and vibrate
       let targetSpeed = SPEED_IDLE;
@@ -126,7 +173,7 @@ export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode })
         ctx.fill();
       }
       // Dibuja estrella fugaz curva y elegante
-      if (shootingStar && shootingStar.t <= 1) {
+      if (shootingStar && shootingStar.t <= 1 && ctx) {
         ctx.save();
         ctx.globalAlpha = 0.85;
         ctx.strokeStyle = '#fff';
@@ -147,7 +194,7 @@ export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode })
         ctx.stroke();
         ctx.restore();
         // Shadow más vistoso
-        ctx.shadowBlur = 32;
+        if (ctx) ctx.shadowBlur = 32;
         shootingStar.t += 1/shootingStar.duration;
       }
 
@@ -163,7 +210,7 @@ export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode })
     }
     draw();
     return () => {
-      cancelAnimationFrame(animationRef.current!);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (shootingStarTimeout) clearTimeout(shootingStarTimeout);
     };
   }, [isSpeaking, startupMode]);
@@ -180,6 +227,25 @@ export const Starfield: React.FC<StarfieldProps> = ({ isSpeaking, startupMode })
     return () => window.removeEventListener('resize', resize);
   }, []);
 
+  // Fondo estático cuando las animaciones están deshabilitadas
+  if (isAnimationsDisabled) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 0,
+          background: 'linear-gradient(to bottom, #0c1838 0%, #081029 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+    );
+  }
+  
+  // Canvas con animaciones si están habilitadas
   return (
     <canvas
       ref={canvasRef}

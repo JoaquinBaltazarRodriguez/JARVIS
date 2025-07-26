@@ -2,6 +2,24 @@
 
 import { useState, useEffect } from "react"
 
+// Variable global para controlar el silenciamiento
+let isMuted = false;
+
+// Función para establecer el estado global de silencio
+export function setNexusVoiceMuted(muted: boolean) {
+  isMuted = muted;
+  console.log(`🔊 NEXUS voice ${muted ? 'muted' : 'unmuted'}`);
+  // Guardar preferencia en localStorage
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('nexus_voice_muted', muted ? 'true' : 'false');
+  }
+}
+
+// Función para obtener el estado global de silencio
+export function isNexusVoiceMuted(): boolean {
+  return isMuted;
+}
+
 export function useSimpleAudio() {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isReady, setIsReady] = useState(false)
@@ -18,6 +36,15 @@ export function useSimpleAudio() {
         console.log("🎤 Available voices:", voices.length)
         if (voices.length > 0) {
           setIsReady(true)
+        }
+        
+        // Cargar preferencia de silenciamiento desde localStorage
+        if (typeof localStorage !== 'undefined') {
+          const savedMuted = localStorage.getItem('nexus_voice_muted');
+          if (savedMuted === 'true') {
+            isMuted = true;
+            console.log('🔊 NEXUS voice loaded as muted from settings');
+          }
         }
       } catch (error) {
         console.error("❌ Error initializing audio:", error)
@@ -46,6 +73,16 @@ export function useSimpleAudio() {
     return new Promise<void>((resolve) => {
       console.log("🗣️ NEXUS SPEAKING:", text)
       setIsSpeaking(true)
+      
+      // Si está silenciado, solo registrar el texto pero no reproducir audio
+      if (isMuted) {
+        console.log("🔇 NEXUS is muted, skipping speech")
+        setTimeout(() => {
+          setIsSpeaking(false)
+          resolve()
+        }, 500) // Simular un pequeño retraso como si hubiera hablado
+        return
+      }
 
       speechSynthesis.cancel()
 

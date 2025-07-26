@@ -25,12 +25,26 @@ import {
   User,
   LogOut,
   BookOpen,
+  Plus,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Moon,
+  Sun,
+  Zap,
+  Trash2,
+  MessageSquare,
+  Mic,
+  X,
+  HelpCircle,
+  VolumeX,
+  Eye,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { LogoutModal } from "@/components/LogoutModal"
-import { useSimpleAudio } from "@/hooks/useSimpleAudio"
+import { useSimpleAudio, setNexusVoiceMuted, isNexusVoiceMuted } from "@/hooks/useSimpleAudio"
 import { useAutoSpeech } from "@/hooks/useAutoSpeech"
 import { useFuturisticSounds } from "@/hooks/useFuturisticSounds"
 import { ContactsManager } from "@/components/ContactsManager"
@@ -142,9 +156,10 @@ type AppState =
   | "music_mode"
   | "music_playing"
   | "map_active"
-  | "intelligent_mode"
-  | "functional_mode"
+  | "intelligent_mode" // <- ESTADO PARA EL MODO INTELIGENTE
+  | "functional_mode" // <- ESTADO PARA EL MODO FUNCIONAL
   | "image_download_confirmation"
+  | "tutorial" // <- ESTADO PARA EL TUTORIAL GUIADO
 
 type FileType = {
   name: string
@@ -187,6 +202,13 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [showTutorialModal, setShowTutorialModal] = useState(false)
   const [showTutorialGuide, setShowTutorialGuide] = useState(false)
   
+  // --- Estados para configuración de accesibilidad ---
+  const [animationsEnabled, setAnimationsEnabled] = useState(true)
+  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false)
+  
+  // Región ARIA live para anuncios del lector de pantalla
+  const [announcement, setAnnouncement] = useState('')
+  
   // Función para manejar el cierre de sesión y reiniciar todos los estados
   
   // Función para manejar el login completado desde el sistema de login
@@ -194,14 +216,23 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
 const handleTutorialAccepted = () => {
   setShowTutorialModal(false);
   setShowTutorialGuide(true);
+  
+  // Desactivar la escucha de NEXUS durante el tutorial
+  if (isListening) {
+    stopListening();
+  }
+  
+  // Pausar cualquier otra funcionalidad mientras el tutorial está activo
+  setAppState("tutorial");
 };
 
 // Función para manejar el tutorial rechazado
 const handleTutorialDeclined = () => {
   setShowTutorialModal(false);
+  setShowTutorialGuide(false); // No mostramos la guía del tutorial
   setAppState("active");
   
-  // Guardar en localStorage que ya se mostró el tutorial
+  // Guardar en localStorage que ya se mostró el tutorial y el mensaje de bienvenida
   if (activeProfile) {
     const tutorialKey = `nexus_tutorial_shown_${activeProfile.id}`;
     localStorage.setItem(tutorialKey, "true");
@@ -210,6 +241,9 @@ const handleTutorialDeclined = () => {
     const welcomeMessage = getWelcomeMessage(activeProfile);
     setCurrentText(welcomeMessage);
     speak(welcomeMessage);
+    
+    // Marcar que ya se mostró el mensaje de bienvenida
+    localStorage.setItem(`nexus_welcome_shown_${activeProfile.id}`, "true");
   }
 };
 
@@ -223,10 +257,18 @@ const handleTutorialCompleted = () => {
     const tutorialKey = `nexus_tutorial_shown_${activeProfile.id}`;
     localStorage.setItem(tutorialKey, "true");
     
-    // Mostrar mensaje de bienvenida después de completar el tutorial
-    const welcomeMessage = getWelcomeMessage(activeProfile);
-    setCurrentText(welcomeMessage);
-    speak(welcomeMessage);
+    // Verificar si ya se ha mostrado el mensaje de bienvenida
+    const welcomeShown = localStorage.getItem(`nexus_welcome_shown_${activeProfile.id}`);
+    
+    if (welcomeShown !== "true") {
+      // Mostrar mensaje de bienvenida después de completar el tutorial
+      const welcomeMessage = getWelcomeMessage(activeProfile);
+      setCurrentText(welcomeMessage);
+      speak(welcomeMessage);
+      
+      // Marcar que ya se mostró el mensaje de bienvenida
+      localStorage.setItem(`nexus_welcome_shown_${activeProfile.id}`, "true");
+    }
   }
 };
 
@@ -239,28 +281,37 @@ const handleLoginComplete = (profile: UserProfile) => {
   console.log("🔓 Login completado para el perfil:", profile.name);
   setActiveProfile(profile);
   setShowLoginSystem(false);
-  
   setHasInitialized(true);
+  
+  // Activamos la interfaz de NEXUS inmediatamente para todos los usuarios
+  setAppState("active");
+  
+  // Reproducir solo el sonido de inicio en todos los casos
+  playStartupSound();
   
   // Verificamos si es un nuevo usuario para mostrar el tutorial
   const tutorialKey = `nexus_tutorial_shown_${profile.id}`;
   const tutorialShown = localStorage.getItem(tutorialKey);
   
-  // Reproducir solo el sonido de inicio en todos los casos
-  playStartupSound();
-  
   if (!tutorialShown) {
     // Si es la primera vez, mostramos el modal de tutorial
     // No reproducimos mensaje de bienvenida aquí, se hará después del tutorial
     setShowTutorialModal(true);
+    // Guardamos que ya se mostró el tutorial una vez para no repetirlo
+    localStorage.setItem(`nexus_welcome_shown_${profile.id}`, "false");
   } else {
-    // Si ya ha visto el tutorial, activamos NEXUS normalmente y damos bienvenida
-    setAppState("active");
+    // Si ya ha visto el tutorial y no ha recibido el mensaje de bienvenida aún
+    const welcomeShown = localStorage.getItem(`nexus_welcome_shown_${profile.id}`);
     
-    // Mostrar mensaje de bienvenida adaptado al género del perfil
-    const welcomeMessage = getWelcomeMessage(profile);
-    setCurrentText(welcomeMessage);
-    speak(welcomeMessage);
+    if (welcomeShown !== "true") {
+      // Mostrar mensaje de bienvenida adaptado al género del perfil
+      const welcomeMessage = getWelcomeMessage(profile);
+      setCurrentText(welcomeMessage);
+      speak(welcomeMessage);
+      
+      // Marcar que ya se mostró el mensaje de bienvenida
+      localStorage.setItem(`nexus_welcome_shown_${profile.id}`, "true");
+    }
   }
 }
   
@@ -279,6 +330,69 @@ const handleLoginComplete = (profile: UserProfile) => {
       // Si no hay perfil activo, mostrar la pantalla de login
       setShowLoginSystem(true);
     }
+  }, [])
+  
+  // Efecto para cargar configuraciones de accesibilidad
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Cargar configuraciones
+    const loadAccessibilitySettings = () => {
+      // Verificar configuración de voz
+      const voiceMuted = localStorage.getItem('nexus_voice_muted') === 'true';
+      if (voiceMuted) {
+        // Aplicar configuración de voz muda
+        // Importamos setNexusVoiceMuted desde useSimpleAudio.ts
+        setNexusVoiceMuted(true);
+      }
+      
+      // Verificar configuración de animaciones
+      const animations = localStorage.getItem('nexus_animations_enabled');
+      if (animations !== null) {
+        const animationsOn = animations === 'true';
+        setAnimationsEnabled(animationsOn);
+        
+        // Aplicar configuración de animaciones al documento
+        if (!animationsOn && typeof document !== 'undefined') {
+          document.documentElement.classList.add('nexus-no-animations');
+        }
+      } else {
+        // Valor predeterminado si no hay configuración
+        localStorage.setItem('nexus_animations_enabled', 'true');
+      }
+      
+      // Verificar configuración de lector de pantalla
+      const screenReader = localStorage.getItem('nexus_screen_reader_enabled');
+      if (screenReader !== null) {
+        const screenReaderOn = screenReader === 'true';
+        setScreenReaderEnabled(screenReaderOn);
+        
+        // Aplicar configuración del lector de pantalla al documento
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-nexus-screen-reader', screenReaderOn ? 'true' : 'false');
+        }
+        
+        // Anunciar instrucciones de accesibilidad si el lector de pantalla está activo
+        if (screenReaderOn && appState === 'active') {
+          // Retrasar el anuncio para que ocurra después de la carga inicial
+          setTimeout(() => {
+            const accessibilityInstructions = 
+              "Bienvenido a Nexus con modo de accesibilidad activado. " +
+              "Para navegar por la interfaz, usa las teclas de flecha o Tab para moverte entre elementos. " + 
+              "Los botones principales están en la parte inferior de la pantalla. " +
+              "Puedes modificar las opciones de accesibilidad en el menú de configuración.";
+            
+            announceForScreenReader(accessibilityInstructions);
+          }, 2000);
+        }
+      } else {
+        // Valor predeterminado si no hay configuración
+        localStorage.setItem('nexus_screen_reader_enabled', 'false');
+      }
+    };
+    
+    // Cargar configuraciones al montar
+    loadAccessibilitySettings();
   }, [])
 
   // --- Estados para input y sugerencias de comandos ---
@@ -615,8 +729,58 @@ const playlistEstudio = {
 
 
   // --- ACCESIBILIDAD GLOBAL ---
-  const [screenReaderEnabled, setScreenReaderEnabled] = useState(false) // Disabled by default
+  // Ya se declaró screenReaderEnabled arriba en los estados de configuración
   const [focusedElement, setFocusedElement] = useState<string | null>(null)
+  
+  // Función para anunciar mensajes con el lector de pantalla
+  function announceForScreenReader(message: string) {
+    // Actualizar el estado para el región ARIA live
+    setAnnouncement(message);
+    
+    // Si el lector de pantalla no está activado o no estamos en el navegador, salir
+    if (!screenReaderEnabled || typeof window === 'undefined') return;
+    
+    // Método 1: Usar un elemento dinámico para anuncios (mejor compatibilidad con lectores de pantalla)
+    try {
+      // Crear un elemento para anuncios accesibles
+      const announcer = document.createElement('div');
+      announcer.setAttribute('aria-live', 'assertive');
+      announcer.setAttribute('role', 'alert');
+      announcer.classList.add('sr-only'); // Ocultar visualmente pero disponible para lectores
+      announcer.textContent = message;
+      
+      // Añadir al DOM, anunciar y luego eliminar
+      document.body.appendChild(announcer);
+      
+      // Dar tiempo al lector de pantalla para procesar y luego limpiar
+      setTimeout(() => {
+        if (document.body.contains(announcer)) {
+          document.body.removeChild(announcer);
+        }
+      }, 5000);
+    } catch (error) {
+      console.error('Error al crear elemento de anuncio para lector de pantalla:', error);
+    }
+    
+    // Método 2: Usar la API de síntesis de voz si está disponible y no está silenciada
+    if ('speechSynthesis' in window && !isNexusVoiceMuted()) {
+      try {
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'es-ES';
+        utterance.volume = 0.9;
+        utterance.rate = 0.95; // Ligeramente más lento para mejor comprensión
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.error('Error al usar síntesis de voz:', error);
+      }
+    }
+    
+    // Limpiar el anuncio del estado después de un tiempo
+    setTimeout(() => {
+      setAnnouncement('');
+    }, 7000);
+  }
 
   // ... Resto del código ...
   // Handler accesible universal
@@ -1155,8 +1319,8 @@ const confirmLogout = async () => {
   
   // Mensaje de cierre adaptado al género
   const closeMessage = activeProfile?.gender === "feminine" ? 
-    "Cerrando sesión... Hasta pronto Señora." : 
-    "Cerrando sesión... Hasta pronto Señor.";
+    "Cerrando sesión... Hasta pronto." : 
+    "Cerrando sesión... Hasta pronto.";
   
   setCurrentText("Cerrando sesión...");
   await speak(closeMessage);
@@ -2241,7 +2405,7 @@ const getMainIcon = () => {
       {appState !== "functional_mode" && (
         <>
           {/* Fondo de estrellas futurista */}
-          <Starfield isSpeaking={isSpeaking} startupMode={startupAnim} />
+          <Starfield isSpeaking={isSpeaking} startupMode={startupAnim} disableAnimations={!animationsEnabled} />
 
           {/* ✨ ANIMACIONES DE FONDO ÉPICAS CUANDO HABLA */}
           {isSpeaking && (
@@ -2390,21 +2554,55 @@ const getMainIcon = () => {
             <BookOpen className="w-6 h-6 text-blue-400" />
           </Button>
 
+          {/* Panel de indicadores de accesibilidad */}
+          <div className="flex items-center mr-2 bg-black/30 rounded-full px-2 py-1">
+            {/* Indicador de voz */}
+            {isNexusVoiceMuted() ? (
+              <span title="Voz desactivada" className="text-red-400 mr-1" aria-hidden="true">
+                <VolumeX size={14} />
+              </span>
+            ) : null}
+            
+            {/* Indicador de animaciones */}
+            {typeof window !== 'undefined' && localStorage.getItem('nexus_animations_enabled') === 'false' ? (
+              <span title="Animaciones desactivadas" className="text-amber-400 mr-1" aria-hidden="true">
+                <Zap size={14} />
+              </span>
+            ) : null}
+            
+            {/* Indicador de lector de pantalla */}
+            {screenReaderEnabled ? (
+              <span title="Lector de pantalla activado" className="text-emerald-400 mr-1" aria-hidden="true">
+                <Eye size={14} />
+              </span>
+            ) : null}
+          </div>
+          
           {/* Botón Settings */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => handleAccessibleAction("settings", "Configuraciones", () => setShowSettings(true))}
+            onClick={() => handleAccessibleAction("settings", "Configuraciones", () => {
+              setShowSettings(true);
+              if (screenReaderEnabled) {
+                announceForScreenReader("Abriendo panel de configuración. Aquí podrás ajustar las preferencias de voz, animaciones y accesibilidad.");
+              }
+            })}
             className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "settings" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
             title="Configuraciones"
             aria-label="Configuraciones"
             tabIndex={0}
             onKeyDown={(e) =>
               (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("settings", "Configuraciones", () => setShowSettings(true))
+              handleAccessibleAction("settings", "Configuraciones", () => {
+                setShowSettings(true);
+                if (screenReaderEnabled) {
+                  announceForScreenReader("Abriendo panel de configuración. Aquí podrás ajustar las preferencias de voz, animaciones y accesibilidad.");
+                }
+              })
             }
           >
-            <Settings className="w-6 h-6 text-cyan-400 animate-spin-slow" />
+            <Settings className={`w-6 h-6 text-cyan-400 ${typeof window !== 'undefined' && !animationsEnabled ? '' : 'animate-spin-slow'}`} />
           </Button>
         </div>
       </div>
@@ -2594,7 +2792,7 @@ const getMainIcon = () => {
                                   ? "text-blue-400"
                                   : appState === "intelligent_mode"
                                     ? "text-purple-400"
-                                    : appState === "functional_mode"
+                                    : (appState as AppState) === "functional_mode"
                                       ? "text-orange-400"
                                       : appState === "image_download_confirmation"
                                         ? "text-cyan-400"
@@ -2614,9 +2812,9 @@ const getMainIcon = () => {
               <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse delay-500"></div>
               <div className="text-center relative z-10">
                 <p className="text-cyan-100 text-sm mb-3 font-medium font-mono">
-                  {"> "} {appState === "intelligent_mode"
+                  {"> "} {(appState as AppState) === "intelligent_mode"
                     ? "NEXUS_INTELLIGENT_OUTPUT:"
-                    : appState === "functional_mode"
+                     : (appState as AppState) === "functional_mode"
                       ? "NEXUS_FUNCTIONAL_OUTPUT:"
                       : appState === "image_download_confirmation"
                         ? "NEXUS_DOWNLOAD_CONFIRMATION:"
@@ -2920,7 +3118,17 @@ const getMainIcon = () => {
       />
 
       {/* ⚙️ SETTINGS MODAL */}
-      <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      
+      {/* 🔊 REGIÓN ARIA LIVE PARA ACCESIBILIDAD */}
+      <div 
+        className="sr-only" 
+        role="status" 
+        aria-live="polite" 
+        aria-atomic="true"
+      >
+        {announcement}
+      </div>
 
       {/* 🔒 MODAL DE CIERRE DE SESIÓN */}
       <LogoutModal 

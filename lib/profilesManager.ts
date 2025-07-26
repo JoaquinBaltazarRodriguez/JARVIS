@@ -97,6 +97,35 @@ export class ProfilesManager {
   }
   
   /**
+   * Actualizar un perfil existente
+   */
+  static updateProfile(profile: UserProfile): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const profiles = this.getProfiles();
+      const index = profiles.findIndex(p => p.id === profile.id);
+      
+      if (index >= 0) {
+        // Actualizar perfil existente
+        profiles[index] = profile;
+        localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+        
+        // Si es el perfil activo, actualizamos también el estado global
+        const activeProfile = this.getActiveProfile();
+        if (activeProfile && activeProfile.id === profile.id) {
+          // Mantenemos el mismo ID como activo, el objeto ya está actualizado
+          this.setActiveProfile(profile.id);
+        }
+      } else {
+        console.error('Error: intentando actualizar un perfil inexistente');
+      }
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+    }
+  }
+  
+  /**
    * Eliminar un perfil
    */
   static deleteProfile(profileId: string): void {

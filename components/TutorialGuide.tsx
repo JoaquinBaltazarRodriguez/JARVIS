@@ -30,7 +30,7 @@ const TutorialGuide: React.FC<TutorialGuideProps> = ({
   const tutorialSteps: TutorialStep[] = [
     {
       title: "Bienvenido a NEXUS",
-      description: `Hola ${profileName}, mi nombre es Orión y seré tu guía para enseñarte todo lo que debes saber sobre NEXUS, el asistente virtual desarrollado por Veridian Hex Technologies.`,
+      description: `Hola ${profileName}, mi nombre es Orión y seré tu guía para enseñarte todo lo que debes saber sobre NEXUS, el asistente virtual desarrollado por Veridian.`,
       position: 'center'
     },
     {

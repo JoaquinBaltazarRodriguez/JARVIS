@@ -22,6 +22,57 @@
     animation: music-vibrate 0.22s linear infinite;
     will-change: transform;
   }
+  
+  /* Estilos para modo sin animaciones */
+  .nexus-no-animations * {
+    animation: none !important;
+    transition: none !important;
+    animation-delay: 0s !important;
+  }
+  
+  /* Mejoras para accesibilidad con lector de pantalla */
+  [data-nexus-screen-reader="true"] .sr-element,
+  [data-nexus-screen-reader="true"] button:focus,
+  [data-nexus-screen-reader="true"] a:focus,
+  [data-nexus-screen-reader="true"] input:focus,
+  [data-nexus-screen-reader="true"] select:focus,
+  [data-nexus-screen-reader="true"] textarea:focus {
+    border: 2px solid #22c55e !important;
+    outline: 2px solid #22c55e !important;
+    background-color: rgba(34, 197, 94, 0.15) !important;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3) !important;
+  }
+  
+  /* Clase para elementos con foco por el lector de pantalla */
+  .sr-focus {
+    position: relative;
+  }
+  
+  .sr-focus::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border: 2px solid #22c55e;
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  
+  /* Clase para elementos ocultos visualmente pero disponibles para lectores */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
 
   .nexus-glow {
     box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
