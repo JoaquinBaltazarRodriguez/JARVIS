@@ -1,5 +1,8 @@
 "use client"
 
+import { getGenderTreatment } from "./utils"
+import { ProfilesManager } from "./profilesManager"
+
 interface WeatherCondition {
   description: string
   alerts: string[]
@@ -257,13 +260,17 @@ export class WeatherMCP {
   // 📊 GENERAR RESPUESTA INTELIGENTE PARA NEXUS
   static async generateWeatherResponse(query: string): Promise<string> {
     const weather = await this.getCurrentWeather()
+    
+    // Obtener el perfil activo para usar el tratamiento adecuado según género
+    const activeProfile = ProfilesManager.getActiveProfile();
+    const treatment = getGenderTreatment(activeProfile?.gender);
 
     // Analizar el tipo de consulta
     const isTemperature = query.includes("temperatura") || query.includes("grados")
     const isForecast = query.includes("pronóstico") || query.includes("mañana") || query.includes("próximos días")
     const isConditions = query.includes("lluvia") || query.includes("sol") || query.includes("nublado")
 
-    let response = `Señor, según mis sensores meteorológicos, `
+    let response = `${treatment}, según mis sensores meteorológicos, `
 
     if (isTemperature) {
       response += `la temperatura actual en ${weather.location} es de ${weather.temperature}°C.`

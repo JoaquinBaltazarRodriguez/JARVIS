@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ProfileSelector, type UserProfile } from './ProfileSelector';
 import { PasswordScreen } from './PasswordScreen';
 import { SplashScreen } from './SplashScreen';
+import { LoadingScreen } from './LoadingScreen';
 import { ProfilesManager } from '@/lib/profilesManager';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,10 +12,11 @@ interface NexusLoginSystemProps {
 
 export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
   // Estados
-  const [currentScreen, setCurrentScreen] = useState<'splash' | 'profiles' | 'password'>('splash');
+  const [currentScreen, setCurrentScreen] = useState<'splash' | 'profiles' | 'password' | 'loading'>('splash');
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authenticatedProfile, setAuthenticatedProfile] = useState<UserProfile | null>(null);
   
   // Cargar perfiles al iniciar
   useEffect(() => {
@@ -63,8 +65,12 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
       // Establecer perfil activo
       ProfilesManager.setActiveProfile(selectedProfile.id);
       
-      // Notificar al componente padre
-      onLoginComplete(selectedProfile);
+      // Guardar el perfil autenticado y mostrar pantalla de carga
+      setAuthenticatedProfile(selectedProfile);
+      setCurrentScreen('loading');
+      
+      // Limpiar cualquier error previo
+      setError(null);
     } else {
       setError('Contraseña incorrecta');
       
@@ -72,6 +78,17 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
       setTimeout(() => {
         setError(null);
       }, 3000);
+    }
+  };
+
+  // Manejador para la finalización de la pantalla de carga
+  const handleLoadingComplete = () => {
+    if (authenticatedProfile) {
+      console.log("✅ Autenticación completada, llamando a onLoginComplete...");
+      // Añadir un pequeño retraso para asegurar que todos los estados se actualicen correctamente
+      setTimeout(() => {
+        onLoginComplete(authenticatedProfile);
+      }, 500);
     }
   };
   
@@ -129,6 +146,19 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
               onPasswordVerified={handlePasswordVerified}
               onBack={handleBackToProfiles}
             />
+          </motion.div>
+        )}
+
+        {currentScreen === 'loading' && (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="w-full h-full"
+          >
+            <LoadingScreen isVisible={true} onComplete={handleLoadingComplete} />
           </motion.div>
         )}
       </AnimatePresence>

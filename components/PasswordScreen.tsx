@@ -1,67 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Mic, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { UserProfile } from "./ProfileSelector";
+import Starfield from "@/components/Starfield";
 
 interface PasswordScreenProps {
   profile: UserProfile;
-  onPasswordSuccess: () => void;
+  error: string | null;
+  onPasswordVerified: (password: string) => void;
   onBack: () => void;
 }
 
-export function PasswordScreen({ profile, onPasswordSuccess, onBack }: PasswordScreenProps) {
+export function PasswordScreen({ profile, error: propError, onPasswordVerified, onBack }: PasswordScreenProps) {
   const [password, setPassword] = useState("");
-  const [isListening, setIsListening] = useState(false);
-  const [error, setError] = useState("");
-  const [recognizing, setRecognizing] = useState(false);
+  const [localError, setLocalError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  // Configurar reconocimiento de voz
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.lang = 'es-ES';
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-
-      recognitionRef.current.onstart = () => {
-        setRecognizing(true);
-      };
-
-      recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.toLowerCase().trim()
-          .replace(/[^a-z]/g, '') // Eliminar cualquier carácter que no sea una letra minúscula
-          .replace(/\s+/g, ''); // Eliminar espacios
-        
-        setPassword(transcript);
-        validatePassword(transcript);
-        setIsListening(false);
-        setRecognizing(false);
-      };
-
-      recognitionRef.current.onerror = () => {
-        setIsListening(false);
-        setRecognizing(false);
-      };
-
-      recognitionRef.current.onend = () => {
-        setRecognizing(false);
-      };
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        // Detener el reconocimiento de voz cuando el componente se desmonta
-        recognitionRef.current.stop();
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onerror = null;
-      }
-    };
-  }, []);
+  // Inicializar el foco en el campo de contraseña al montar el componente
 
   useEffect(() => {
     // Autofocus en el campo de contraseña
@@ -70,113 +26,132 @@ export function PasswordScreen({ profile, onPasswordSuccess, onBack }: PasswordS
     }
   }, []);
 
-  const startListening = () => {
-    if (recognitionRef.current && !recognizing) {
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-        setError("");
-      } catch (error) {
-        console.error("Error starting speech recognition:", error);
-      }
-    }
-  };
-
-  const stopListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    }
-  };
-
-  const validatePassword = (inputPassword: string) => {
-    if (inputPassword === profile.password) {
-      setError("");
-      onPasswordSuccess();
-    } else if (inputPassword) {
-      setError("Contraseña incorrecta. Inténtalo de nuevo.");
-    }
-  };
+  const error = propError || localError;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    validatePassword(password);
+    if (password) {
+      onPasswordVerified(password);
+    } else {
+      setLocalError("Por favor, ingresa tu contraseña");
+    }
   };
 
+  // Generar estrellas para fondo espacial
+  const [stars, setStars] = useState<{ x: number; y: number; opacity: number; size: number }[]>([]);
+  const [shootingStars, setShootingStars] = useState<{ x: number; y: number; length: number; speed: number; opacity: number; delay: number }[]>([]);
+
+  useEffect(() => {
+    // Crear estrellas estáticas
+    const newStars = Array.from({ length: 150 }, () => ({
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      opacity: Math.random() * 0.7 + 0.3,
+      size: Math.random() * 2 + 1
+    }));
+    setStars(newStars);
+
+    // Crear estrellas fugaces
+    const newShootingStars = Array.from({ length: 5 }, () => ({
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      length: Math.random() * 10 + 5,
+      speed: Math.random() * 5 + 2,
+      opacity: Math.random() * 0.7 + 0.3,
+      delay: Math.random() * 10
+    }));
+    setShootingStars(newShootingStars);
+  }, []);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] w-full max-w-md mx-auto">
-      <div 
-        className="w-24 h-24 rounded-md flex items-center justify-center mb-6"
-        style={{ backgroundColor: profile.color }}
-      >
-        <span className="text-white text-4xl font-bold">
-          {profile.name.charAt(0).toUpperCase()}
-        </span>
-      </div>
+    <div className="relative flex flex-col items-center justify-center min-h-[70vh] w-full max-w-md mx-auto">
+      {/* Fondo espacial */}
+      <Starfield isSpeaking={false} />
       
-      <h2 className="text-xl text-cyan-400 mb-8">
-        Hola, {profile.name}
-      </h2>
-      
-      <form onSubmit={handleSubmit} className="w-full space-y-4">
-        <div className="flex space-x-2">
-          <div className="relative flex-1">
-            <Input
-              ref={inputRef}
-              type="password"
-              placeholder="Ingresa tu contraseña"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value.toLowerCase().replace(/[^a-z]/g, '')); 
-                setError("");
-              }}
-              className="bg-gray-800 border-gray-700 text-white pl-4 pr-10 py-6 text-lg"
-            />
-            <Button
-              type="button"
-              onClick={isListening ? stopListening : startListening}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full ${
-                isListening ? "bg-red-600" : "bg-cyan-700"
-              } hover:${isListening ? "bg-red-700" : "bg-cyan-800"}`}
-              variant="ghost"
+      {/* Contenido principal */}
+      <div className="z-10 flex flex-col items-center bg-black/40 backdrop-blur-md rounded-xl p-8 w-full shadow-lg border border-cyan-900/30">
+        {/* Avatar circular */}
+        <div 
+          className="w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-cyan-500/20 border-2 border-cyan-500/30"
+          style={{ backgroundColor: profile.color }}
+        >
+          <span className="text-white text-4xl font-bold">
+            {profile.name.charAt(0).toUpperCase()}
+          </span>
+        </div>
+        
+        <h2 className="text-xl text-cyan-400 mb-8">
+          Hola, {profile.name}
+        </h2>
+        
+        <form onSubmit={handleSubmit} className="w-full space-y-4">
+          <div className="flex space-x-2">
+            <div className="relative flex-1">
+              <Input
+                ref={inputRef}
+                type="password"
+                placeholder="Ingresa tu contraseña"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setLocalError("");
+                }}
+                className="bg-gray-800/80 border-cyan-800/50 text-white pl-4 pr-4 py-6 text-lg rounded-l-md focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+              />
+            </div>
+            
+            <Button 
+              type="submit" 
+              className="bg-cyan-600 hover:bg-cyan-700 px-4 py-6 rounded-r-md"
             >
-              <Mic className={`h-5 w-5 ${isListening ? "animate-pulse" : ""}`} />
+              <ArrowRight className="h-5 w-5" />
             </Button>
           </div>
           
-          <Button 
-            type="submit" 
-            className="bg-cyan-600 hover:bg-cyan-700 px-4 py-6"
-          >
-            <ArrowRight className="h-5 w-5" />
-          </Button>
-        </div>
-        
-        {error && (
-          <p className="text-red-500 text-center">{error}</p>
-        )}
-        
-        {isListening && (
-          <p className="text-cyan-400 text-center animate-pulse">
-            Escuchando... Di tu contraseña
-          </p>
-        )}
-        
-        <div className="pt-4 flex justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onBack}
-            className="text-gray-400 hover:text-white hover:bg-transparent"
-          >
-            Volver
-          </Button>
+          {error && (
+            <p className="text-red-400 text-center text-sm bg-red-900/20 py-2 rounded-md border border-red-700/30">
+              {error}
+            </p>
+          )}
           
-          <p className="text-gray-500 text-sm mt-2">
-            Di o escribe tu contraseña para continuar
-          </p>
-        </div>
-      </form>
+          <div className="pt-6 flex justify-between items-center">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onBack}
+              className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-900/30 border border-cyan-800/30 px-4"
+            >
+              Volver
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* Efecto de estrellas fugaces */}
+      {shootingStars.map((star, i) => (
+        <div 
+          key={`shooting-${i}`}
+          className="absolute bg-gradient-to-r from-cyan-500 to-transparent opacity-70 z-0"
+          style={{
+            top: `${star.y}%`,
+            left: `${star.x}%`,
+            height: '2px',
+            width: `${star.length}px`,
+            opacity: star.opacity,
+            transform: 'rotate(-45deg)',
+            animation: `shootingStar ${star.speed}s linear ${star.delay}s infinite`
+          }}
+        />
+      ))}
+
+      <style jsx>{`
+        @keyframes shootingStar {
+          0% { transform: translateX(0) translateY(0) rotate(-45deg); opacity: 0; }
+          15% { opacity: ${shootingStars[0]?.opacity || 0.5}; }
+          70% { opacity: ${shootingStars[0]?.opacity || 0.5}; }
+          100% { transform: translateX(400px) translateY(400px) rotate(-45deg); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }

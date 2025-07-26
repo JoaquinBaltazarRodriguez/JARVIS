@@ -24,10 +24,12 @@ import {
   Settings,
   User,
   LogOut,
+  BookOpen,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { LogoutModal } from "@/components/LogoutModal"
 import { useSimpleAudio } from "@/hooks/useSimpleAudio"
 import { useAutoSpeech } from "@/hooks/useAutoSpeech"
 import { useFuturisticSounds } from "@/hooks/useFuturisticSounds"
@@ -44,6 +46,7 @@ import { ConversationsManager } from "@/components/ConversationsManager"
 import { ConversationsDB, type Conversation, type ConversationMessage } from "@/lib/conversations"
 import { NexusLoginSystem } from "@/components/NexusLoginSystem"
 import { ProfilesManager } from "@/lib/profilesManager"
+import { getGenderTreatment } from "@/lib/utils"
 import type { UserProfile } from "@/components/ProfileSelector"
 import { usePillReminder } from "@/hooks/usePillReminder"
 // importación eliminada para limpiar la UI
@@ -55,6 +58,8 @@ import FunctionalModeShell from "@/components/FunctionalModeShell"
 import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation"
 import { SettingsModal } from "@/components/SettingsModal"
 import { LoadingScreen } from "@/components/LoadingScreen"
+import TutorialModal from "@/components/TutorialModal"
+import TutorialGuide from "@/components/TutorialGuide"
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 
@@ -63,16 +68,20 @@ const DEFAULT_CITY = "Posadas, Misiones, AR"
 const WEATHER_API_KEY = "34c011ccd32573ff3d987a6a9b241b2f"
 
 function getFriendlyWeatherMessage(desc: string) {
+  // Obtener el perfil activo para usar el tratamiento adecuado según género
+  const activeProfile = typeof window !== "undefined" ? ProfilesManager.getActiveProfile() : null;
+  const treatment = getGenderTreatment(activeProfile?.gender);
+  
   const d = desc.toLowerCase()
-  if (d.includes("lluvia")) return "Señor, se esperan lluvias. Le recomiendo llevar paraguas."
+  if (d.includes("lluvia")) return `${treatment}, se esperan lluvias. Le recomiendo llevar paraguas.`
   if (d.includes("nublado") && d.includes("parcial"))
-    return "Señor, estará parcialmente nublado. Ideal para salir, pero lleve abrigo por si acaso."
-  if (d.includes("nublado")) return "Señor, el cielo estará mayormente nublado."
+    return `${treatment}, estará parcialmente nublado. Ideal para salir, pero lleve abrigo por si acaso.`
+  if (d.includes("nublado")) return `${treatment}, el cielo estará mayormente nublado.`
   if (d.includes("despejado") || d.includes("cielo claro") || d.includes("claro"))
-    return "Señor, se espera un día soleado y despejado. ¡Aproveche el buen clima!"
-  if (d.includes("tormenta")) return "Señor, hay alerta de tormenta. Le recomiendo precaución."
-  if (d.includes("niebla")) return "Señor, habrá niebla. Conduzca con cuidado."
-  return `Señor, el clima será: ${desc}.`
+    return `${treatment}, se espera un día soleado y despejado. ¡Aproveche el buen clima!`
+  if (d.includes("tormenta")) return `${treatment}, hay alerta de tormenta. Le recomiendo precaución.`
+  if (d.includes("niebla")) return `${treatment}, habrá niebla. Conduzca con cuidado.`
+  return `${treatment}, el clima será: ${desc}.`
 }
 
 async function fetchWeather(city: string, day: "today" | "tomorrow" = "today") {
@@ -174,6 +183,75 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   // --- Estados para sistema de perfiles ---
   const [showLoginSystem, setShowLoginSystem] = useState(false)
   const [activeProfile, setActiveProfile] = useState<UserProfile | null>(null)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [showTutorialModal, setShowTutorialModal] = useState(false)
+  const [showTutorialGuide, setShowTutorialGuide] = useState(false)
+  
+  // Función para manejar el cierre de sesión y reiniciar todos los estados
+  
+  // Función para manejar el login completado desde el sistema de login
+// Función para manejar el tutorial aceptado
+const handleTutorialAccepted = () => {
+  setShowTutorialModal(false);
+  setShowTutorialGuide(true);
+};
+
+// Función para manejar el tutorial rechazado
+const handleTutorialDeclined = () => {
+  setShowTutorialModal(false);
+  setAppState("active");
+  
+  // Guardar en localStorage que ya se mostró el tutorial
+  if (activeProfile) {
+    const tutorialKey = `nexus_tutorial_shown_${activeProfile.id}`;
+    localStorage.setItem(tutorialKey, "true");
+  }
+};
+
+// Función para manejar la finalización del tutorial
+const handleTutorialCompleted = () => {
+  setShowTutorialGuide(false);
+  setAppState("active");
+  
+  // Guardar en localStorage que ya se mostró el tutorial
+  if (activeProfile) {
+    const tutorialKey = `nexus_tutorial_shown_${activeProfile.id}`;
+    localStorage.setItem(tutorialKey, "true");
+  }
+};
+
+// Función para mostrar el tutorial manualmente desde el botón del header
+const handleShowTutorialManually = () => {
+  setShowTutorialGuide(true);
+};
+
+const handleLoginComplete = (profile: UserProfile) => {
+  console.log("🔓 Login completado para el perfil:", profile.name);
+  setActiveProfile(profile);
+  setShowLoginSystem(false);
+  
+  setHasInitialized(true);
+  
+  // Verificamos si es un nuevo usuario para mostrar el tutorial
+  const tutorialKey = `nexus_tutorial_shown_${profile.id}`;
+  const tutorialShown = localStorage.getItem(tutorialKey);
+  
+  if (!tutorialShown) {
+    // Si es la primera vez, mostramos el modal de tutorial
+    setShowTutorialModal(true);
+  } else {
+    // Si ya ha visto el tutorial, activamos NEXUS normalmente
+    setAppState("active");
+  }
+  
+  // Reproducir sonido de inicio
+  playStartupSound();
+  
+  // Mostrar mensaje de bienvenida adaptado al género del perfil
+  const welcomeMessage = getWelcomeMessage(profile);
+  setCurrentText(welcomeMessage);
+  speak(welcomeMessage);
+}
   
   // Efecto para inicializar el sistema de perfiles
   useEffect(() => {
@@ -360,8 +438,8 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
     if (text.includes("mañana")) day = "tomorrow"
     const weather = await fetchWeather(DEFAULT_CITY, day)
     if (!weather) {
-      setCurrentText("No pude obtener el pronóstico, Señor.")
-      await speak("No pude obtener el pronóstico, Señor.")
+      setCurrentText("No pude obtener el pronóstico.")
+      await speak("No pude obtener el pronóstico.")
       setCurrentText("")
       return
     }
@@ -842,7 +920,7 @@ const playlistEstudio = {
       text.includes("descarga")
     ) {
       if (pendingImageDownload) {
-        const downloadMsg = "Descargando imagen, Señor..."
+        const downloadMsg = "Descargando imagen..."
         setCurrentText(downloadMsg)
         await speak(downloadMsg)
         setCurrentText("")
@@ -860,12 +938,12 @@ const playlistEstudio = {
           document.body.removeChild(link)
           window.URL.revokeObjectURL(url)
 
-          const successMsg = "Imagen descargada exitosamente, Señor."
+          const successMsg = "Imagen descargada exitosamente."
           setCurrentText(successMsg)
           await speak(successMsg)
           setCurrentText("")
         } catch (error) {
-          const errorMsg = "Error descargando la imagen, Señor."
+          const errorMsg = "Error descargando la imagen."
           setCurrentText(errorMsg)
           await speak(errorMsg)
           setCurrentText("")
@@ -876,7 +954,7 @@ const playlistEstudio = {
         setAppState("intelligent_mode") // Volver al modo inteligente
       }
     } else if (text.includes("no") || text.includes("cancela") || text.includes("cancelar")) {
-      const cancelMsg = "Descarga cancelada, Señor. Continuando..."
+      const cancelMsg = "Descarga cancelada. Continuando..."
       setCurrentText(cancelMsg)
       await speak(cancelMsg)
       setCurrentText("")
@@ -940,8 +1018,12 @@ const playlistEstudio = {
 
   const handleIntelligentMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
     setAppState("intelligent_mode");
+    
+    // Mensaje adaptado al género del perfil
+    const tratamiento = activeProfile?.gender === "feminine" ? "Señora" : "Señor";
     const intelligentMsg =
-      "Modo inteligente activado, Señor. Bienvenido al PORTAL-NEXUS, en que proyecto quiere trabajar hoy señor?";
+      `Modo inteligente activado ${tratamiento}. Bienvenid${activeProfile?.gender === "feminine" ? "a" : "o"} al PORTAL-NEXUS, ¿en qué proyecto quiere trabajar hoy?`;
+    
     setMessages((prev) => [...prev, { text: intelligentMsg, type: "nexus" }]);
     if (!silent) {
       setCurrentText(intelligentMsg);
@@ -966,7 +1048,7 @@ const playlistEstudio = {
   const handleFunctionalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
     setAppState("functional_mode");
     const functionalMsg =
-      "Modo funcional activado señor. Tiene a su disposición un gestor de espacio de trabajo, con acceso a calendario, notas, y mas funcionalidades.";
+      "Modo funcional activado. Tiene a su disposición un gestor de espacio de trabajo, con acceso a calendario, notas, y mas funcionalidades.";
     setMessages((prev) => [...prev, { text: functionalMsg, type: "nexus" }]);
     if (!silent) {
       setCurrentText(functionalMsg);
@@ -992,7 +1074,7 @@ const playlistEstudio = {
 
 const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
   setAppState("active");
-  const normalMsg = "Volviendo al modo normal, Señor. ¿En qué más puedo asistirle?";
+  const normalMsg = "Volviendo al modo normal. ¿En qué más puedo asistirle?";
   setMessages((prev) => [...prev, { text: normalMsg, type: "nexus" }]);
   if (silent) {
     stopListening();
@@ -1014,71 +1096,152 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
   setCurrentText("");
 } 
 
-// 🔄 FUNCIÓN PARA REINICIAR NEXUS
-const handleReset = async () => {
-  // Detener cualquier reproducción de música
-  if (isPlayingMusic) {
-    if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
-      youtubePlayerRef.current.stopVideo();
-    }
-    setIsPlayingMusic(false);
-    setCurrentSongTitle("");
-    setCurrentVideoId("");
-    setPlaylistMode(false);
-    setCurrentPlaylist(null);
-    setCurrentPlaylistIndex(0);
-    setMusicBackgroundMode(false);
+// 🚪 FUNCIÓN PARA CERRAR SESIÓN
+const handleLogout = () => {
+  // Mostrar modal de confirmación
+  setShowLogoutModal(true);
+};
+
+// Función mejorada para confirmar cierre de sesión y reiniciar todos los estados
+const confirmLogout = async () => {
+  // Ocultar modal
+  setShowLogoutModal(false);
+  console.log("🔒 Cerrando sesión y reiniciando sistema completo");
+  
+  // Detener reproducción de música
+  if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
+    youtubePlayerRef.current.stopVideo();
   }
   
-  // Detener la escucha
+  // Reiniciar TODOS los estados relacionados con la música
+  setIsPlayingMusic(false);
+  setCurrentSongTitle("");
+  setCurrentVideoId("");
+  setPlaylistMode(false);
+  setCurrentPlaylist(null);
+  setCurrentPlaylistIndex(0);
+  setMusicBackgroundMode(false);
+  
+  // CRUCIAL: Reiniciar estado de espera de playlist
+  setAwaitingPlaylistName(false);
+  setWaitingForSong(false);
+  
+  // Detener navegación o mapas activos
+  setIsMapActive(false);
+  setIsNavigating(false);
+  setCurrentDestination("");
+  setCurrentDestinationAddress("");
+  
+  // Detener la escucha y síntesis de voz
   if (isListening) {
     stopListening();
   }
   
-  // Reiniciar estados
-  setAppState("active");
-  setCurrentText("NEXUS reiniciado correctamente.");
-  await speak("NEXUS reiniciado correctamente.");
-  setCurrentText("");
+  // Detener cualquier síntesis de voz en curso
+  if (speechSynthesis) {
+    speechSynthesis.cancel();
+  }
   
-  // Reproducir sonido de inicio
-  playStartupSound();
-};
+  // Mensaje de cierre adaptado al género
+  const closeMessage = activeProfile?.gender === "feminine" ? 
+    "Cerrando sesión... Hasta pronto Señora." : 
+    "Cerrando sesión... Hasta pronto Señor.";
+  
+  setCurrentText("Cerrando sesión...");
+  await speak(closeMessage);
+  
+  // Limpiar mensajes e imágenes
+  setMessages([]);
+  setCurrentText("");
+  setCurrentImage(null);
+  
+  // Reiniciar todos los estados de procesamiento
+  setIsProcessing(false);
+  
+  // Asegurar que no queden estados de escucha o habla activos
+  // Usamos las variables de estado directamente si existen o verificamos los métodos disponibles
+  if (typeof stopListening === 'function') {
+    stopListening();
+  }
+  if (speechSynthesis) {
+    speechSynthesis.cancel();
+  }
+  
+  // Cerrar sesión en el ProfileManager
+  ProfilesManager.clearActiveProfile();
+  
+  // Reiniciar estados principales y mostrar login
+  setActiveProfile(null);
+  setAppState("sleeping");
+  setHasInitialized(false);
+  setShowLoginSystem(true);
+}
+
+  // Función para completar la carga e iniciar NEXUS cuando se inicia directamente con perfil
+  const handleSystemLoadingComplete = () => {
+    console.log("✅ Carga completada, iniciando NEXUS...");
+    // Ocultar pantalla de carga
+    setShowLoadingScreen(false);
+    // Cambiar al estado activo
+    setAppState("active");
+    // Inicializar NEXUS
+    setHasInitialized(true);
+    
+    // Reproducir sonido de inicio
+    playStartupSound();
+    
+    // Mostrar mensaje de bienvenida adaptado al género del perfil
+    const welcomeMessage = getWelcomeMessage();
+    setCurrentText(welcomeMessage);
+    speak(welcomeMessage);
+  };
+  
+  // Función para generar mensaje de bienvenida según el género del perfil
+  const getWelcomeMessage = (profile?: UserProfile) => {
+    // Usar el perfil proporcionado o el perfil activo actual
+    const targetProfile = profile || activeProfile;
+    
+    if (targetProfile?.gender === "feminine") {
+      return `Bienvenida Señora ${targetProfile.name}. NEXUS está listo para asistirle.`;
+    } else {
+      return `Bienvenido Señor ${targetProfile?.name || ""}. NEXUS está listo para asistirle.`;
+    }
+  };
 
   // 📱 MANEJAR COMANDO DE LLAMADA
   const handleCallCommand = async (text: string) => {
-    const contactName = CommandDetector.extractContactName(text)
-    console.log("📱 EXTRACTED CONTACT NAME:", contactName)
+    const contactName = CommandDetector.extractContactName(text);
+    console.log("📱 EXTRACTED CONTACT NAME:", contactName);
 
     if (!contactName) {
-      const msg = "¿A quién desea llamar, Señor?"
-      setCurrentText(msg)
-      await speak(msg)
-      setCurrentText("")
-      return
+      const msg = "¿A quién desea llamar?";
+      setCurrentText(msg);
+      await speak(msg);
+      setCurrentText("");
+      return;
     }
 
-    const contact = ContactsDB.findByName(contactName)
+    const contact = ContactsDB.findByName(contactName);
     if (contact) {
-      setPendingCall({ name: contact.name, phone: contact.phone })
-      setAppState("calling_confirmation")
-      const confirmMsg = `¿Desea llamar a ${contact.name}, Señor?`
-      setCurrentText(confirmMsg)
-      await speak(confirmMsg)
-      setCurrentText("")
+      setPendingCall({ name: contact.name, phone: contact.phone });
+      setAppState("calling_confirmation");
+      const confirmMsg = `¿Desea llamar a ${contact.name}?`;
+      setCurrentText(confirmMsg);
+      await speak(confirmMsg);
+      setCurrentText("");
     } else {
-      const notFoundMsg = `No encontré a ${contactName} en su agenda, Señor. ¿Desea que abra el gestor de contactos?`
-      setCurrentText(notFoundMsg)
-      await speak(notFoundMsg)
-      setCurrentText("")
+      const notFoundMsg = `No encontré a ${contactName} en su agenda. ¿Desea que abra el gestor de contactos?`;
+      setCurrentText(notFoundMsg);
+      await speak(notFoundMsg);
+      setCurrentText("");
     }
-  }
+  };
 
   // 📱 MANEJAR CONFIRMACIÓN DE LLAMADA
   const handleCallConfirmation = async (text: string) => {
     if (text.includes("sí") || text.includes("si") || text.includes("confirmo") || text.includes("llama")) {
       if (pendingCall) {
-        const callingMsg = `Llamando a ${pendingCall.name}, Señor...`
+        const callingMsg = `Llamando a ${pendingCall.name}...`
         setCurrentText(callingMsg)
         await speak(callingMsg)
         setCurrentText("")
@@ -1087,7 +1250,7 @@ const handleReset = async () => {
         setAppState("active")
       }
     } else if (text.includes("no") || text.includes("cancela") || text.includes("cancelar")) {
-      const cancelMsg = "Llamada cancelada, Señor."
+      const cancelMsg = "Llamada cancelada."
       setCurrentText(cancelMsg)
       await speak(cancelMsg)
       setCurrentText("")
@@ -1100,7 +1263,7 @@ const handleReset = async () => {
   const handleNavigationStart = async (text: string) => {
     setAppState("navigation_mode")
     setIsNavigating(true)
-    const navMsg = "¿Dónde desea ir señor? (di cancelar para cancelar la acción)"
+    const navMsg = "¿Dónde desea ir? (di cancelar para cancelar la acción)"
     setCurrentText(navMsg)
     await speak(navMsg)
     setCurrentText("")
@@ -1110,7 +1273,7 @@ const handleReset = async () => {
   const handleNavigationCommand = async (text: string) => {
     // Permitir cancelar
     if (text.toLowerCase().includes("cancelar")) {
-      const cancelMsg = "Navegación cancelada, Señor. Volviendo al modo normal."
+      const cancelMsg = "Navegación cancelada. Volviendo al modo normal."
       setCurrentText(cancelMsg)
       await speak(cancelMsg)
       setCurrentText("")
@@ -1121,7 +1284,7 @@ const handleReset = async () => {
 
     const locationName = text.trim()
     if (!locationName) {
-      const emptyMsg = "No entendí el destino, Señor. Por favor, diga el nombre de una ubicación guardada."
+      const emptyMsg = "No entendí el destino. Por favor, diga el nombre de una ubicación guardada."
       setCurrentText(emptyMsg)
       await speak(emptyMsg)
       setCurrentText("")
@@ -1132,7 +1295,7 @@ const handleReset = async () => {
 
     const location = LocationsDB.findByName(locationName)
     if (location) {
-      const navMsg = `Abriendo navegación hacia ${location.name}, Señor...`
+      const navMsg = `Abriendo navegación hacia ${location.name}...`
       setCurrentText(navMsg)
       await speak(navMsg)
       setCurrentText("")
@@ -1144,7 +1307,7 @@ const handleReset = async () => {
       setAppState("map_active")
       setIsNavigating(false)
     } else {
-      const notFoundMsg = `No encontré "${locationName}" en sus ubicaciones guardadas, Señor. ¿Desea que lo agregue o intente con otra dirección?`
+      const notFoundMsg = `No encontré "${locationName}" en sus ubicaciones guardadas. ¿Desea que lo agregue o intente con otra dirección?`
       setCurrentText(notFoundMsg)
       await speak(notFoundMsg)
       setCurrentText("")
@@ -1155,7 +1318,7 @@ const handleReset = async () => {
 
   // 🗺️ CERRAR MAPA
   const handleCloseMap = async () => {
-    const closeMsg = "Cerrando navegación, Señor. Volviendo al modo normal."
+    const closeMsg = "Cerrando navegación. Volviendo al modo normal."
     setCurrentText(closeMsg)
     await speak(closeMsg)
     setCurrentText("")
@@ -1173,7 +1336,9 @@ const handleReset = async () => {
 
   // INICIAR NAVEGACIÓN EN MAPA
   const handleStartMapNavigation = async () => {
-    const startMsg = "Iniciando navegación por voz hacia " + currentDestination + ", Señor."
+    // Obtener el tratamiento adecuado según género
+    const treatment = getGenderTreatment(activeProfile?.gender);
+    const startMsg = `Iniciando navegación por voz hacia ${currentDestination} ${treatment}.`
     setCurrentText(startMsg)
     await speak(startMsg)
     setCurrentText("")
@@ -1186,7 +1351,9 @@ const handleReset = async () => {
 
   // CENTRAR MAPA EN MI UBICACIÓN
   const handleCenterMapOnUser = async () => {
-    const msg = "Centrando el mapa en su ubicación actual, Señor."
+    // Obtener el tratamiento adecuado según género
+    const treatment = getGenderTreatment(activeProfile?.gender);
+    const msg = `Centrando el mapa en su ubicación actual ${treatment}.`
     setCurrentText(msg)
     await speak(msg)
     setCurrentText("")
@@ -1203,7 +1370,7 @@ const handleReset = async () => {
     setAppState("active")
     setHasInitialized(true)
 
-    const welcomeMsg = "Bienvenido, Señor. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy?"
+    const welcomeMsg = "Bienvenido. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy?"
     setMessages((prev) => [...prev, { text: welcomeMsg, type: "nexus" }])
     setCurrentText(welcomeMsg)
     playStartupSound()
@@ -1252,7 +1419,7 @@ const handleReset = async () => {
   const handleShutdown = async () => {
     console.log("😴 SHUTTING DOWN NEXUS")
     setIsProcessing(true)
-    const goodbye = "Desactivando NEXUS. Hasta luego, Señor."
+    const goodbye = "Desactivando NEXUS. Hasta luego."
     setCurrentText(goodbye)
     playShutdownSound()
     await speak(goodbye)
@@ -1332,16 +1499,16 @@ const handleReset = async () => {
     // Reconocimiento flexible: permite frases con palabras adicionales
     if (activarLector.some((variant) => normalized.includes(variant))) {
       setScreenReaderEnabled(true)
-      setCurrentText("Lector de pantalla activado, Señor.")
-      if (typeof speak === "function") await speak("Lector de pantalla activado, Señor.")
+      setCurrentText("Lector de pantalla activado.")
+      if (typeof speak === "function") await speak("Lector de pantalla activado.")
       setCurrentText("")
       return
     }
 
     if (desactivarLector.some((variant) => normalized.includes(variant))) {
       setScreenReaderEnabled(false)
-      setCurrentText("Lector de pantalla desactivado, Señor.")
-      if (typeof speak === "function") await speak("Lector de pantalla desactivado, Señor.")
+      setCurrentText("Lector de pantalla desactivado.")
+      if (typeof speak === "function") await speak("Lector de pantalla desactivado.")
       setCurrentText("")
       setFocusedElement(null)
       return
@@ -1375,16 +1542,16 @@ const handleReset = async () => {
     // Reconocimiento flexible: permite frases con palabras adicionales
     if (activarLector.some((variant) => normalized.includes(variant))) {
       setScreenReaderEnabled(true)
-      setCurrentText("Lector de pantalla activado, Señor.")
-      if (typeof speak === "function") await speak("Lector de pantalla activado, Señor.")
+      setCurrentText("Lector de pantalla activado.")
+      if (typeof speak === "function") await speak("Lector de pantalla activado.")
       setCurrentText("")
       return
     }
 
     if (desactivarLector.some((variant) => normalized.includes(variant))) {
       setScreenReaderEnabled(false)
-      setCurrentText("Lector de pantalla desactivado, Señor.")
-      if (typeof speak === "function") await speak("Lector de pantalla desactivado, Señor.")
+      setCurrentText("Lector de pantalla desactivado.")
+      if (typeof speak === "function") await speak("Lector de pantalla desactivado.")
       setCurrentText("")
       setFocusedElement(null)
       return
@@ -1411,7 +1578,7 @@ const handleReset = async () => {
       // 🚦 CANCELAR NAVEGACIÓN SI SE ESTÁ ESPERANDO DIRECCIÓN
       if (appState === "navigation_mode") {
         if (CommandDetector.isCancelCommand(message.toLowerCase())) {
-          const cancelMsg = "Navegación cancelada, Señor. Volviendo al modo normal."
+          const cancelMsg = "Navegación cancelada. Volviendo al modo normal."
           setCurrentText(cancelMsg)
           await speak(cancelMsg)
           setCurrentText("")
@@ -1482,8 +1649,8 @@ const handleReset = async () => {
       if (appState !== "intelligent_mode") {
         const restrictedMsg =
           appState === "functional_mode"
-            ? "Señor, para consultas libres debe activar el modo inteligente. En modo funcional solo ejecuto comandos específicos."
-            : "Señor, para consultas libres debe activar el modo inteligente. En modo normal solo ejecuto comandos básicos."
+            ? "Para consultas libres debe activar el modo inteligente. En modo funcional solo ejecuto comandos específicos."
+            : "Para consultas libres debe activar el modo inteligente. En modo normal solo ejecuto comandos básicos."
 
         setMessages((prev) => [...prev, { text: restrictedMsg, type: "nexus" }])
         saveMessageToConversation(restrictedMsg, "nexus")
@@ -1497,7 +1664,7 @@ const handleReset = async () => {
       // 🚫 VERIFICAR LÍMITES DE TOKENS
       const tokenCheck = TokenManager.canUseTokens()
       if (!tokenCheck.allowed) {
-        const limitMsg = `Señor, ${tokenCheck.reason} Por favor, revise su panel de OpenAI.`
+        const limitMsg = `${tokenCheck.reason} Por favor, revise su panel de OpenAI.`
         setMessages((prev) => [...prev, { text: limitMsg, type: "nexus" }])
         saveMessageToConversation(limitMsg, "nexus")
         setCurrentText(limitMsg)
@@ -1556,7 +1723,7 @@ const handleReset = async () => {
 
           // 🖼️ PREGUNTAR SI QUIERE DESCARGAR LA IMAGEN
           setTimeout(async () => {
-            const downloadQuestion = "¿Desea descargar esta imagen, Señor?"
+            const downloadQuestion = "¿Desea descargar esta imagen?"
             setCurrentText(downloadQuestion)
             await speak(downloadQuestion)
             setCurrentText("")
@@ -1594,7 +1761,7 @@ const handleReset = async () => {
       }
     } catch (error) {
       console.error("❌ ERROR:", error)
-      const errorMsg = "Lo siento, Señor, tuve un problema técnico. Inténtelo de nuevo."
+      const errorMsg = "Lo siento tuve un problema técnico. Inténtelo de nuevo."
       setMessages((prev) => [...prev, { text: errorMsg, type: "nexus" }])
       saveMessageToConversation(errorMsg, "nexus")
       setCurrentText(errorMsg)
@@ -1607,7 +1774,7 @@ const handleReset = async () => {
 
   const handleCancelAction = async () => {
     console.log("❌ CANCELING ACTION")
-    const cancelMsg = "Acción cancelada, Señor. Volviendo al modo normal."
+    const cancelMsg = "Acción cancelada, Volviendo al modo normal."
     setCurrentText(cancelMsg)
     await speak(cancelMsg)
     setCurrentText("")
@@ -1629,7 +1796,7 @@ const handleReset = async () => {
 
   const handleAgendaCommand = async () => {
     console.log("📱 AGENDA COMMAND DETECTED")
-    const agendaMsg = "Abriendo su agenda de contactos, Señor."
+    const agendaMsg = "Abriendo su agenda de contactos."
     setCurrentText(agendaMsg)
     await speak(agendaMsg)
     setCurrentText("")
@@ -1640,7 +1807,7 @@ const handleReset = async () => {
     console.log("🎵 YOUTUBE MUSIC COMMAND DETECTED")
     setAppState("music_mode")
     setWaitingForSong(true)
-    const youtubeMsg = "¿Qué canción o artista desea escuchar, Señor?"
+    const youtubeMsg = "¿Qué canción o artista desea escuchar?"
     setCurrentText(youtubeMsg)
     await speak(youtubeMsg)
     setCurrentText("")
@@ -1687,9 +1854,9 @@ const handleReset = async () => {
         return
       } else {
         setCurrentText(
-          "No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre? (Solo nombres registrados)",
+          "No encontré la playlist mencionada. ¿Puede repetir el nombre? (Solo nombres registrados)",
         )
-        await speak("No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre? (Solo nombres registrados)")
+        await speak("No encontré la playlist mencionada. ¿Puede repetir el nombre? (Solo nombres registrados)")
         setCurrentText("")
         return
       }
@@ -1699,9 +1866,9 @@ const handleReset = async () => {
     if (isPlaylistRequest && /reproduce una playlist|pon una playlist|quiero escuchar una playlist/i.test(text)) {
       setAwaitingPlaylistName(true)
       setCurrentText(
-        "¿Qué playlist desea reproducir, Señor? (Opciones: " + playlists.map((pl: { name: string }) => pl.name).join(", ") + ")",
+        "¿Qué playlist desea reproducir? (Opciones: " + playlists.map((pl: { name: string }) => pl.name).join(", ") + ")",
       )
-      await speak("¿Qué playlist desea reproducir, Señor?")
+      await speak("¿Qué playlist desea reproducir?")
       setCurrentText("")
       return
     }
@@ -1730,8 +1897,8 @@ const handleReset = async () => {
         setCurrentText("")
         return
       } else {
-        setCurrentText("No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre?")
-        await speak("No encontré la playlist mencionada, Señor. ¿Puede repetir el nombre?")
+        setCurrentText("No encontré la playlist mencionada. ¿Puede repetir el nombre?")
+        await speak("No encontré la playlist mencionada. ¿Puede repetir el nombre?")
         setCurrentText("")
         return
       }
@@ -1757,15 +1924,15 @@ const handleReset = async () => {
       await speak(`Reproduciendo: ${result.title}`)
       setCurrentText("")
     } else {
-      setCurrentText("No encontré la canción, Señor. ¿Puede repetir el nombre?")
-      await speak("No encontré la canción, Señor. ¿Puede repetir el nombre?")
+      setCurrentText("No encontré la canción. ¿Puede repetir el nombre?")
+      await speak("No encontré la canción. ¿Puede repetir el nombre?")
       setCurrentText("")
     }
   }
 
   const handleMusicControl = async (text: string) => {
     if (text.includes("quitar") || text.includes("cerrar") || text.includes("apagar")) {
-      const stopMsg = "Cerrando reproductor de música, Señor."
+      const stopMsg = "Cerrando reproductor de música."
       setCurrentText(stopMsg)
       await speak(stopMsg)
       setCurrentText("")
@@ -2178,77 +2345,38 @@ const getMainIcon = () => {
             <MessageCircle className="w-6 h-6 text-cyan-400" />
           </Button>
 
-          {/* Botón Reiniciar NEXUS */}
+          {/* Botón Cerrar Sesión */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => handleAccessibleAction("reset", "Reiniciar NEXUS", async () => {
-              // Detener cualquier reproducción de música
-              if (isPlayingMusic) {
-                if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
-                  youtubePlayerRef.current.stopVideo();
-                }
-                setIsPlayingMusic(false);
-                setCurrentSongTitle("");
-                setCurrentVideoId("");
-                setPlaylistMode(false);
-                setCurrentPlaylist(null);
-                setCurrentPlaylistIndex(0);
-                setMusicBackgroundMode(false);
-              }
-              
-              // Detener la escucha
-              if (isListening) {
-                stopListening();
-              }
-              
-              // Reiniciar estados
-              setAppState("active");
-              setCurrentText("NEXUS reiniciado correctamente.");
-              await speak("NEXUS reiniciado correctamente.");
-              setCurrentText("");
-              
-              // Reproducir sonido de inicio
-              playStartupSound();
-            })}
-            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "reset" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
-            title="Reiniciar NEXUS"
-            aria-label="Reiniciar NEXUS"
+            onClick={() => handleAccessibleAction("logout", "Cerrar Sesión", handleLogout)}
+            className={`rounded-full p-2 hover:bg-red-900 ${focusedElement === "logout" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
+            title="Cerrar Sesión"
+            aria-label="Cerrar Sesión"
             tabIndex={0}
             onKeyDown={(e) =>
               (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("reset", "Reiniciar NEXUS", async () => {
-                // Detener cualquier reproducción de música
-                if (isPlayingMusic) {
-                  if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
-                    youtubePlayerRef.current.stopVideo();
-                  }
-                  setIsPlayingMusic(false);
-                  setCurrentSongTitle("");
-                  setCurrentVideoId("");
-                  setPlaylistMode(false);
-                  setCurrentPlaylist(null);
-                  setCurrentPlaylistIndex(0);
-                  setMusicBackgroundMode(false);
-                }
-                
-                // Detener la escucha
-                if (isListening) {
-                  stopListening();
-                }
-                
-                // Reiniciar estados
-                setAppState("active");
-                setCurrentText("NEXUS reiniciado correctamente.");
-                await speak("NEXUS reiniciado correctamente.");
-                setCurrentText("");
-                
-                // Reproducir sonido de inicio
-                playStartupSound();
-              })
+              handleAccessibleAction("logout", "Cerrar Sesión", handleLogout)
             }
           >
-            <RefreshCw className="w-6 h-6 text-cyan-400" />
+            <LogOut className="w-6 h-6 text-red-400" />
+          </Button>
+
+          {/* Botón Tutorial */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleAccessibleAction("tutorial", "Tutorial Guiado", handleShowTutorialManually)}
+            className={`rounded-full p-2 hover:bg-blue-900 ${focusedElement === "tutorial" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
+            title="Tutorial Guiado"
+            aria-label="Tutorial Guiado"
+            tabIndex={0}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") &&
+              handleAccessibleAction("tutorial", "Tutorial Guiado", handleShowTutorialManually)
+            }
+          >
+            <BookOpen className="w-6 h-6 text-blue-400" />
           </Button>
 
           {/* Botón Settings */}
@@ -2528,6 +2656,13 @@ const getMainIcon = () => {
 
       
 
+      {/* Modal de confirmación de cierre de sesión */}
+      <LogoutModal 
+        isOpen={showLogoutModal} 
+        onConfirm={confirmLogout} 
+        onCancel={() => setShowLogoutModal(false)}
+      />
+      
       {/* 💊 RECORDATORIO DE PASTILLAS */}
       {showReminder && (
         <div className="fixed top-4 right-4 z-50">
@@ -2776,23 +2911,39 @@ const getMainIcon = () => {
       {/* ⚙️ SETTINGS MODAL */}
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
 
+      {/* 🔒 MODAL DE CIERRE DE SESIÓN */}
+      <LogoutModal 
+        isOpen={showLogoutModal} 
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutModal(false)} 
+      />
+      
       {/* 🔄 PANTALLA DE CARGA NEXUS */}
-      <LoadingScreen isVisible={showLoadingScreen} onComplete={handleLoadingComplete} />
+      <LoadingScreen isVisible={showLoadingScreen} onComplete={handleSystemLoadingComplete} />
 
-      {/* 👤 SISTEMA DE LOGIN CON PERFILES */}
+      {/* 🔓 SISTEMA DE LOGIN NEXUS */}
       {showLoginSystem && (
         <NexusLoginSystem 
-          onLoginComplete={(profile: UserProfile) => {
-            setActiveProfile(profile);
-            setShowLoginSystem(false);
-            // Activar Nexus después del login
-            setAppState("initializing");
-            setShowLoadingScreen(true);
-          }} 
+          onLoginComplete={handleLoginComplete}
         />
       )}
+      
+      {/* 📚 MODAL DE TUTORIAL */}
+      <TutorialModal 
+        isOpen={showTutorialModal}
+        onAccept={handleTutorialAccepted}
+        onDecline={handleTutorialDeclined}
+        profileName={activeProfile?.name}
+      />
+      
+      {/* 📚 GUÍA DE TUTORIAL */}
+      <TutorialGuide 
+        isActive={showTutorialGuide}
+        onComplete={handleTutorialCompleted}
+        profileName={activeProfile?.name || ""}
+        isFeminine={activeProfile?.gender === "feminine"}
+      />
     </div>
   )
 }
-
 

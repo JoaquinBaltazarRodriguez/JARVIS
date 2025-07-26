@@ -9,7 +9,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  gender: "male" | "female" | "other";
+  gender: "masculine" | "feminine";
   password: string;
   color: string;
 }
@@ -60,18 +60,6 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
     setShootingStars(newShootingStars);
   }, []);
    const validatePassword = (password: string) => {
-    // Solo letras, sin caracteres especiales, espacios o números
-    if (!/^[a-z]+$/.test(password)) {
-      setPasswordError("La contraseña debe contener solo letras minúsculas, sin espacios ni caracteres especiales");
-      return false;
-    }
-    
-    // Verificar que sea una palabra pronunciable (básico - al menos una vocal)
-    if (!/[aeiou]/.test(password)) {
-      setPasswordError("La contraseña debe ser pronunciable (incluir al menos una vocal)");
-      return false;
-    }
-    
     // Longitud mínima para seguridad básica
     if (password.length < 4) {
       setPasswordError("La contraseña debe tener al menos 4 caracteres");
@@ -96,7 +84,7 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
       id: Date.now().toString(),
       name: newProfile.name,
       email: newProfile.email,
-      gender: newProfile.gender as "male" | "female" | "other",
+      gender: newProfile.gender as "masculine" | "feminine",
       password: newProfile.password,
       color: newProfile.color || COLORS[Math.floor(Math.random() * COLORS.length)]
     };
@@ -106,6 +94,16 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
     setNewProfile({
       color: COLORS[Math.floor(Math.random() * COLORS.length)]
     });
+  };
+
+  const handleAddProfile = () => {
+    // Limitar a un máximo de 3 perfiles
+    if (profiles.length >= 3) {
+      setPasswordError("Límite de 3 perfiles alcanzado. Elimina uno para crear otro.");
+      setTimeout(() => setPasswordError(""), 3000);
+      return;
+    }
+    setShowCreateProfile(true);
   };
 
   return (
@@ -184,9 +182,18 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
           ))}
             
           {/* Agregar nuevo perfil */}
-          <div 
-            className="flex flex-col items-center cursor-pointer transition-all duration-300 hover:scale-110 group"
-            onClick={() => setShowCreateProfile(true)}
+          <div
+            className={`flex flex-col items-center transition-all duration-300 hover:scale-110 group ${profiles.length >= 3 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            onClick={handleAddProfile}
+            tabIndex={profiles.length >= 3 ? -1 : 0}
+            role="button"
+            aria-label={profiles.length >= 3 ? "Límite de perfiles alcanzado" : "Crear perfil"}
+            aria-disabled={profiles.length >= 3}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && profiles.length < 3) {
+                handleAddProfile();
+              }
+            }}
           >
             <div className="w-28 h-28 rounded-full mb-5 flex items-center justify-center bg-gradient-to-br from-gray-800/80 to-gray-900/80 border-4 border-dashed border-gray-700/50 hover:border-cyan-500/50 transition-all duration-300 shadow-lg shadow-cyan-900/10 hover:shadow-cyan-500/20">
               <span className="text-gray-400 text-4xl group-hover:text-cyan-400 transition-colors duration-300">+</span>
@@ -231,31 +238,27 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
               <Label className="text-gray-300">Género</Label>
               <RadioGroup
                 value={newProfile.gender}
-                onValueChange={(value) => setNewProfile({...newProfile, gender: value as "male" | "female" | "other"})}
+                onValueChange={(value) => setNewProfile({...newProfile, gender: value as "masculine" | "feminine"})}
                 className="flex space-x-4"
               >
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="male" id="male" className="text-cyan-500" />
-                  <Label htmlFor="male" className="text-gray-300">Masculino</Label>
+                  <RadioGroupItem value="masculine" id="masculine" className="text-cyan-500" />
+                  <Label htmlFor="masculine" className="text-gray-300">Masculino</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="female" id="female" className="text-cyan-500" />
-                  <Label htmlFor="female" className="text-gray-300">Femenino</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="other" id="other" className="text-cyan-500" />
-                  <Label htmlFor="other" className="text-gray-300">Otro</Label>
+                  <RadioGroupItem value="feminine" id="feminine" className="text-cyan-500" />
+                  <Label htmlFor="feminine" className="text-gray-300">Femenino</Label>
                 </div>
               </RadioGroup>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300">Contraseña (solo letras minúsculas, pronunciable)</Label>
+              <Label htmlFor="password" className="text-gray-300">Contraseña (mínimo 4 caracteres)</Label>
               <Input 
                 id="password" 
                 type="password"
                 value={newProfile.password || ''}
-                onChange={e => setNewProfile({...newProfile, password: e.target.value.toLowerCase()})}
+                onChange={e => setNewProfile({...newProfile, password: e.target.value})}
                 className="bg-gray-800 border-gray-700 text-white"
               />
               {passwordError && (

@@ -1,6 +1,8 @@
 "use client"
 
 import { CommandDetector, TimeUtils } from "./database"
+import { getGenderTreatment } from "./utils"
+import { ProfilesManager } from "./profilesManager"
 
 export interface LocalCommandResponse {
   response: string
@@ -11,6 +13,9 @@ export interface LocalCommandResponse {
 export class LocalCommands {
   // 🎯 PROCESAR COMANDO LOCAL (SIN TOKENS)
   static processCommand(message: string, mode: "normal" | "functional"): LocalCommandResponse | null {
+    // Obtener el perfil activo para usar el tratamiento adecuado según género
+    const activeProfile = ProfilesManager.getActiveProfile();
+    const treatment = getGenderTreatment(activeProfile?.gender);
     const lowerMessage = message.toLowerCase().trim()
     console.log("🔧 PROCESSING LOCAL COMMAND:", lowerMessage, "MODE:", mode)
 
@@ -45,7 +50,7 @@ export class LocalCommands {
     // 🎵 COMANDOS DE SPOTIFY
     if (CommandDetector.isSpotifyCommand(lowerMessage)) {
       return {
-        response: "Abriendo reproductor de música, Señor.",
+        response: `Abriendo reproductor de música, ${treatment}.`,
         action: "spotify",
       }
     }
@@ -53,7 +58,7 @@ export class LocalCommands {
     // ❌ COMANDOS DE CANCELACIÓN
     if (CommandDetector.isCancelCommand(lowerMessage)) {
       return {
-        response: "Acción cancelada, Señor.",
+        response: `Acción cancelada, ${treatment}.`,
         action: "cancel",
       }
     }
@@ -61,7 +66,7 @@ export class LocalCommands {
     // 🌤️ COMANDOS DE CLIMA (MODO FUNCIONAL)
     if (mode === "functional" && this.isWeatherCommand(lowerMessage)) {
       return {
-        response: "Obteniendo información del clima, Señor...",
+        response: `Obteniendo información del clima, ${treatment}...`,
         action: "weather",
       }
     }
@@ -70,13 +75,13 @@ export class LocalCommands {
     if (mode === "functional") {
       if (lowerMessage.includes("correo") || lowerMessage.includes("email") || lowerMessage.includes("gmail")) {
         return {
-          response: "Abriendo gestor de correos, Señor.",
+          response: `Abriendo gestor de correos, ${treatment}.`,
         }
       }
 
       if (lowerMessage.includes("whatsapp") || lowerMessage.includes("mensajes")) {
         return {
-          response: "Abriendo WhatsApp, Señor.",
+          response: `Abriendo WhatsApp, ${treatment}.`,
         }
       }
     }
@@ -89,7 +94,7 @@ export class LocalCommands {
           : "Para consultas libres, active el modo inteligente. En modo normal puedo ejecutar comandos como llamadas, navegación y música."
 
       return {
-        response: `Señor, ${suggestion}`,
+        response: `${treatment}, ${suggestion}`,
       }
     }
 

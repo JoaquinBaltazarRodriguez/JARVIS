@@ -385,8 +385,15 @@ export class CommandDetector {
 }
 
 // ⏰ UTILIDADES DE TIEMPO
+import { getGenderTreatment } from "./utils"
+import { ProfilesManager } from "./profilesManager"
+
 export class TimeUtils {
   static getTimeResponse(): string {
+    // Obtener el perfil activo para usar el tratamiento adecuado según género
+    const activeProfile = ProfilesManager.getActiveProfile();
+    const treatment = getGenderTreatment(activeProfile?.gender);
+    
     const now = new Date()
     const hours = now.getHours()
     const minutes = now.getMinutes()
@@ -398,6 +405,6 @@ export class TimeUtils {
     else if (hours < 18) greeting = "Buenas tardes"
     else greeting = "Buenas noches"
 
-    return `${greeting}, Señor. Son las ${timeString}.`
+    return `${greeting}, ${treatment}. Son las ${timeString}.`
   }
 }
