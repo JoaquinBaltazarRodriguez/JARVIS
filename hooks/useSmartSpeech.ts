@@ -66,24 +66,8 @@ export function useSmartSpeech() {
               const transcript = event.results[i][0].transcript.toLowerCase()
               console.log("👂 Continuous listening heard:", transcript)
 
-              // Detectar palabras de activación
-              if (
-      transcript.includes("nexus") ||
-      transcript.includes("yarvis") ||
-      transcript.includes("nexus")
-    ) {
-                if (
-                  transcript.includes("enciende") ||
-                  transcript.includes("activa") ||
-                  transcript.includes("despierta") ||
-                  transcript.includes("enciéndete")
-                ) {
-                  console.log("🚀 Wake word detected!")
-                  onWakeWord(true)
-                  stopAllRecognition()
-                  return
-                }
-              }
+              // Se ha eliminado la activación por voz con "Nexus enciéndete"
+              // NEXUS ahora solo se puede activar mediante el botón de encendido
             }
           }
 

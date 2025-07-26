@@ -8,7 +8,6 @@ const COMMANDS = [
   {
     title: "MODO NORMAL",
     commands: [
-      { cmd: "Nexus enciendete", desc: "Activa el asistente." },
       { cmd: "Nexus reproduce una cancion", desc: "Reproduce una canción de YouTube." },
       { cmd: "Nexus reproduce una playlist", desc: "Reproduce una playlist registrada." },
       { cmd: "Nexus quiero ir a una direccion", desc: "Navega a una dirección guardada." },

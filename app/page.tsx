@@ -22,6 +22,8 @@ import {
   MessageCircle,
   RefreshCw,
   Settings,
+  User,
+  LogOut,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -40,6 +42,9 @@ import type { MapViewerRef } from "@/components/MapViewer"
 import { ContactsDB, LocationsDB, CommandDetector, TimeUtils } from "@/lib/database"
 import { ConversationsManager } from "@/components/ConversationsManager"
 import { ConversationsDB, type Conversation, type ConversationMessage } from "@/lib/conversations"
+import { NexusLoginSystem } from "@/components/NexusLoginSystem"
+import { ProfilesManager } from "@/lib/profilesManager"
+import type { UserProfile } from "@/components/ProfileSelector"
 import { usePillReminder } from "@/hooks/usePillReminder"
 // importación eliminada para limpiar la UI
 import { TokenManager } from "@/lib/tokenManager"
@@ -119,8 +124,9 @@ function isYouTubeMusicCommand(text: string): boolean {
 
 type AppState =
   | "sleeping"
+  | "profile_selection" // <- NUEVO ESTADO PARA SELECCIÓN DE PERFIL
   | "waiting_password"
-  | "initializing" // <- NUEVO ESTADO PARA PANTALLA DE CARGA
+  | "initializing" // <- ESTADO PARA PANTALLA DE CARGA
   | "active"
   | "calling_confirmation"
   | "navigation_mode"
@@ -154,7 +160,7 @@ export default function AdvancedJarvis() {
   // Componentes cargados dinámicamente
 const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspace"), { ssr: false });
 
-// --- Estados principales de la app ---
+  // --- Estados principales de la app ---
   const [appState, setAppState] = useState<AppState>("sleeping")
   const [messages, setMessages] = useState<Message[]>([])
   const [currentText, setCurrentText] = useState("")
@@ -163,7 +169,28 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [isProcessing, setIsProcessing] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [startupAnim, setStartupAnim] = useState(false)
-  const [showLoadingScreen, setShowLoadingScreen] = useState(false) // <- NUEVO ESTADO
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false)
+  
+  // --- Estados para sistema de perfiles ---
+  const [showLoginSystem, setShowLoginSystem] = useState(false)
+  const [activeProfile, setActiveProfile] = useState<UserProfile | null>(null)
+  
+  // Efecto para inicializar el sistema de perfiles
+  useEffect(() => {
+    // Cargar el estado del perfil desde localStorage
+    const savedProfile = ProfilesManager.getActiveProfile();
+    
+    if (savedProfile) {
+      // Si hay un perfil activo guardado, usarlo directamente
+      setActiveProfile(savedProfile);
+      // Activar Nexus normalmente
+      setAppState("initializing");
+      setShowLoadingScreen(true);
+    } else {
+      // Si no hay perfil activo, mostrar la pantalla de login
+      setShowLoginSystem(true);
+    }
+  }, [])
 
   // --- Estados para input y sugerencias de comandos ---
   const startupAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -1402,30 +1429,12 @@ const handleReset = async () => {
           // Si no se extrajo nada, intentar buscar directamente por el mensaje completo
           if (!location && message.trim().length > 0) {
             location = LocationsDB.findByName(message.trim())
-            locationName = message.trim()
           }
-
-          if (location) {
-            const navMsg = `Abriendo navegación hacia ${location.name}, Señor...`
-            setCurrentText(navMsg)
-            await speak(navMsg)
-            setCurrentText("")
-            setCurrentDestination(location.name)
-            setCurrentDestinationAddress(location.address)
-            setIsMapActive(true)
-            setAppState("map_active")
-            setIsNavigating(false)
-            setIsProcessing(false)
-            return
-          } else {
-            const msg = "¿A qué ubicación específica desea ir, Señor? (puede decir 'cancelar' para abortar)"
-            setCurrentText(msg)
-            await speak(msg)
-            setCurrentText("")
-            setAppState("navigation_mode")
-            setIsProcessing(false)
-            return
-          }
+          
+          setCurrentText("")
+          setAppState("navigation_mode")
+          setIsProcessing(false)
+          return
         }
       }
 
@@ -1914,7 +1923,7 @@ const getMainIcon = () => {
 }
 
   const getStatusText = () => {
-    if (appState === "sleeping") return "Di: 'NEXUS enciéndete'"
+    if (appState === "sleeping") return "Presione para activar NEXUS"
     if (appState === "waiting_password") {
       if (isListening) return "Escuchando contraseña..."
       if (isProcessing) return "Verificando contraseña..."
@@ -2769,6 +2778,21 @@ const getMainIcon = () => {
 
       {/* 🔄 PANTALLA DE CARGA NEXUS */}
       <LoadingScreen isVisible={showLoadingScreen} onComplete={handleLoadingComplete} />
+
+      {/* 👤 SISTEMA DE LOGIN CON PERFILES */}
+      {showLoginSystem && (
+        <NexusLoginSystem 
+          onLoginComplete={(profile: UserProfile) => {
+            setActiveProfile(profile);
+            setShowLoginSystem(false);
+            // Activar Nexus después del login
+            setAppState("initializing");
+            setShowLoadingScreen(true);
+          }} 
+        />
+      )}
     </div>
   )
 }
+
+

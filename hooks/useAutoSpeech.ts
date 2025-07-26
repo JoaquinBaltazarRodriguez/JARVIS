@@ -105,20 +105,6 @@ export function useAutoSpeech() {
             for (let i = event.resultIndex; i < event.results.length; i++) {
               const transcript = event.results[i][0].transcript.toLowerCase()
               console.log("👂 Continuous listening heard:", transcript)
-
-              if (transcript.includes("nexus") || transcript.includes("néxus")) {
-                if (
-                  transcript.includes("enciende") ||
-                  transcript.includes("enciéndete") ||
-                  transcript.includes("activa") ||
-                  transcript.includes("despierta")
-                ) {
-                  console.log("🚀 Wake word detected!")
-                  onWakeWord(true)
-                  stopAllRecognition()
-                  return
-                }
-              }
             }
           }
 
@@ -185,7 +171,7 @@ export function useAutoSpeech() {
       recognition.continuous = true
       recognition.interimResults = true
       recognition.lang = "es-ES"
-      recognition.maxAlternatives = 1
+      // Se eliminó recognition.maxAlternatives = 1 porque causa error de tipo
 
       finalTranscriptRef.current = ""
       let hasSpokenRecently = false
