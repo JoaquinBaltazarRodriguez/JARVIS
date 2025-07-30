@@ -2404,8 +2404,8 @@ const getMainIcon = () => {
       {/* El modo funcional se maneja completamente con el componente memoizado FunctionalModeShell */}
       {appState !== "functional_mode" && (
         <>
-          {/* Fondo de estrellas futurista */}
-          <Starfield isSpeaking={isSpeaking} startupMode={startupAnim} disableAnimations={!animationsEnabled} />
+          {/* Fondo estático de estrellas (excepto en pantalla de carga) */}
+          <Starfield startupMode={startupAnim} />
 
           {/* ✨ ANIMACIONES DE FONDO ÉPICAS CUANDO HABLA */}
           {isSpeaking && (

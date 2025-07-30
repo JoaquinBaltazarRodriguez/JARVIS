@@ -65,8 +65,8 @@ export function PasswordScreen({ profile, error: propError, onPasswordVerified, 
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-[70vh] w-full max-w-md mx-auto">
-      {/* Fondo espacial */}
-      <Starfield isSpeaking={false} disableAnimations={typeof window !== 'undefined' ? localStorage.getItem('nexus_animations_enabled') === 'false' : false} />
+      {/* Fondo espacial estático */}
+      <Starfield startupMode={false} />
       
       {/* Contenido principal */}
       <div className="z-10 flex flex-col items-center bg-black/40 backdrop-blur-md rounded-xl p-8 w-full shadow-lg border border-cyan-900/30">

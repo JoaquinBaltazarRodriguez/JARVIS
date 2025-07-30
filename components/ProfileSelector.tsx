@@ -36,7 +36,7 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   });
   const [passwordError, setPasswordError] = useState("");
   const [stars, setStars] = useState<{top: string, left: string, size: number, delay: string, duration: string}[]>([]);
-  const [shootingStars, setShootingStars] = useState<{top: string, left: string, delay: string, duration: string}[]>([]);
+  // Eliminamos las estrellas fugaces
 
   // Generar estrellas y planetas al montar el componente
   useEffect(() => {
@@ -50,14 +50,7 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
     }));
     setStars(newStars);
 
-    // Generar estrellas fugaces
-    const newShootingStars = Array.from({ length: 5 }).map(() => ({
-      top: `${Math.random() * 30}%`,
-      left: `${-20 - Math.random() * 10}%`,
-      delay: `${Math.random() * 15 + 5}s`,
-      duration: `${Math.random() * 4 + 4}s`
-    }));
-    setShootingStars(newShootingStars);
+    // Ya no generamos estrellas fugaces
   }, []);
    const validatePassword = (password: string) => {
     // Longitud mínima para seguridad básica
@@ -134,19 +127,7 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
 
 
 
-        {/* Estrellas fugaces */}
-        {shootingStars.map((star, index) => (
-          <div
-            key={`shooting-${index}`}
-            className="absolute w-20 h-px bg-white animate-shooting-star"
-            style={{
-              top: star.top,
-              left: star.left,
-              animationDelay: star.delay,
-              animationDuration: star.duration
-            }}
-          />
-        ))}
+        {/* Eliminadas las estrellas fugaces */}
       </div>
       
       {/* Contenido principal */}

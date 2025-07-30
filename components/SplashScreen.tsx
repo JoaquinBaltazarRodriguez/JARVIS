@@ -36,8 +36,8 @@ export function SplashScreen({ onStart }: SplashScreenProps) {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black flex flex-col items-center justify-center">
-      {/* Fondo de estrellas */}
-      <Starfield isSpeaking={false} disableAnimations={typeof window !== 'undefined' ? localStorage.getItem('nexus_animations_enabled') === 'false' : false} />
+      {/* Fondo estático de estrellas para unificar la experiencia visual */}
+      <Starfield startupMode={false} />
       
       {/* Círculo principal con logo */}
       <motion.div 
