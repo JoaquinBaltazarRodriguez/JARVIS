@@ -839,12 +839,8 @@ const playlistEstudio = {
   useEffect(() => {
     if (appState === "active" && mounted) {
       setStartupAnim(true)
-      if (!startupAudioRef.current) {
-        startupAudioRef.current = new Audio("/nexus-startup.mp3")
-        startupAudioRef.current.volume = 0.34
-      }
-      startupAudioRef.current.currentTime = 0
-      startupAudioRef.current.play()
+      // Se ha eliminado el código de reproducción del sonido de inicialización
+      // manteniendo la animación de inicio
     }
   }, [appState, mounted])
 
@@ -1362,10 +1358,8 @@ const confirmLogout = async () => {
     // Inicializar NEXUS
     setHasInitialized(true);
     
-    // Reproducir sonido de inicio
-    playStartupSound();
-    
     // Mostrar mensaje de bienvenida adaptado al género del perfil
+    // Se ha eliminado la reproducción del sonido de inicio
     const welcomeMessage = getWelcomeMessage();
     setCurrentText(welcomeMessage);
     speak(welcomeMessage);

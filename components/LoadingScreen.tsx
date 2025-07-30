@@ -55,7 +55,7 @@ export function LoadingScreen({ isVisible, onComplete }: LoadingScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] bg-black flex items-center justify-center transition-opacity duration-800 ${
+      className={`fixed inset-0 z-[100] bg-transparent flex items-center justify-center transition-opacity duration-800 ${
         isAnimatingOut ? "opacity-0" : "opacity-100"
       }`}
     >

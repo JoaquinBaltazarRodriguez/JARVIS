@@ -19,11 +19,8 @@ const staticStars = Array.from({ length: 150 }).map(() => {
 });
 
 export const Starfield: React.FC<StarfieldProps> = ({ startupMode }) => {
-  // Si es modo de inicio (pantalla de carga), no mostramos el fondo
-  if (startupMode) {
-    return null;
-  }
-
+  // Siempre mostramos el fondo de estrellas, incluso en modo de inicio
+  // para evitar parpadeos o pantalla negra durante transiciones
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-black to-gray-950 overflow-hidden">
       {/* Estrellas estáticas (exactamente igual a ProfileSelector) */}
