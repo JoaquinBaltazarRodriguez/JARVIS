@@ -2,6 +2,7 @@ import type { UserProfile } from "@/components/ProfileSelector";
 
 const PROFILES_STORAGE_KEY = 'nexus_user_profiles';
 const ACTIVE_PROFILE_KEY = 'nexus_active_profile';
+const HIDDEN_PROFILES_KEY = 'nexus_hidden_profiles';
 
 /**
  * Servicio para gestionar perfiles de usuario en localStorage
@@ -126,7 +127,7 @@ export class ProfilesManager {
   }
   
   /**
-   * Eliminar un perfil
+   * Eliminar un perfil permanentemente
    */
   static deleteProfile(profileId: string): void {
     if (typeof window === 'undefined') return;
@@ -137,6 +138,9 @@ export class ProfilesManager {
       
       localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(filteredProfiles));
       
+      // También lo eliminamos de los perfiles ocultos si existiera
+      this.removeFromHiddenProfiles(profileId);
+      
       // Si el perfil eliminado era el activo, limpiamos la sesión
       const activeProfile = this.getActiveProfile();
       if (activeProfile && activeProfile.id === profileId) {
@@ -144,6 +148,108 @@ export class ProfilesManager {
       }
     } catch (error) {
       console.error('Error al eliminar perfil:', error);
+    }
+  }
+
+  /**
+   * Obtener perfiles ocultos
+   */
+  static getHiddenProfiles(): UserProfile[] {
+    if (typeof window === 'undefined') return [];
+    
+    try {
+      const hiddenProfilesData = localStorage.getItem(HIDDEN_PROFILES_KEY);
+      if (!hiddenProfilesData) return [];
+      
+      return JSON.parse(hiddenProfilesData);
+    } catch (error) {
+      console.error('Error al cargar perfiles ocultos:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Ocultar un perfil (no lo elimina, solo lo oculta de la interfaz)
+   */
+  static hideProfile(profileId: string): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      // Obtener el perfil que se va a ocultar
+      const profiles = this.getProfiles();
+      const profileToHide = profiles.find(p => p.id === profileId);
+      
+      if (!profileToHide) {
+        console.error('Error: intentando ocultar un perfil inexistente');
+        return;
+      }
+      
+      // Guardar en perfiles ocultos
+      const hiddenProfiles = this.getHiddenProfiles();
+      hiddenProfiles.push(profileToHide);
+      localStorage.setItem(HIDDEN_PROFILES_KEY, JSON.stringify(hiddenProfiles));
+      
+      // Eliminar de la lista visible de perfiles
+      const filteredProfiles = profiles.filter(p => p.id !== profileId);
+      localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(filteredProfiles));
+      
+      // Si el perfil oculto era el activo, limpiamos la sesión
+      const activeProfile = this.getActiveProfile();
+      if (activeProfile && activeProfile.id === profileId) {
+        this.clearActiveProfile();
+      }
+    } catch (error) {
+      console.error('Error al ocultar perfil:', error);
+    }
+  }
+
+  /**
+   * Recuperar un perfil oculto por correo y contraseña
+   * @returns El perfil recuperado o null si no se encontró o la contraseña es incorrecta
+   */
+  static unhideProfile(email: string, password: string): UserProfile | null {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      // Buscar perfil en perfiles ocultos
+      const hiddenProfiles = this.getHiddenProfiles();
+      const profileIndex = hiddenProfiles.findIndex(
+        p => p.email.toLowerCase() === email.toLowerCase() && p.password === password
+      );
+      
+      if (profileIndex === -1) {
+        return null; // No encontrado o contraseña incorrecta
+      }
+      
+      // Recuperar el perfil
+      const profileToRecover = hiddenProfiles[profileIndex];
+      
+      // Eliminar de los perfiles ocultos
+      hiddenProfiles.splice(profileIndex, 1);
+      localStorage.setItem(HIDDEN_PROFILES_KEY, JSON.stringify(hiddenProfiles));
+      
+      // Añadir a los perfiles visibles
+      const profiles = this.getProfiles();
+      profiles.push(profileToRecover);
+      localStorage.setItem(PROFILES_STORAGE_KEY, JSON.stringify(profiles));
+      
+      return profileToRecover;
+    } catch (error) {
+      console.error('Error al recuperar perfil oculto:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Eliminar un perfil de los perfiles ocultos
+   */
+  private static removeFromHiddenProfiles(profileId: string): void {
+    try {
+      const hiddenProfiles = this.getHiddenProfiles();
+      const filteredProfiles = hiddenProfiles.filter(p => p.id !== profileId);
+      localStorage.setItem(HIDDEN_PROFILES_KEY, JSON.stringify(filteredProfiles));
+    } catch (error) {
+      console.error('Error al eliminar perfil de ocultos:', error);
     }
   }
 }
