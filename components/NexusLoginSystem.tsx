@@ -35,21 +35,43 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
   };
   
   const handleProfileSelected = (profile: UserProfile) => {
-    setSelectedProfile(profile);
-    setCurrentScreen('password');
+    // Verificar si este perfil ya está autenticado (cuando viene del modal de login)
+    const activeProfileId = localStorage.getItem('nexus_active_profile');
+    
+    if (activeProfileId === profile.id) {
+      // Si el perfil ya está autenticado, saltar directamente a la pantalla de carga
+      console.log('🔐 Perfil ya autenticado desde modal, saltando verificación de contraseña');
+      setAuthenticatedProfile(profile);
+      setCurrentScreen('loading');
+    } else {
+      // Flujo normal: mostrar pantalla de contraseña
+      setSelectedProfile(profile);
+      setCurrentScreen('password');
+    }
   };
   
   const handleProfileCreated = (profile: UserProfile) => {
-    // Guardar nuevo perfil
+    // Guardar nuevo perfil si es necesario
     ProfilesManager.saveProfile(profile);
     
     // Actualizar lista de perfiles
     const updatedProfiles = ProfilesManager.getProfiles();
     setProfiles(updatedProfiles);
     
-    // Seleccionar el nuevo perfil y pasar a pantalla de contraseña
-    setSelectedProfile(profile);
-    setCurrentScreen('password');
+    // Comprobar si el perfil ya está autenticado (esto ocurre cuando se autentica desde el modal en ProfileSelector)
+    const activeProfileId = localStorage.getItem('nexus_active_profile');
+    const isAuthenticated = activeProfileId === profile.id;
+    
+    if (isAuthenticated) {
+      // El perfil ya está autenticado, ir directamente a la pantalla de carga
+      console.log('✅ Perfil ya autenticado, saltando pantalla de contraseña');
+      setAuthenticatedProfile(profile);
+      setCurrentScreen('loading');
+    } else {
+      // Seleccionar el nuevo perfil y pasar a pantalla de contraseña
+      setSelectedProfile(profile);
+      setCurrentScreen('password');
+    }
   };
   
   const handlePasswordVerified = (password: string) => {

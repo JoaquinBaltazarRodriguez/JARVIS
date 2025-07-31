@@ -377,10 +377,21 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
     
     // Verificar la contraseña
     if (selectedProfile.password === loginPassword) {
-      // Éxito: establecer perfil activo y pasar al siguiente paso
+      // Éxito: establecer perfil activo y pasar directamente a la inicialización
+      // sin pasar por la pantalla de contraseña antigua
       ProfilesManager.setActiveProfile(selectedProfile.id);
       setShowLoginModal(false);
-      onProfileSelected(selectedProfile);
+      
+      // Mostrar notificación de éxito brevemente
+      setNotificationMessage("Inicio de sesion con éxito");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 1500);
+      
+      // Pequeño delay para que se vea la notificación antes de iniciar
+      setTimeout(() => {
+        onProfileCreated(selectedProfile); // Usamos onProfileCreated en lugar de onProfileSelected
+                                           // ya que esto evita el flujo de verificación de contraseña
+      }, 800);
     } else {
       // Error: mostrar mensaje
       setPasswordError("Contraseña incorrecta");
