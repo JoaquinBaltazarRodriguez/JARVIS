@@ -115,6 +115,10 @@ const config: Config = {
           "0%, 100%": { boxShadow: "0 0 5px rgba(0, 212, 255, 0.5)" },
           "50%": { boxShadow: "0 0 20px rgba(0, 212, 255, 0.8)" },
         },
+        "pulse-slow": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -127,6 +131,7 @@ const config: Config = {
         "shooting-star": "shooting-star 6s ease-in-out infinite",
         "orbit": "orbit 20s linear infinite",
         "glow": "glow 3s ease-in-out infinite",
+        "pulse-slow": "pulse-slow 3s ease-in-out infinite",
       },
     },
   },

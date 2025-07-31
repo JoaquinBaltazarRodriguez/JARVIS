@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProfilesManager } from "@/lib/profilesManager";
 import { motion, AnimatePresence } from "framer-motion";
+import { Slider } from "@/components/ui/slider";
 
 export interface UserProfile {
   id: string;
@@ -14,6 +15,7 @@ export interface UserProfile {
   gender: "masculine" | "feminine";
   password: string;
   color: string;
+  photoUrl?: string; // URL de la foto de perfil (base64 o URL)
 }
 
 const COLORS = [
@@ -32,19 +34,41 @@ interface ProfileSelectorProps {
 }
 
 export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated }: ProfileSelectorProps) {
+  // Referencias para elementos DOM
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const imageEditorRef = useRef<HTMLDivElement>(null);
+
+  // Estados para manejo de modales
   const [showCreateProfile, setShowCreateProfile] = useState(false);
   const [showHideConfirmation, setShowHideConfirmation] = useState(false);
   const [showRecoverProfile, setShowRecoverProfile] = useState(false);
+  const [showPhotoEditor, setShowPhotoEditor] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
+  const [loginPassword, setLoginPassword] = useState("");
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
   const [profileToHide, setProfileToHide] = useState<UserProfile | null>(null);
   const [localProfiles, setLocalProfiles] = useState<UserProfile[]>(profiles);
   
+  // Estados para creación de perfil
   const [newProfile, setNewProfile] = useState<Partial<UserProfile>>({
     color: COLORS[Math.floor(Math.random() * COLORS.length)]
   });
+
+  // Estados para validación
   const [passwordError, setPasswordError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [stars, setStars] = useState<{top: string, left: string, size: number, delay: string, duration: string}[]>([]);
+  
+  // Estados para manejo de imagen
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>("");
+  const [imageScale, setImageScale] = useState<number>(1);
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   
   // Para recuperación de perfiles
   const [recoverEmail, setRecoverEmail] = useState("");
@@ -70,7 +94,28 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
 
     // Ya no generamos estrellas fugaces
   }, []);
-   const validatePassword = (password: string) => {
+
+  // Validar formato de correo electrónico
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError("Por favor, introduce un correo electrónico válido");
+      return false;
+    }
+    
+    // Verificar si el correo ya está en uso
+    const allProfiles = ProfilesManager.getProfiles();
+    if (allProfiles.some((profile: UserProfile) => profile.email.toLowerCase() === email.toLowerCase())) {
+      setEmailError("Este correo electrónico ya está registrado");
+      return false;
+    }
+    
+    setEmailError("");
+    return true;
+  };
+
+  // Validar contraseña
+  const validatePassword = (password: string) => {
     // Longitud mínima para seguridad básica
     if (password.length < 4) {
       setPasswordError("La contraseña debe tener al menos 4 caracteres");
@@ -81,30 +126,176 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
     return true;
   };
 
+  // Manejar la selección de archivos de imagen
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    
+    if (!file) return;
+    
+    // Validar tipo de archivo (solo imágenes)
+    if (!file.type.match('image.*')) {
+      setNotificationMessage("Por favor, selecciona una imagen (JPG, PNG, GIF)");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return;
+    }
+    
+    // Validar tamaño del archivo (máximo 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setNotificationMessage("La imagen no debe superar los 2MB");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      return;
+    }
+    
+    setSelectedFile(file);
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setPhotoPreview(event.target.result as string);
+        setImageScale(1); // Reset scale
+        setImagePosition({ x: 0, y: 0 }); // Reset position
+        setShowPhotoEditor(true);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Manejar el inicio del arrastre de la imagen
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!imageEditorRef.current) return;
+    
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - imagePosition.x,
+      y: e.clientY - imagePosition.y
+    });
+  };
+
+  // Manejar el movimiento durante el arrastre
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !imageEditorRef.current) return;
+    
+    // Calcular nuevas coordenadas con límites
+    const containerRect = imageEditorRef.current.getBoundingClientRect();
+    const containerSize = containerRect.width; // Asumiendo que es cuadrado
+    const maxOffset = (containerSize * imageScale - containerSize) / 2;
+    
+    let newX = e.clientX - dragStart.x;
+    let newY = e.clientY - dragStart.y;
+    
+    // Limitar el movimiento al tamaño de la imagen
+    newX = Math.max(Math.min(newX, maxOffset), -maxOffset);
+    newY = Math.max(Math.min(newY, maxOffset), -maxOffset);
+    
+    setImagePosition({ x: newX, y: newY });
+  };
+
+  // Finalizar el arrastre
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Guardar la imagen editada
+  const saveEditedPhoto = () => {
+    if (!photoPreview || !imageRef.current || !imageEditorRef.current) return;
+    
+    try {
+      // Crear un canvas para recortar la imagen
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      
+      // Tamaño del canvas circular (300x300)
+      const size = 300;
+      canvas.width = size;
+      canvas.height = size;
+      
+      // Dibujar círculo para recortar la imagen
+      ctx.beginPath();
+      ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      
+      // Obtener el tamaño y posición relativa de la imagen
+      const containerRect = imageEditorRef.current.getBoundingClientRect();
+      const containerSize = containerRect.width;
+      
+      // Calcular dimensiones y posición para el dibujo
+      const scaledSize = containerSize * imageScale;
+      const sx = (containerSize - scaledSize) / 2 - imagePosition.x;
+      const sy = (containerSize - scaledSize) / 2 - imagePosition.y;
+      
+      // Dibujar la imagen en el canvas
+      const img = imageRef.current;
+      ctx.drawImage(
+        img,
+        sx * (img.naturalWidth / scaledSize),
+        sy * (img.naturalHeight / scaledSize),
+        (containerSize * img.naturalWidth) / scaledSize,
+        (containerSize * img.naturalHeight) / scaledSize,
+        0, 0, size, size
+      );
+      
+      // Convertir a base64 en formato JPEG con calidad 0.8 (80%)
+      const photoUrl = canvas.toDataURL("image/jpeg", 0.8);
+      
+      // Actualizar el perfil con la nueva foto
+      setNewProfile(prev => ({ ...prev, photoUrl }));
+      
+      // Cerrar editor y limpiar
+      setShowPhotoEditor(false);
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error) {
+      console.error("Error al procesar la imagen:", error);
+      setNotificationMessage("Error al procesar la imagen");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+    }
+  };
+
   const handleCreateProfile = () => {
     if (!newProfile.name || !newProfile.email || !newProfile.gender || !newProfile.password) {
       setPasswordError("Todos los campos son obligatorios");
       return;
     }
     
+    // Validar contraseña
     if (!validatePassword(newProfile.password)) {
       return;
     }
     
+    // Validar email
+    if (!validateEmail(newProfile.email)) {
+      return;
+    }
+    
+    // Crear el nuevo perfil incluyendo la foto si existe
     const profile: UserProfile = {
       id: Date.now().toString(),
       name: newProfile.name,
       email: newProfile.email,
       gender: newProfile.gender as "masculine" | "feminine",
       password: newProfile.password,
-      color: newProfile.color || COLORS[Math.floor(Math.random() * COLORS.length)]
+      color: newProfile.color || COLORS[Math.floor(Math.random() * COLORS.length)],
+      photoUrl: newProfile.photoUrl
     };
     
+    // Crear perfil y mostrar notificación
     onProfileCreated(profile);
+    setNotificationMessage("Perfil creado correctamente");
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 3000);
+    
+    // Cerrar modal y resetear formulario
     setShowCreateProfile(false);
     setNewProfile({
       color: COLORS[Math.floor(Math.random() * COLORS.length)]
     });
+    setPhotoPreview("");
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Manejar el clic en la cruz para ocultar un perfil
@@ -172,6 +363,39 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
     }
   };
 
+  // Función para manejar cuando se hace clic en un perfil
+  const handleProfileClick = (profile: UserProfile) => {
+    setSelectedProfile(profile);
+    setLoginPassword("");
+    setPasswordError("");
+    setShowLoginModal(true);
+  };
+
+  // Función para manejar el envío del formulario de login
+  const handleLoginSubmit = () => {
+    if (!selectedProfile) return;
+    
+    // Verificar la contraseña
+    if (selectedProfile.password === loginPassword) {
+      // Éxito: establecer perfil activo y pasar al siguiente paso
+      ProfilesManager.setActiveProfile(selectedProfile.id);
+      setShowLoginModal(false);
+      onProfileSelected(selectedProfile);
+    } else {
+      // Error: mostrar mensaje
+      setPasswordError("Contraseña incorrecta");
+    }
+  };
+
+  const handleForgotPassword = () => {
+    // Por ahora, simplemente cerramos el modal de login y abrimos el de recuperación
+    setShowLoginModal(false);
+    setRecoverEmail("");
+    setRecoverPassword("");
+    setRecoverError("");
+    setShowRecoverProfile(true);
+  };
+
   const handleAddProfile = () => {
     // Limitar a un máximo de 3 perfiles
     if (localProfiles.length >= 3) {
@@ -183,7 +407,7 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-screen fixed inset-0 overflow-hidden">
+    <div className={`flex flex-col items-center justify-center w-full h-screen fixed inset-0 overflow-hidden ${showLoginModal ? 'bg-black/20 backdrop-blur-sm' : ''}`}>
       {/* Fondo espacial - fixed para ocupar toda la pantalla */}
       <div className="fixed inset-0 bg-gradient-to-b from-black to-gray-950 overflow-hidden">
         {/* Estrellas fijas con animación */}
@@ -243,18 +467,26 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
               
               {/* Contenido del perfil clickeable */}
               <div 
-                onClick={() => onProfileSelected(profile)}
+                onClick={() => handleProfileClick(profile)}
                 className="w-full h-full flex flex-col items-center space-y-3"
               >
                 {/* Avatar circular con color personalizado */}
                 <div 
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-light border-2 transition-all duration-300 group-hover:shadow-lg"
+                  className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-light border-2 transition-all duration-300 group-hover:shadow-lg overflow-hidden"
                   style={{ 
                     borderColor: profile.color,
                     boxShadow: `0 0 10px ${profile.color}30`
                   }}
                 >
-                  <span className="uppercase">{profile.name.charAt(0)}</span>
+                  {profile.photoUrl ? (
+                    <img 
+                      src={profile.photoUrl} 
+                      alt={`Foto de ${profile.name}`} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="uppercase">{profile.name.charAt(0)}</span>
+                  )}
                 </div>
                 
                 <h3 className="text-lg font-medium text-white">
@@ -326,71 +558,120 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
             <DialogTitle className="text-cyan-400 text-xl">Crear nuevo perfil</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-gray-300">Nombre</Label>
-              <Input 
-                id="name" 
-                value={newProfile.name || ''}
-                onChange={e => setNewProfile({...newProfile, name: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300">Correo electrónico</Label>
-              <Input 
-                id="email" 
-                type="email"
-                value={newProfile.email || ''}
-                onChange={e => setNewProfile({...newProfile, email: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-gray-300">Género</Label>
-              <RadioGroup
-                value={newProfile.gender}
-                onValueChange={(value) => setNewProfile({...newProfile, gender: value as "masculine" | "feminine"})}
-                className="flex space-x-4"
+          <div className="space-y-6 mt-4">
+            {/* Selector de foto de perfil */}
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div 
+                className="w-32 h-32 rounded-full flex items-center justify-center border-2 border-dashed border-gray-600 hover:border-cyan-500 transition-all duration-300 cursor-pointer overflow-hidden group relative"
+                onClick={() => fileInputRef.current?.click()}
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="masculine" id="masculine" className="text-cyan-500" />
-                  <Label htmlFor="masculine" className="text-gray-300">Masculino</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="feminine" id="feminine" className="text-cyan-500" />
-                  <Label htmlFor="feminine" className="text-gray-300">Femenino</Label>
-                </div>
-              </RadioGroup>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300">Contraseña (mínimo 4 caracteres)</Label>
-              <Input 
-                id="password" 
-                type="password"
-                value={newProfile.password || ''}
-                onChange={e => setNewProfile({...newProfile, password: e.target.value})}
-                className="bg-gray-800 border-gray-700 text-white"
+                {newProfile.photoUrl ? (
+                  <>
+                    <img 
+                      src={newProfile.photoUrl} 
+                      alt="Foto de perfil" 
+                      className="w-full h-full object-cover" 
+                    />
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-white text-xs">Cambiar foto</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <span className="text-gray-500 text-xs mt-1">Subir foto</span>
+                  </div>
+                )}
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileSelect} 
+                accept="image/*" 
+                className="hidden" 
+                aria-label="Seleccionar foto de perfil"
               />
-              {passwordError && (
-                <p className="text-red-500 text-sm">{passwordError}</p>
-              )}
+              <p className="text-gray-500 text-xs text-center px-4">
+                JPG, PNG o GIF (máx. 2MB)
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-gray-300 font-medium">Nombre</Label>
+                <Input 
+                  id="name" 
+                  value={newProfile.name || ''}
+                  onChange={e => setNewProfile({...newProfile, name: e.target.value})}
+                  className="bg-gray-800 border-gray-700 text-white focus:border-cyan-500 transition-colors"
+                  placeholder="Ingresa tu nombre"
+                  autoComplete="off"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-300 font-medium">Correo electrónico</Label>
+                <Input 
+                  id="email" 
+                  type="email"
+                  value={newProfile.email || ''}
+                  onChange={e => setNewProfile({...newProfile, email: e.target.value})}
+                  className="bg-gray-800 border-gray-700 text-white focus:border-cyan-500 transition-colors"
+                  placeholder="ejemplo@correo.com"
+                  autoComplete="off"
+                />
+                {emailError && (
+                  <p className="text-red-500 text-xs">{emailError}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-gray-300 font-medium">Género</Label>
+                <RadioGroup
+                  value={newProfile.gender}
+                  onValueChange={(value) => setNewProfile({...newProfile, gender: value as "masculine" | "feminine"})}
+                  className="flex space-x-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="masculine" id="masculine" className="text-cyan-500" />
+                    <Label htmlFor="masculine" className="text-gray-300">Masculino</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="feminine" id="feminine" className="text-cyan-500" />
+                    <Label htmlFor="feminine" className="text-gray-300">Femenino</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-300 font-medium">Contraseña</Label>
+                <Input 
+                  id="password" 
+                  type="password"
+                  value={newProfile.password || ''}
+                  onChange={e => setNewProfile({...newProfile, password: e.target.value})}
+                  className="bg-gray-800 border-gray-700 text-white focus:border-cyan-500 transition-colors"
+                  placeholder="Mínimo 4 caracteres"
+                />
+                {passwordError && (
+                  <p className="text-red-500 text-xs">{passwordError}</p>
+                )}
+              </div>
             </div>
             
             <div className="pt-4 flex justify-end space-x-4">
               <Button 
                 variant="ghost" 
                 onClick={() => setShowCreateProfile(false)}
-                className="border border-cyan-800/50 hover:bg-cyan-900/20"
+                className="border border-gray-800/50 hover:bg-gray-900/20 transition-colors"
               >
                 Cancelar
               </Button>
               <Button 
                 onClick={handleCreateProfile}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg shadow-cyan-900/20 transition-all"
               >
                 Guardar perfil
               </Button>
@@ -399,11 +680,88 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
         </DialogContent>
       </Dialog>
       
-      {/* Modal de confirmación para ocultar perfil */}
+      {/* Modal para editar foto */}
+      <Dialog open={showPhotoEditor} onOpenChange={setShowPhotoEditor}>
+        <DialogContent className="max-w-md bg-gray-900 border border-cyan-900/50 text-white shadow-xl shadow-cyan-500/10 z-50">
+          <DialogHeader>
+            <DialogTitle className="text-cyan-400 text-xl">Editar foto de perfil</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {/* Editor de foto con recorte circular */}
+            <div className="flex flex-col items-center justify-center">
+              <div 
+                ref={imageEditorRef}
+                className="w-64 h-64 rounded-full border-2 border-cyan-600 overflow-hidden relative cursor-grab"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                {photoPreview && (
+                  <img 
+                    ref={imageRef}
+                    src={photoPreview} 
+                    alt="Preview"
+                    style={{
+                      width: `${imageScale * 100}%`, 
+                      height: `${imageScale * 100}%`,
+                      objectFit: "cover",
+                      transform: `translate(${imagePosition.x}px, ${imagePosition.y}px)`,
+                      transition: isDragging ? "none" : "transform 0.1s ease-out"
+                    }}
+                    draggable="false"
+                  />
+                )}
+                <div className="absolute inset-0 rounded-full ring-1 ring-inset ring-white/10 pointer-events-none" />
+              </div>
+              
+              {/* Instrucciones */}
+              <p className="text-gray-400 text-sm mt-4 text-center">
+                Arrastra para ajustar. Usa el control deslizante para hacer zoom.
+              </p>
+            </div>
+            
+            {/* Control de zoom */}
+            <div className="px-4 space-y-2">
+              <div className="flex items-center justify-between text-gray-400 text-sm">
+                <span>Zoom</span>
+                <span>{Math.round((imageScale - 1) * 100)}%</span>
+              </div>
+              <Slider
+                value={[imageScale]}
+                min={1}
+                max={3}
+                step={0.01}
+                onValueChange={(values) => setImageScale(values[0])}
+                className="cursor-pointer"
+              />
+            </div>
+            
+            <div className="pt-4 flex justify-end space-x-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowPhotoEditor(false)}
+                className="border border-gray-800/50 hover:bg-gray-900/20"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={saveEditedPhoto}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white shadow-lg shadow-cyan-900/20"
+              >
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal para confirmar ocultar perfil */}
       <Dialog open={showHideConfirmation} onOpenChange={setShowHideConfirmation}>
         <DialogContent className="max-w-md bg-gray-900 border border-red-900/50 text-white shadow-xl shadow-red-500/10 z-50">
           <DialogHeader>
-            <DialogTitle className="text-red-400 text-xl"> Eliminar perfil </DialogTitle>
+            <DialogTitle className="text-red-400 text-xl">Eliminar perfil</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
@@ -430,6 +788,94 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Modal de login de perfil */}
+      <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
+        <DialogContent className="max-w-md bg-black/80 border border-cyan-900/50 text-white shadow-2xl shadow-cyan-500/20 z-50 backdrop-blur-lg">
+          {selectedProfile && (
+            <div className="flex flex-col items-center space-y-6 py-3">
+              {/* Avatar con foto o inicial */}
+              <div 
+                className="w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-2 animate-pulse-slow shadow-lg"
+                style={{
+                  borderColor: selectedProfile.color,
+                  boxShadow: `0 0 15px ${selectedProfile.color}50`
+                }}
+              >
+                {selectedProfile.photoUrl ? (
+                  <img 
+                    src={selectedProfile.photoUrl} 
+                    alt={`Foto de ${selectedProfile.name}`} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <span className="text-4xl font-light">
+                    {selectedProfile.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              
+              {/* Nombre y campo de contraseña */}
+              <div className="w-full space-y-6">
+                <div className="text-center">
+                  <h2 className="text-xl font-light mb-1 text-cyan-400">Hola, {selectedProfile.name}</h2>
+                  <p className="text-sm text-gray-400">Ingresa tu contraseña para continuar</p>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <Input 
+                      type="password" 
+                      placeholder="Contraseña"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="bg-gray-800/50 border-gray-700 text-white py-6 text-center backdrop-blur-sm focus:border-cyan-500 transition-all"
+                      onKeyDown={(e) => e.key === "Enter" && handleLoginSubmit()}
+                      autoFocus
+                    />
+                    
+                    {passwordError && (
+                      <motion.p 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-red-500 text-sm mt-2 text-center"
+                      >
+                        {passwordError}
+                      </motion.p>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-between items-center pt-2">
+                    <button 
+                      onClick={handleForgotPassword}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                    
+                    <Button 
+                      onClick={handleLoginSubmit}
+                      className="bg-cyan-700 hover:bg-cyan-600 text-white px-8 py-5"
+                    >
+                      Continuar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => setShowLoginModal(false)}
+                className="text-xs text-gray-400 hover:text-gray-300 transition-colors mt-4 flex items-center space-x-1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
+                <span>Volver a la selección</span>
+              </button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
       
