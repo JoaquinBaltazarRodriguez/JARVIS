@@ -304,10 +304,8 @@ const handleLoginComplete = (profile: UserProfile) => {
     const welcomeShown = localStorage.getItem(`nexus_welcome_shown_${profile.id}`);
     
     if (welcomeShown !== "true") {
-      // Mostrar mensaje de bienvenida adaptado al género del perfil
-      const welcomeMessage = getWelcomeMessage(profile);
-      setCurrentText(welcomeMessage);
-      speak(welcomeMessage);
+      // Se eliminó el mensaje de bienvenida, pero se mantiene la estructura del código
+      // No hacemos setCurrentText ni speak aquí para eliminar el saludo
       
       // Marcar que ya se mostró el mensaje de bienvenida
       localStorage.setItem(`nexus_welcome_shown_${profile.id}`, "true");
@@ -1358,11 +1356,8 @@ const confirmLogout = async () => {
     // Inicializar NEXUS
     setHasInitialized(true);
     
-    // Mostrar mensaje de bienvenida adaptado al género del perfil
-    // Se ha eliminado la reproducción del sonido de inicio
-    const welcomeMessage = getWelcomeMessage();
-    setCurrentText(welcomeMessage);
-    speak(welcomeMessage);
+    // Se ha eliminado completamente el mensaje de bienvenida como solicitado por el usuario
+    // No mostramos ningún mensaje al iniciar
   };
   
   // Función para generar mensaje de bienvenida según el género del perfil
@@ -3131,7 +3126,7 @@ const getMainIcon = () => {
         onCancel={() => setShowLogoutModal(false)} 
       />
       
-      {/* 🔄 PANTALLA DE CARGA NEXUS */}
+      {/* 🔄 PANTALLA DE CARGA NEXUS - Ahora con z-index mayor para garantizar que está por encima */}
       <LoadingScreen isVisible={showLoadingScreen} onComplete={handleSystemLoadingComplete} />
 
       {/* 🔓 SISTEMA DE LOGIN NEXUS */}
