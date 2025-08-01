@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ProfilesManager } from "@/lib/profilesManager";
+import { ProfilesManager } from "@/lib/profilesManager"; // Mantenemos para compatibilidad
+import { FirebaseProfileManager } from "@/lib/firebaseProfileManager"; // Nuevo gestor con Firebase
 import { motion, AnimatePresence } from "framer-motion";
 import { Slider } from "@/components/ui/slider";
 
@@ -16,6 +17,7 @@ export interface UserProfile {
   password: string;
   color: string;
   photoUrl?: string; // URL de la foto de perfil (base64 o URL)
+  isHidden?: boolean; // Indica si el perfil está oculto/eliminado
 }
 
 const COLORS = [
@@ -75,9 +77,27 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   const [recoverPassword, setRecoverPassword] = useState("");
   const [recoverError, setRecoverError] = useState("");
   
-  // Actualiza los perfiles locales cuando cambian los props
+  // Cargar perfiles desde Firebase cuando se monta el componente
   useEffect(() => {
-    setLocalProfiles(profiles);
+    const loadProfiles = async () => {
+      try {
+        // Obtener perfiles visibles desde Firebase
+        const allProfiles = await FirebaseProfileManager.getProfiles();
+        const visibleProfiles = allProfiles.filter(p => !p.isHidden);
+        setLocalProfiles(visibleProfiles);
+      } catch (error) {
+        console.error("Error al cargar perfiles:", error);
+      }
+    };
+    
+    loadProfiles();
+  }, []);
+  
+  // Actualiza los perfiles locales cuando cambian los props (para compatibilidad)
+  useEffect(() => {
+    if (profiles && profiles.length > 0) {
+      setLocalProfiles(profiles);
+    }
   }, [profiles]);
 
   // Generar estrellas y planetas al montar el componente
@@ -96,29 +116,35 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   }, []);
 
   // Validar formato de correo electrónico
-  const validateEmail = (email: string) => {
+  const validateEmail = async (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setEmailError("Por favor, introduce un correo electrónico válido");
       return false;
     }
     
-    // Verificar si el correo ya está en uso
-    const allProfiles = ProfilesManager.getProfiles();
-    if (allProfiles.some((profile: UserProfile) => profile.email.toLowerCase() === email.toLowerCase())) {
-      setEmailError("Este correo electrónico ya está registrado");
+    try {
+      // Verificar si el correo ya está en uso usando Firebase
+      const allProfiles = await FirebaseProfileManager.getProfiles();
+      if (allProfiles.some((profile: UserProfile) => profile.email.toLowerCase() === email.toLowerCase())) {
+        setEmailError("Este correo electrónico ya está registrado");
+        return false;
+      }
+      
+      setEmailError("");
+      return true;
+    } catch (error) {
+      console.error("Error al validar email:", error);
+      setEmailError("Error al verificar el correo electrónico. Inténtalo de nuevo.");
       return false;
     }
-    
-    setEmailError("");
-    return true;
   };
 
   // Validar contraseña
   const validatePassword = (password: string) => {
-    // Longitud mínima para seguridad básica
-    if (password.length < 4) {
-      setPasswordError("La contraseña debe tener al menos 4 caracteres");
+    // Longitud mínima para Firebase (6 caracteres)
+    if (password.length < 6) {
+      setPasswordError("La contraseña debe tener al menos 6 caracteres");
       return false;
     }
     
@@ -199,64 +225,64 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
 
   // Guardar la imagen editada
   const saveEditedPhoto = () => {
-    if (!photoPreview || !imageRef.current || !imageEditorRef.current) return;
+    if (!imageRef.current || !imageEditorRef.current || !selectedFile) {
+      console.error("Faltan referencias necesarias para editar la imagen");
+      return;
+    }
     
+    const containerWidth = 200; // Tamaño del contenedor circular
+    const containerHeight = 200;
+    
+    // Crear un canvas para recortar la imagen
+    const canvas = document.createElement('canvas');
+    canvas.width = containerWidth;
+    canvas.height = containerHeight;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) {
+      console.error("No se pudo obtener el contexto del canvas");
+      return;
+    }
+    
+    // Crear forma circular para el recorte
+    ctx.beginPath();
+    ctx.arc(containerWidth / 2, containerHeight / 2, containerWidth / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    
+    // Calcular posición y tamaño para el dibujo
+    const scaledWidth = imageRef.current.width * imageScale;
+    const scaledHeight = imageRef.current.height * imageScale;
+    const x = containerWidth / 2 - scaledWidth / 2 + imagePosition.x;
+    const y = containerHeight / 2 - scaledHeight / 2 + imagePosition.y;
+    
+    // Dibujar la imagen en el canvas con transformaciones
+    ctx.drawImage(imageRef.current, x, y, scaledWidth, scaledHeight);
+    
+    // Convertir a base64
     try {
-      // Crear un canvas para recortar la imagen
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      
-      // Tamaño del canvas circular (300x300)
-      const size = 300;
-      canvas.width = size;
-      canvas.height = size;
-      
-      // Dibujar círculo para recortar la imagen
-      ctx.beginPath();
-      ctx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-      
-      // Obtener el tamaño y posición relativa de la imagen
-      const containerRect = imageEditorRef.current.getBoundingClientRect();
-      const containerSize = containerRect.width;
-      
-      // Calcular dimensiones y posición para el dibujo
-      const scaledSize = containerSize * imageScale;
-      const sx = (containerSize - scaledSize) / 2 - imagePosition.x;
-      const sy = (containerSize - scaledSize) / 2 - imagePosition.y;
-      
-      // Dibujar la imagen en el canvas
-      const img = imageRef.current;
-      ctx.drawImage(
-        img,
-        sx * (img.naturalWidth / scaledSize),
-        sy * (img.naturalHeight / scaledSize),
-        (containerSize * img.naturalWidth) / scaledSize,
-        (containerSize * img.naturalHeight) / scaledSize,
-        0, 0, size, size
-      );
-      
-      // Convertir a base64 en formato JPEG con calidad 0.8 (80%)
-      const photoUrl = canvas.toDataURL("image/jpeg", 0.8);
-      
-      // Actualizar el perfil con la nueva foto
-      setNewProfile(prev => ({ ...prev, photoUrl }));
-      
-      // Cerrar editor y limpiar
+      const photoData = canvas.toDataURL(selectedFile.type);
+      setNewProfile(prev => ({ ...prev, photoUrl: photoData }));
+      setPhotoPreview(photoData);
       setShowPhotoEditor(false);
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      
+      // Limpiar datos
+      setImageScale(1);
+      setImagePosition({ x: 0, y: 0 });
+      setIsDragging(false);
+      
+      // La imagen se subirá a Firebase Storage cuando se cree el perfil
+      
+      // Mostrar mensaje
+      setNotificationMessage("Foto de perfil actualizada");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 2000);
     } catch (error) {
       console.error("Error al procesar la imagen:", error);
-      setNotificationMessage("Error al procesar la imagen");
-      setShowNotification(true);
-      setTimeout(() => setShowNotification(false), 3000);
     }
   };
 
-  const handleCreateProfile = () => {
+  const handleCreateProfile = async () => {
     if (!newProfile.name || !newProfile.email || !newProfile.gender || !newProfile.password) {
       setPasswordError("Todos los campos son obligatorios");
       return;
@@ -267,35 +293,61 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
       return;
     }
     
-    // Validar email
-    if (!validateEmail(newProfile.email)) {
+    // Validar email - ahora asíncrono
+    const emailValid = await validateEmail(newProfile.email);
+    if (!emailValid) {
       return;
     }
     
-    // Crear el nuevo perfil incluyendo la foto si existe
-    const profile: UserProfile = {
-      id: Date.now().toString(),
-      name: newProfile.name,
-      email: newProfile.email,
-      gender: newProfile.gender as "masculine" | "feminine",
-      password: newProfile.password,
-      color: newProfile.color || COLORS[Math.floor(Math.random() * COLORS.length)],
-      photoUrl: newProfile.photoUrl
-    };
-    
-    // Crear perfil y mostrar notificación
-    onProfileCreated(profile);
-    setNotificationMessage("Perfil creado correctamente");
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 3000);
-    
-    // Cerrar modal y resetear formulario
-    setShowCreateProfile(false);
-    setNewProfile({
-      color: COLORS[Math.floor(Math.random() * COLORS.length)]
-    });
-    setPhotoPreview("");
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    try {
+      // Mostrar mensaje de cargando
+      setPasswordError("Creando perfil, por favor espera...");
+      
+      // Preparamos los datos para Firebase (sin ID, se genera automáticamente)
+      const profileData = {
+        name: newProfile.name,
+        email: newProfile.email,
+        gender: newProfile.gender as "masculine" | "feminine",
+        password: newProfile.password,
+        color: newProfile.color || COLORS[Math.floor(Math.random() * COLORS.length)],
+        photoUrl: newProfile.photoUrl
+      };
+      
+      console.log("Enviando datos a Firebase:", {
+        name: profileData.name,
+        email: profileData.email,
+        gender: profileData.gender
+        // No mostramos la contraseña por seguridad
+      });
+      
+      // Crear perfil en Firebase
+      const profile = await FirebaseProfileManager.createProfile(profileData);
+      
+      // Crear perfil y mostrar notificación
+      onProfileCreated(profile);
+      setNotificationMessage("Perfil creado correctamente");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      
+      // Cerrar modal y resetear formulario
+      setShowCreateProfile(false);
+      setNewProfile({
+        color: COLORS[Math.floor(Math.random() * COLORS.length)]
+      });
+      setPhotoPreview("");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      
+      setPasswordError(""); // Limpiar mensaje de error
+    } catch (error: any) {
+      console.error("Error en handleCreateProfile:", error);
+      
+      // Mostrar mensaje específico según el tipo de error
+      if (error.message) {
+        setPasswordError(error.message); // Usar mensaje de error personalizado de Firebase
+      } else {
+        setPasswordError("Error al crear el perfil. Inténtalo de nuevo.");
+      }
+    }
   };
 
   // Manejar el clic en la cruz para ocultar un perfil
@@ -305,61 +357,79 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   };
   
   // Confirmar y ocultar el perfil
-  const confirmHideProfile = () => {
-    if (profileToHide) {
-      // Ocultar perfil usando ProfilesManager
-      ProfilesManager.hideProfile(profileToHide.id);
+  const confirmHideProfile = async () => {
+    if (!profileToHide) return;
+    
+    try {
+      // Marcar como oculto en Firebase
+      await FirebaseProfileManager.hideProfile(profileToHide.id);
       
-      // Actualizar la lista local de perfiles
-      const updatedProfiles = localProfiles.filter(p => p.id !== profileToHide.id);
-      setLocalProfiles(updatedProfiles);
+      // Actualizar lista en la interfaz
+      const updatedProfiles = await FirebaseProfileManager.getProfiles();
+      const visibleProfiles = updatedProfiles.filter(p => !p.isHidden);
+      setLocalProfiles(visibleProfiles);
       
-      // Mostrar notificación
-      setNotificationMessage(`El perfil ${profileToHide.name} Se eliminó correctamente`);
-      setShowNotification(true);
-      
-      // Ocultar después de 3 segundos
-      setTimeout(() => {
-        setShowNotification(false);
-      }, 3000);
-      
-      // Cerrar modal de confirmación
+      // Cerrar modal y mostrar notificación
       setShowHideConfirmation(false);
+      setProfileToHide(null);
+      
+      setNotificationMessage("Perfil ocultado correctamente");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
+      
+      // Anunciar para lectores de pantalla
+      const announcement = document.getElementById("screen-reader-announcement");
+      if (announcement) {
+        announcement.textContent = "Perfil ocultado correctamente. Ya no aparecerá en la lista de perfiles, pero puedes recuperarlo más tarde.";
+      }
+    } catch (error) {
+      console.error("Error al ocultar perfil:", error);
+      setNotificationMessage("Error al ocultar el perfil");
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 3000);
     }
   };
   
   // Recuperar perfil oculto
-  const handleRecoverProfile = () => {
-    setRecoverError("");
-    
+  const handleRecoverProfile = async () => {
     if (!recoverEmail || !recoverPassword) {
-      setRecoverError("Por favor ingresa email y contraseña");
+      setRecoverError("Debes proporcionar email y contraseña");
       return;
     }
     
-    const recoveredProfile = ProfilesManager.unhideProfile(recoverEmail, recoverPassword);
-    
-    if (recoveredProfile) {
-      // Agregar el perfil recuperado a la lista local
-      setLocalProfiles([...localProfiles, recoveredProfile]);
+    try {
+      // Intentar recuperar el perfil con Firebase
+      const recoveredProfile = await FirebaseProfileManager.recoverProfile(recoverEmail, recoverPassword);
       
-      // Mostrar notificación
-      setNotificationMessage(`¡Inicio de sesion con éxito ${recoveredProfile.name}!`);
-      setShowNotification(true);
-      
-      // Limpiar campos
-      setRecoverEmail("");
-      setRecoverPassword("");
-      
-      // Cerrar modal
-      setShowRecoverProfile(false);
-      
-      // Ocultar notificación después de 3 segundos
-      setTimeout(() => {
-        setShowNotification(false);
-      }, 3000);
-    } else {
-      setRecoverError("No se encontró el perfil o la contraseña es incorrecta");
+      if (recoveredProfile) {
+        // Éxito: mostrar notificación y actualizar lista
+        setNotificationMessage("Perfil recuperado correctamente");
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+        
+        // Actualizar la lista de perfiles
+        const updatedProfiles = await FirebaseProfileManager.getProfiles();
+        const visibleProfiles = updatedProfiles.filter(p => !p.isHidden);
+        setLocalProfiles(visibleProfiles);
+        
+        // Cerrar el modal
+        setShowRecoverProfile(false);
+        setRecoverEmail("");
+        setRecoverPassword("");
+        setRecoverError("");
+        
+        // Anunciar para lectores de pantalla
+        const announcement = document.getElementById("screen-reader-announcement");
+        if (announcement) {
+          announcement.textContent = "Perfil recuperado correctamente. Ahora está visible en la lista de perfiles.";
+        }
+      } else {
+        // Error: mostrar mensaje de error
+        setRecoverError("No se encontró ninguna cuenta con esas credenciales");
+      }
+    } catch (error) {
+      console.error("Error al recuperar perfil:", error);
+      setRecoverError("Error al recuperar el perfil. Inténtalo de nuevo.");
     }
   };
 
@@ -372,29 +442,35 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   };
 
   // Función para manejar el envío del formulario de login
-  const handleLoginSubmit = () => {
+  const handleLoginSubmit = async () => {
     if (!selectedProfile) return;
     
-    // Verificar la contraseña
-    if (selectedProfile.password === loginPassword) {
-      // Éxito: establecer perfil activo y pasar directamente a la inicialización
-      // sin pasar por la pantalla de contraseña antigua
-      ProfilesManager.setActiveProfile(selectedProfile.id);
-      setShowLoginModal(false);
+    try {
+      // Iniciar sesión con Firebase
+      const authenticatedProfile = await FirebaseProfileManager.login(selectedProfile.email, loginPassword);
       
-      // Mostrar notificación de éxito brevemente
-      setNotificationMessage("Inicio de sesion con éxito");
-      setShowNotification(true);
-      setTimeout(() => setShowNotification(false), 1500);
-      
-      // Pequeño delay para que se vea la notificación antes de iniciar
-      setTimeout(() => {
-        onProfileCreated(selectedProfile); // Usamos onProfileCreated en lugar de onProfileSelected
-                                           // ya que esto evita el flujo de verificación de contraseña
-      }, 800);
-    } else {
-      // Error: mostrar mensaje
-      setPasswordError("Contraseña incorrecta");
+      if (authenticatedProfile) {
+        // Éxito: establecer perfil activo
+        ProfilesManager.setActiveProfile(authenticatedProfile.id); // Mantener compatibilidad con el sistema actual
+        setShowLoginModal(false);
+        
+        // Mostrar notificación de éxito brevemente
+        setNotificationMessage("Inicio de sesión con éxito");
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 1500);
+        
+        // Pequeño delay para que se vea la notificación antes de iniciar
+        setTimeout(() => {
+          onProfileCreated(authenticatedProfile); // Usamos onProfileCreated en lugar de onProfileSelected
+                                               // ya que esto evita el flujo de verificación de contraseña
+        }, 800);
+      } else {
+        // Error: mostrar mensaje
+        setPasswordError("Contraseña incorrecta");
+      }
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error);
+      setPasswordError("Error al iniciar sesión. Inténtalo de nuevo.");
     }
   };
 

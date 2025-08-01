@@ -3,7 +3,8 @@ import { ProfileSelector, type UserProfile } from './ProfileSelector';
 import { PasswordScreen } from './PasswordScreen';
 import { SplashScreen } from './SplashScreen';
 import { LoadingScreen } from './LoadingScreen';
-import { ProfilesManager } from '@/lib/profilesManager';
+import { ProfilesManager } from '@/lib/profilesManager'; // Mantenemos para compatibilidad
+import { FirebaseProfileManager } from '@/lib/firebaseProfileManager'; // Nuevo gestor con Firebase
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface NexusLoginSystemProps {
@@ -18,13 +19,20 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
   const [error, setError] = useState<string | null>(null);
   const [authenticatedProfile, setAuthenticatedProfile] = useState<UserProfile | null>(null);
   
-  // Cargar perfiles al iniciar
+  // Cargar perfiles desde Firebase al iniciar
   useEffect(() => {
-    const storedProfiles = ProfilesManager.getProfiles();
-    setProfiles(storedProfiles);
+    const loadProfiles = async () => {
+      try {
+        // Obtener perfiles visibles desde Firebase
+        const allProfiles = await FirebaseProfileManager.getProfiles();
+        const visibleProfiles = allProfiles.filter(p => !p.isHidden);
+        setProfiles(visibleProfiles);
+      } catch (error) {
+        console.error('Error al cargar perfiles desde Firebase:', error);
+      }
+    };
     
-    // Ya no preseleccionamos un perfil activo para mantener la coherencia del flujo
-    // para que siempre pase por la pantalla de selección de perfiles
+    loadProfiles();
   }, []);
   
   // Manejadores de eventos
@@ -51,20 +59,24 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
   };
   
   const handleProfileCreated = (profile: UserProfile) => {
-    // Guardar nuevo perfil si es necesario
-    ProfilesManager.saveProfile(profile);
+    // No necesitamos guardar el perfil aquí ya que ya se ha creado en Firebase
+    // a través de FirebaseProfileManager.createProfile en ProfileSelector
     
-    // Actualizar lista de perfiles
-    const updatedProfiles = ProfilesManager.getProfiles();
-    setProfiles(updatedProfiles);
+    // Actualizar la lista de perfiles en la interfaz
+    FirebaseProfileManager.getProfiles().then(allProfiles => {
+      const visibleProfiles = allProfiles.filter(p => !p.isHidden);
+      setProfiles(visibleProfiles);
+    }).catch(error => {
+      console.error('Error al actualizar perfiles:', error);
+    });
     
-    // Comprobar si el perfil ya está autenticado (esto ocurre cuando se autentica desde el modal en ProfileSelector)
+    // Para mantener compatibilidad con localStorage
     const activeProfileId = localStorage.getItem('nexus_active_profile');
     const isAuthenticated = activeProfileId === profile.id;
     
     if (isAuthenticated) {
       // El perfil ya está autenticado, ir directamente a la pantalla de carga
-      console.log('✅ Perfil ya autenticado, saltando pantalla de contraseña');
+      console.log('✅ Perfil autenticado en Firebase, saltando pantalla de contraseña');
       setAuthenticatedProfile(profile);
       setCurrentScreen('loading');
     } else {
@@ -74,27 +86,37 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
     }
   };
   
-  const handlePasswordVerified = (password: string) => {
+  const handlePasswordVerified = async (password: string) => {
     if (!selectedProfile) {
       setError('No hay perfil seleccionado');
       return;
     }
     
-    // Verificar contraseña
-    const isValid = ProfilesManager.validatePassword(selectedProfile.id, password);
-    
-    if (isValid) {
-      // Establecer perfil activo
-      ProfilesManager.setActiveProfile(selectedProfile.id);
+    try {
+      // Verificar contraseña usando Firebase
+      const authenticatedProfile = await FirebaseProfileManager.login(selectedProfile.email, password);
       
-      // Guardar el perfil autenticado y mostrar pantalla de carga
-      setAuthenticatedProfile(selectedProfile);
-      setCurrentScreen('loading');
-      
-      // Limpiar cualquier error previo
-      setError(null);
-    } else {
-      setError('Contraseña incorrecta');
+      if (authenticatedProfile) {
+        // Establecer perfil activo (para compatibilidad con localStorage)
+        ProfilesManager.setActiveProfile(authenticatedProfile.id);
+        
+        // Guardar el perfil autenticado y mostrar pantalla de carga
+        setAuthenticatedProfile(authenticatedProfile);
+        setCurrentScreen('loading');
+        
+        // Limpiar cualquier error previo
+        setError(null);
+      } else {
+        setError('Contraseña incorrecta');
+        
+        // Limpiar error después de un tiempo
+        setTimeout(() => {
+          setError(null);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error al verificar contraseña:', error);
+      setError('Error al verificar contraseña');
       
       // Limpiar error después de un tiempo
       setTimeout(() => {
