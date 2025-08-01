@@ -74,6 +74,7 @@ import { SettingsModal } from "@/components/SettingsModal"
 import { LoadingScreen } from "@/components/LoadingScreen"
 import TutorialModal from "@/components/TutorialModal"
 import TutorialGuide from "@/components/TutorialGuide"
+import { FirebaseProfileManager, Playlist, Song } from "@/lib/firebaseProfileManager"
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 
@@ -612,98 +613,22 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     setNewSongTitle(""); setNewSongLink("")
   }
 
-  // PLAYLISTS REGISTRADAS
-  const playlist80s = {
-    name: "música de los 80",
-    songs: [
-      { title: "The end of the world", videoId: "tqrHS9nZp0k" },
-      { title: "Hey lover", videoId: "KbHaIbDKQMc" },
-      { title: "Laughing on the outside", videoId: "qmUEkQPE7fk" },
-      { title: "Hey Jude", videoId: "A_MjCqQoLLA" },
-      { title: "I want to hold your hand", videoId: "v1HDt1tknTc" },
-      { title: "Love of my life", videoId: "2bqm4gRY3mA" },
-      { title: "I will follow him", videoId: "IRk9gAqjLgg" },
-      { title: "Tonight you belong to me", videoId: "NJd0MLBuJjA" },
-      { title: "Cant take my eyes off you", videoId: "J36z7AnhvOM" },
-      { title: "You dont own me", videoId: "OYB1rbL8EHo" },
-      { title: "Dont dream its over", videoId: "J9gKyRmic20" },
-      { title: "Who can it be now", videoId: "SECVGN4Bsgg" },
-      { title: "Heav over heels", videoId: "CsHiG-43Fzg" },
-      { title: "Always on my mind", videoId: "ZotVMxuXBo0" },
-      { title: "I dont want to see the world on fire", videoId: "TmIwm5RElRs" },
-      { title: "Chinese new year", videoId: "gykWYPrArbY" },
-      { title: "Just the two of us", videoId: "Uw5OLnN7UvM" },
-      { title: "Hold the line", videoId: "htgr3pvBr-I" },
-      { title: "Pretty little baby", videoId: "egPVvFYxLe4" },
-      { title: "No surprises", videoId: "u5CVsCnxyXg" },
-      { title: "Cant help falling in love", videoId: "eTKeQhYVvbQ" },
-    ],
-  }
+  // Ya no tenemos playlists predefinidas, cada perfil comenzará con su propia colección
 
-  const playlistArcane = {
-  name: "Arcane",
-  songs: [
-    { title: "Meilleure enemmie", videoId: "XbLemOwzdxk" },
-    { title: "Isha song", videoId: "IzKQBo1gLYg" },
-    { title: "What could have been", videoId: "exAfcktnzVA" },
-    { title: "Playground", videoId: "mtHJvyGasS4" },
-    { title: "Goodbye", videoId: "omgSWqwVTjY" },
-    { title: "to ashes and blood", videoId: "HFVM4QE1qBA" },
-    { title: "The Line", videoId: "E2Rj2gQAyPA" },
-    { title: "Enemy", videoId: "F5tSoaJ93ac" },
-    { title: "Dynasties and Dystopia", videoId: "atx7AlYB_z4" },
-    { title: "Our love", videoId: "2Yr3sKPi8mM" },
-    { title: "Get Jinxed", videoId: "coDc2Ek2pWQ" },
-    { title: "Guns of fire", videoId: "pKNEx-9OqRM" },
-    { title: "Wasteland", videoId: "WPDpgSBEWaI" },
-  ],
-}
-
-const playlistEstudio2 = {
-  name: "musica para estudiar",
-  songs: [
-    { title: "Isha song", videoId: "r7cwj7UPM8Q" },
-    { title: "Romantic Homicide", videoId: "eKL3TceSxvk" },
-    { title: "Bangbang", videoId: "zd9rtEyZY6w" },
-    { title: "Solitude", videoId: "h_F5WVmTugY" },
-    { title: "After sex", videoId: "sElE_BfQ67s" },
-    { title: "Me and the devil", videoId: "x-mar1osQdY" },
-    { title: "The Line", videoId: "E2Rj2gQAyPA" },
-    { title: "Creep", videoId: "XFkzRNyygfk" },
-    { title: "No surprises", videoId: "u5CVsCnxyXg" },
-  ],
-}
-
-const playlistSodaStereo = {
-  name: "Soda Stereo",
-  songs: [
-    { title: "Mix Soda Stereo", videoId: "m8eZlQELWNI" },
-  ],
-}
-
-const playlistEstudio = {
-  name: "Estudio",
-  songs: [
-    { title: "Lo-Fi Beats", videoId: "jfKfPfyJRdk" },
-    { title: "Coding Music", videoId: "WPni755-Krg" },
-  ],
-}
-
-// --- PLAYLISTS DINÁMICAS (editable por UI) ---
-  const PLAYLISTS_STORAGE_KEY = "nexus_playlists";
-  const [playlists, setPlaylists] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(PLAYLISTS_STORAGE_KEY)
-      if (stored) {
-        try {
-          return JSON.parse(stored)
-        } catch (e) {
-          // Si hay error, usar las predefinidas
-        }
-      }
+// --- PLAYLISTS DINÁMICAS 
+  // Estado para playlists
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  // Asegurarse de que cada playlist tenga un ID
+  const ensurePlaylistId = (playlist: any): Playlist => {
+    if (!playlist.id) {
+      return {
+        ...playlist,
+        id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        songs: playlist.songs || []
+      };
     }
-    return [playlist80s, playlistArcane, playlistEstudio, playlistEstudio2, playlistSodaStereo]
-  })
+    return playlist;
+  };
   const [selectedPlaylistIdx, setSelectedPlaylistIdx] = useState<number | null>(null)
   const [newPlaylistName, setNewPlaylistName] = useState("")
   const [newSongTitle, setNewSongTitle] = useState("")
@@ -711,18 +636,221 @@ const playlistEstudio = {
   // Estados para mostrar/ocultar el selector de playlists
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
 
-  // Persistir playlists en localStorage automáticamente
+  // Cargar playlists del usuario actual desde Firebase
   useEffect(() => {
-    try {
-      localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(playlists))
-    } catch (e) { /* ignorar */ }
-  }, [playlists])
+    // Si no hay usuario activo, no hacemos nada
+    if (!activeProfile?.id) return;
 
-  // Función para borrar playlists guardadas
-  function clearPersistedPlaylists() {
-    localStorage.removeItem(PLAYLISTS_STORAGE_KEY)
-    setPlaylists([playlist80s, playlistArcane, playlistEstudio])
-  }
+    // Cargar playlists del usuario desde Firebase
+    const loadUserPlaylists = async () => {
+      try {
+        const userPlaylists = await FirebaseProfileManager.getUserPlaylists(activeProfile.id);
+        // Garantizar que todas las playlists tengan un ID
+        const validPlaylists = userPlaylists.map(ensurePlaylistId);
+        setPlaylists(validPlaylists);
+      } catch (error) {
+        console.error('Error al cargar playlists del usuario:', error);
+        setPlaylists([]);
+      }
+    };
+
+    loadUserPlaylists();
+  }, [activeProfile?.id]);
+
+  // Función para crear una nueva playlist
+  const createNewPlaylist = async (name: string) => {
+    if (!activeProfile?.id || !name.trim()) {
+      console.error("No se puede crear playlist: falta perfil activo o nombre");
+      return;
+    }
+    
+    console.log("Creando playlist:", name, "para usuario:", activeProfile.id);
+    
+    try {
+      // Crear la playlist en Firebase
+      const newPlaylist = await FirebaseProfileManager.createPlaylist(activeProfile.id, name.trim());
+      console.log("Respuesta de Firebase createPlaylist:", newPlaylist);
+      
+      if (!newPlaylist || !newPlaylist.id) {
+        console.error("No se recibió una playlist válida desde Firebase");
+        return;
+      }
+      
+      // Crear una copia local para actualizar el estado
+      const playlistToAdd: Playlist = {
+        id: newPlaylist.id,
+        name: newPlaylist.name,
+        songs: []
+      };
+      
+      console.log("Actualizando estado local con la nueva playlist:", playlistToAdd);
+      
+      // Actualizar el estado con la nueva playlist
+      setPlaylists(prevPlaylists => {
+        const updatedPlaylists = [...prevPlaylists, playlistToAdd];
+        console.log("Nuevo estado de playlists:", updatedPlaylists);
+        return updatedPlaylists;
+      });
+      
+      // Seleccionar la nueva playlist automáticamente
+      setTimeout(() => {
+        setSelectedPlaylistIdx(playlists.length);
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error al crear playlist:', error);
+      alert('Hubo un error al crear la playlist. Por favor intenta nuevamente.');
+    }
+  };
+
+  // Función para eliminar una playlist
+  const deletePlaylist = async (playlistId: string) => {
+    if (!activeProfile?.id) return;
+    console.log("Eliminando playlist ID:", playlistId);
+
+    try {
+      const success = await FirebaseProfileManager.deletePlaylist(activeProfile.id, playlistId);
+      console.log("Resultado de eliminación:", success);
+      
+      if (success) {
+        // Actualizar estado local eliminando la playlist del array
+        setPlaylists(prev => {
+          const filtered = prev.filter(pl => pl.id !== playlistId);
+          console.log("Playlists restantes:", filtered);
+          return filtered;
+        });
+        
+        // Resetear el índice seleccionado si estaba seleccionada
+        setSelectedPlaylistIdx(null);
+      } else {
+        console.error("Firebase no pudo eliminar la playlist");
+        alert("No se pudo eliminar la playlist. Intenta nuevamente.");
+      }
+    } catch (error) {
+      console.error('Error al eliminar playlist:', error);
+      alert("Error al eliminar la playlist. Intenta nuevamente.");
+    }
+  };
+
+  // Función para añadir una canción a una playlist mediante Firebase
+  const addSongToPlaylistFB = async (playlistId: string, song: Song) => {
+    if (!activeProfile?.id) return;
+
+    try {
+      await FirebaseProfileManager.addSongToPlaylist(activeProfile.id, playlistId, song);
+      // Actualizar estado local
+      setPlaylists(prev => prev.map(pl => 
+        pl.id === playlistId ? {
+          ...pl,
+          songs: [...pl.songs, song]
+        } : pl
+      ));
+    } catch (error) {
+      console.error('Error al añadir canción a playlist:', error);
+    }
+  };
+
+  // Función para manejar la adición de canciones desde la UI
+  const handleAddSongToPlaylist = async () => {
+    // Validaciones básicas
+    if (!newSongTitle.trim()) {
+      alert('Por favor ingresa un título para la canción');
+      return;
+    }
+    
+    if (!newSongLink.trim()) {
+      alert('Por favor ingresa un enlace de YouTube');
+      return;
+    }
+    
+    if (selectedPlaylistIdx === null || !playlists[selectedPlaylistIdx]) {
+      alert('Por favor selecciona una playlist primero');
+      return;
+    }
+    
+    if (!activeProfile?.id) {
+      console.error('No hay perfil activo');
+      return;
+    }
+    
+    // Extraer el ID del video de YouTube del enlace
+    const videoId = extractYoutubeVideoId(newSongLink.trim());
+    if (!videoId) {
+      alert('El link de YouTube no es válido. Asegúrate de copiar la URL completa.');
+      return;
+    }
+    
+    console.log(`Intentando añadir canción "${newSongTitle}" a playlist ${playlists[selectedPlaylistIdx].name}`);
+    
+    // Crear objeto de la canción
+    const song = {
+      title: newSongTitle.trim(),
+      videoId
+    };
+    
+    try {
+      // Añadir a Firebase
+      const success = await addSongToPlaylistFB(playlists[selectedPlaylistIdx].id, song);
+      
+      if (success) {
+        console.log('Canción añadida correctamente');
+        // Limpiar inputs
+        setNewSongTitle('');
+        setNewSongLink('');
+        
+        // Opcional: mostrar mensaje de éxito
+        // alert(`Canción "${song.title}" añadida a la playlist ${playlists[selectedPlaylistIdx].name}`); 
+      } else {
+        alert('No se pudo añadir la canción. Inténtalo nuevamente.');
+      }
+    } catch (error) {
+      console.error('Error al añadir canción:', error);
+      alert('Ocurrió un error al añadir la canción. Inténtalo nuevamente.');
+    }
+  };
+  
+  // Función para extraer el ID de un video de YouTube desde varios formatos de URL
+  const extractYoutubeVideoId = (url: string): string | null => {
+    // Formatos posibles de URLs de YouTube:
+    // - https://www.youtube.com/watch?v=VIDEO_ID
+    // - https://youtu.be/VIDEO_ID
+    // - https://youtube.com/shorts/VIDEO_ID
+    // - youtube.com/v/VIDEO_ID
+    
+    let videoId: string | null = null;
+    
+    // Patrón para www.youtube.com/watch?v=VIDEO_ID
+    const regExp1 = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match1 = url.match(regExp1);
+    
+    if (match1 && match1[2].length === 11) {
+      return match1[2];
+    }
+    
+    // Patrón para shorts y otros formatos
+    const regExp2 = /^.*(youtube\.com\/shorts\/|youtu\.be\/)([^#\&\?]*).*/;
+    const match2 = url.match(regExp2);
+    
+    if (match2 && match2[2].length === 11) {
+      return match2[2];
+    }
+    
+    return null;
+  };
+
+  // Función para borrar todas las playlists (solo para propósitos de debug)
+  const clearAllPlaylists = async () => {
+    if (!activeProfile?.id) return;
+    
+    try {
+      for (const playlist of playlists) {
+        await FirebaseProfileManager.deletePlaylist(activeProfile.id, playlist.id);
+      }
+      setPlaylists([]);
+    } catch (error) {
+      console.error('Error al limpiar playlists:', error);
+    }
+  };
   
 
 
@@ -2610,27 +2738,56 @@ const getMainIcon = () => {
           placeholder="Nueva playlist"
           value={newPlaylistName}
           onChange={e => setNewPlaylistName(e.target.value)}
-          onKeyDown={e => { if(e.key==="Enter" && newPlaylistName.trim()){ setPlaylists((prev: { name: string, songs: any[] }[])=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}}
+          onKeyDown={async e => { 
+            if(e.key==="Enter" && newPlaylistName.trim() && activeProfile?.id){ 
+              await createNewPlaylist(newPlaylistName.trim());
+              setNewPlaylistName("");
+            }
+          }}
         />
         <Button
           className="bg-cyan-700 hover:bg-cyan-800 text-white"
-          disabled={!newPlaylistName.trim()}
-          onClick={()=>{ setPlaylists((prev: { name: string, songs: any[] }[])=>[...prev,{name:newPlaylistName.trim(),songs:[]}]); setNewPlaylistName("") }}
+          disabled={!newPlaylistName.trim() || !activeProfile?.id}
+          onClick={async () => { 
+            if (newPlaylistName.trim() && activeProfile?.id) {
+              await createNewPlaylist(newPlaylistName.trim());
+              setNewPlaylistName("");
+            }
+          }}
         >Crear</Button>
       </div>
       {/* LISTA DE PLAYLISTS */}
       <ul className="space-y-2 mb-4">
-        {playlists.map((pl: { name: string, songs: any[] }, idx: number) => (
-          <li key={pl.name} className={`flex items-center justify-between bg-cyan-950/40 rounded px-4 py-2 ${selectedPlaylistIdx===idx?"border-2 border-cyan-400":""}`}>
+        {playlists.map((pl: Playlist, idx: number) => (
+          <li key={pl.id || pl.name} className={`flex items-center justify-between bg-cyan-950/40 rounded px-4 py-2 ${selectedPlaylistIdx===idx?"border-2 border-cyan-400":""}`}>
             <span className="text-cyan-100 font-semibold cursor-pointer" onClick={()=>setSelectedPlaylistIdx(idx)}>{pl.name}</span>
-            <span className="text-cyan-400 text-xs">{pl.songs.length} canciones</span>
+            <span className="text-cyan-400 text-xs">{pl.songs?.length || 0} canciones</span>
+            {/* Botón de reproducción */}
+            <Button
+              size="sm"
+              className="ml-2 bg-green-700 hover:bg-green-800 text-white px-2 py-0.5"
+              onClick={() => {
+                if (pl.songs && pl.songs.length > 0) {
+                  const firstSong = pl.songs[0];
+                  if (firstSong.videoId) {
+                    playYoutubeVideo(firstSong.videoId, firstSong.title);
+                    setShowPlaylistSelector(false);
+                  }
+                }
+              }}
+              title="Reproducir playlist"
+            >▶️</Button>
             <Button
               size="sm"
               className="ml-2 bg-red-700 hover:bg-red-800 text-white px-2 py-0.5"
-              onClick={()=>{
-                setPlaylists((prev: { name: string, songs: any[] }[])=>prev.filter((_: { name: string, songs: any[] }, i: number)=>i!==idx));
-                if(selectedPlaylistIdx===idx) setSelectedPlaylistIdx(null)
-                else if(selectedPlaylistIdx && selectedPlaylistIdx>idx) setSelectedPlaylistIdx(selectedPlaylistIdx-1)
+              onClick={() => {
+                if (pl.id) {
+                  deletePlaylist(pl.id);
+                  if(selectedPlaylistIdx===idx) setSelectedPlaylistIdx(null)
+                  else if(selectedPlaylistIdx && selectedPlaylistIdx>idx) setSelectedPlaylistIdx(selectedPlaylistIdx-1)
+                } else {
+                  console.error('No se pudo eliminar la playlist: falta ID');
+                }
               }}
               title="Eliminar playlist"
             >🗑️</Button>
@@ -2666,12 +2823,12 @@ const getMainIcon = () => {
               placeholder="Link de YouTube"
               value={newSongLink}
               onChange={e=>setNewSongLink(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"){addSongToPlaylist()}}}
+              onKeyDown={e=>{if(e.key==="Enter"){handleAddSongToPlaylist()}}}
             />
             <Button
               className="bg-cyan-700 hover:bg-cyan-800 text-white"
               disabled={!newSongTitle.trim()||!newSongLink.trim()}
-              onClick={()=>addSongToPlaylist()}
+              onClick={handleAddSongToPlaylist}
             >Añadir</Button>
           </div>
         </div>

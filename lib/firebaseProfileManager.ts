@@ -13,11 +13,25 @@ import {
     getDocs, 
     updateDoc,
     query,
-    where
+    where,
+    arrayUnion,
+    deleteDoc
   } from 'firebase/firestore';
   import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
   import { auth, db, storage } from './firebase';
   import { UserProfile } from '@/components/ProfileSelector';
+  
+  // Definición de tipos para playlists
+  export interface Song {
+    title: string;
+    videoId: string;
+  }
+  
+  export interface Playlist {
+    id: string;
+    name: string;
+    songs: Song[];
+  }
   
   export class FirebaseProfileManager {
     // Crear un nuevo perfil
@@ -208,6 +222,102 @@ import {
       } catch (error) {
         console.error("Error al recuperar perfil:", error);
         return null;
+      }
+    }
+
+    // Obtener playlists de un usuario
+    static async getUserPlaylists(userId: string): Promise<Playlist[]> {
+      try {
+        console.log(`Obteniendo playlists para usuario ${userId}...`);
+        const playlistsSnapshot = await getDocs(collection(db, `users/${userId}/playlists`));
+        const playlists: Playlist[] = [];
+        
+        playlistsSnapshot.forEach(doc => {
+          const playlistData = doc.data() as Playlist;
+          playlists.push({
+            ...playlistData,
+            id: doc.id
+          });
+        });
+        
+        console.log(`Se encontraron ${playlists.length} playlists:`, playlists);
+        return playlists;
+      } catch (error) {
+        console.error("Error al obtener playlists:", error);
+        return [];
+      }
+    }
+    
+    // Crear una nueva playlist para un usuario
+    static async createPlaylist(userId: string, name: string): Promise<Playlist | null> {
+      try {
+        console.log(`Creando playlist "${name}" para usuario ${userId}...`);
+        
+        // Crear referencia para el nuevo documento (Firebase genera ID automáticamente)
+        const playlistRef = doc(collection(db, `users/${userId}/playlists`));
+        console.log(`ID generado para la nueva playlist: ${playlistRef.id}`);
+        
+        // Crear objeto playlist sin ID (se añade después)
+        const newPlaylist: Omit<Playlist, 'id'> = {
+          name,
+          songs: []
+        };
+        
+        // Guardar en Firestore
+        console.log(`Guardando playlist en Firestore...`);
+        await setDoc(playlistRef, newPlaylist);
+        console.log(`Playlist guardada con éxito`);
+        
+        // Construir objeto completo con ID para devolver
+        const completePlaylist: Playlist = {
+          ...newPlaylist,
+          id: playlistRef.id
+        };
+        
+        console.log(`Objeto playlist completo:`, completePlaylist);
+        return completePlaylist;
+      } catch (error) {
+        console.error("Error al crear playlist:", error);
+        return null;
+      }
+    }
+    
+    // Añadir canción a una playlist
+    static async addSongToPlaylist(userId: string, playlistId: string, song: Song): Promise<boolean> {
+      try {
+        const playlistRef = doc(db, `users/${userId}/playlists/${playlistId}`);
+        
+        await updateDoc(playlistRef, {
+          songs: arrayUnion(song)
+        });
+        
+        return true;
+      } catch (error) {
+        console.error("Error al añadir canción a playlist:", error);
+        return false;
+      }
+    }
+    
+    // Eliminar una playlist
+    static async deletePlaylist(userId: string, playlistId: string): Promise<boolean> {
+      try {
+        await deleteDoc(doc(db, `users/${userId}/playlists/${playlistId}`));
+        return true;
+      } catch (error) {
+        console.error("Error al eliminar playlist:", error);
+        return false;
+      }
+    }
+    
+    // Actualizar playlist completa
+    static async updatePlaylist(userId: string, playlist: Playlist): Promise<boolean> {
+      try {
+        const playlistRef = doc(db, `users/${userId}/playlists/${playlist.id}`);
+        await updateDoc(playlistRef, { name: playlist.name, songs: playlist.songs });
+        return true;
+      } catch (error) {
+        console.error("Error al actualizar playlist:", error);
+        return false;
       }
     }
   }

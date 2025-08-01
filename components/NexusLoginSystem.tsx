@@ -70,20 +70,15 @@ export function NexusLoginSystem({ onLoginComplete }: NexusLoginSystemProps) {
       console.error('Error al actualizar perfiles:', error);
     });
     
-    // Para mantener compatibilidad con localStorage
-    const activeProfileId = localStorage.getItem('nexus_active_profile');
-    const isAuthenticated = activeProfileId === profile.id;
+    // Para nuevos perfiles, establecerlo como activo automáticamente y saltarse la pantalla de contraseña
+    console.log('✅ Perfil creado correctamente, estableciendo como activo:', profile.id);
     
-    if (isAuthenticated) {
-      // El perfil ya está autenticado, ir directamente a la pantalla de carga
-      console.log('✅ Perfil autenticado en Firebase, saltando pantalla de contraseña');
-      setAuthenticatedProfile(profile);
-      setCurrentScreen('loading');
-    } else {
-      // Seleccionar el nuevo perfil y pasar a pantalla de contraseña
-      setSelectedProfile(profile);
-      setCurrentScreen('password');
-    }
+    // Establecer como perfil activo en localStorage para mantener compatibilidad
+    ProfilesManager.setActiveProfile(profile.id);
+    
+    // Autenticar e ir directamente a la pantalla de carga
+    setAuthenticatedProfile(profile);
+    setCurrentScreen('loading');
   };
   
   const handlePasswordVerified = async (password: string) => {

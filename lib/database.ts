@@ -38,13 +38,8 @@ export class ContactsDB {
   }
 
   private static getDefaultContacts(): Contact[] {
-    return [
-      { id: "1", name: "Mi número", phone: "3764 645806", category: "other" },
-      { id: "2", name: "Prueba", phone: "+1234567890", category: "other" },
-      { id: "3", name: "María García", phone: "+34 600 123 456", category: "family" },
-      { id: "4", name: "Carlos López", phone: "+34 600 789 012", category: "work" },
-      { id: "5", name: "Ana Martín", phone: "+34 600 345 678", category: "friend" },
-    ]
+    // Retornamos un arreglo vacío en lugar de contactos predefinidos
+    return []
   }
 
   static save(contacts: Contact[]): void {
@@ -111,11 +106,8 @@ export class LocationsDB {
   }
 
   private static getDefaultLocations(): Location[] {
-    return [
-      { id: "1", name: "Casa", address: "Calle Principal 123, Madrid", category: "home" },
-      { id: "2", name: "Oficina", address: "Avenida Empresarial 456, Madrid", category: "work" },
-      { id: "3", name: "Supermercado", address: "Centro Comercial Plaza, Madrid", category: "favorite" },
-    ]
+    // Retornamos un arreglo vacío en lugar de ubicaciones predefinidas
+    return []
   }
 
   static save(locations: Location[]): void {
@@ -191,26 +183,8 @@ export class SpotifyDB {
   }
 
   private static getDefaultPlaylists(): SpotifyPlaylist[] {
-    return [
-      {
-        id: "1",
-        name: "Música de los 80",
-        spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX4UtSsGT1Sbe",
-        description: "Los mejores hits de los años 80",
-      },
-      {
-        id: "2",
-        name: "Rock Clásico",
-        spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DWXRqgorJj26U",
-        description: "Rock clásico de todas las épocas",
-      },
-      {
-        id: "3",
-        name: "Jazz Suave",
-        spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DXbITWG1ZJKYt",
-        description: "Jazz relajante para cualquier momento",
-      },
-    ]
+    // Retornamos un arreglo vacío en lugar de playlists predefinidas
+    return []
   }
 
   static save(playlists: SpotifyPlaylist[]): void {
