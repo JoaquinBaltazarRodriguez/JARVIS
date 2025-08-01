@@ -857,7 +857,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   };
 
   // Función para reproducir videos de YouTube
-  const playYoutubeVideo = (videoId: string, title: string = "Reproducción") => {
+  const playYoutubeVideo = (videoId: string, title: string = "Reproducción", playlist?: Playlist, playlistIndex: number = 0) => {
     if (!videoId) {
       console.error("No se proporcionó un ID de video válido");
       return;
@@ -870,6 +870,21 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     setCurrentSongTitle(title);
     setIsPlayingMusic(true);
     
+    // Establecer información de playlist si está disponible
+    if (playlist) {
+      setPlaylistMode(true);
+      setCurrentPlaylist(playlist);
+      setCurrentPlaylistIndex(playlistIndex);
+      
+      // Si hay una playlist, cargarla en el reproductor
+      setTimeout(() => {
+        if (youtubePlayerRef.current && playlist.songs && playlist.songs.length > 0) {
+          const videoIds = playlist.songs.map(song => song.videoId);
+          youtubePlayerRef.current.loadPlaylist(videoIds, playlistIndex);
+        }
+      }, 500); // Pequeño timeout para asegurar que el reproductor está listo
+    }
+    
     // Si estamos en segundo plano, mantener el modo de segundo plano
     // Si no, asegurarse de que el reproductor sea visible
     if (!musicBackgroundMode) {
@@ -878,6 +893,18 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     
     // Cambiar el estado de la aplicación para reflejar que estamos reproduciendo música
     setAppState("music_playing");
+  };
+  
+  // Función para reproducir la playlist completa
+  const playPlaylist = (playlist: Playlist, startIndex: number = 0) => {
+    if (!playlist || !playlist.songs || playlist.songs.length === 0) {
+      setShowYoutubeError(true);
+      setYoutubeErrorMessage("La playlist está vacía o es inválida.");
+      return;
+    }
+    
+    const song = playlist.songs[startIndex];
+    playYoutubeVideo(song.videoId, song.title, playlist, startIndex);
   };
 
   // Función para borrar todas las playlists (solo para propósitos de debug)
@@ -2811,11 +2838,9 @@ const getMainIcon = () => {
                 className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-700 hover:from-emerald-600 hover:to-green-800 text-white rounded-full shadow-lg shadow-green-700/30 transition-all duration-200 border border-emerald-400/30"
                 onClick={() => {
                   if (pl.songs && pl.songs.length > 0) {
-                    const firstSong = pl.songs[0];
-                    if (firstSong.videoId) {
-                      playYoutubeVideo(firstSong.videoId, firstSong.title);
-                      setShowPlaylistSelector(false);
-                    }
+                    // Reproducir la playlist completa empezando por la primera canción
+                    playPlaylist(pl, 0);
+                    setShowPlaylistSelector(false);
                   }
                 }}
                 title="Reproducir playlist"
@@ -2945,7 +2970,7 @@ const getMainIcon = () => {
       {/* Selector de Modo NEXUS */}
 
       {/* Main Interface - Solo mostrar si no hay mapa o música activa */}
-      {/* Render central solo cuando música en segundo plano, modo normal y música sonando */}
+       {/* Render central solo cuando música en segundo plano, modo normal y música sonando */}
       {!isMapActive && isPlayingMusic && musicBackgroundMode && appState === "active" && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
           {/* Central Circle SOLO para logo animado música fondo */}
@@ -2954,6 +2979,14 @@ const getMainIcon = () => {
               {getMainIcon()}
             </div>
           </div>
+          
+          {/* Botón de Playlists en modo background */}
+          <button 
+            onClick={() => setShowPlaylistSelector(true)}
+            className="absolute bottom-24 mx-auto px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 text-white rounded-lg shadow-lg hover:from-cyan-500 hover:to-blue-600 transition-all duration-200 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 18a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"></path><path d="M12 8H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2v-2"></path><path d="M6 10v10"></path><path d="M10 10v10"></path></svg>
+            Playlists
+          </button>
         </div>
       )}
 
@@ -3173,30 +3206,80 @@ const getMainIcon = () => {
             <YouTubePlayer
               ref={youtubePlayerRef}
               videoId={currentVideoId}
-              onEnd={async () => {
+              title={currentSongTitle}
+              playlist={playlistMode && currentPlaylist ? currentPlaylist.songs.map(song => song.videoId) : []}
+              currentPlaylistIndex={currentPlaylistIndex}
+              onEnd={() => {
+                console.log("🎵 Canción finalizada, avanzando a la siguiente...");
+                // La reproducción automática ahora está implementada en el componente YouTubePlayer
+                // pero mantenemos estos estados sincronizados
                 if (playlistMode && currentPlaylist && currentPlaylistIndex < currentPlaylist.songs.length - 1) {
-                  const nextIndex = currentPlaylistIndex + 1
-                  setCurrentPlaylistIndex(nextIndex)
-                  setCurrentSongTitle(currentPlaylist.songs[nextIndex].title)
-                  setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId)
-                } else {
-                  setIsPlayingMusic(false)
-                  setCurrentSongTitle("")
-                  setCurrentVideoId("")
-                  setPlaylistMode(false)
-                  setCurrentPlaylist(null)
-                  setCurrentPlaylistIndex(0)
-                  setMusicBackgroundMode(false)
+                  const nextIndex = currentPlaylistIndex + 1;
+                  setCurrentPlaylistIndex(nextIndex);
+                  setCurrentSongTitle(currentPlaylist.songs[nextIndex].title);
+                  setCurrentVideoId(currentPlaylist.songs[nextIndex].videoId);
+                } else if (!playlistMode || (currentPlaylist && currentPlaylistIndex >= currentPlaylist.songs.length - 1)) {
+                  // Solo si no hay más canciones en la playlist
+                  setIsPlayingMusic(false);
+                  setCurrentSongTitle("");
+                  setCurrentVideoId("");
+                  setPlaylistMode(false);
+                  setCurrentPlaylist(null);
+                  setCurrentPlaylistIndex(0);
+                  setMusicBackgroundMode(false);
                   
                   // Mantener el modo actual si estamos en modo funcional o inteligente
                   if (appState !== ("functional_mode" as AppState) && appState !== "intelligent_mode") {
-                    setAppState("active")
+                    setAppState("active");
                   }
+                }
+              }}
+              onNextSong={(videoId, index) => {
+                if (currentPlaylist && currentPlaylist.songs[index]) {
+                  setCurrentPlaylistIndex(index);
+                  setCurrentSongTitle(currentPlaylist.songs[index].title);
+                  setCurrentVideoId(videoId);
+                }
+              }}
+              onPrevSong={(videoId, index) => {
+                if (currentPlaylist && currentPlaylist.songs[index]) {
+                  setCurrentPlaylistIndex(index);
+                  setCurrentSongTitle(currentPlaylist.songs[index].title);
+                  setCurrentVideoId(videoId);
                 }
               }}
             />
             {!musicBackgroundMode && (
-              <div className="flex gap-2 mt-4 justify-end">
+              <div className="flex justify-between mt-4">
+                {/* Botones de control */}
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => youtubePlayerRef.current?.previous()}
+                    className="bg-cyan-800 hover:bg-cyan-700 text-white rounded-full p-2 w-10 h-10 flex items-center justify-center" 
+                    title="Anterior">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                  </Button>
+                  <Button 
+                    onClick={() => youtubePlayerRef.current?.play()}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-full p-2 w-10 h-10 flex items-center justify-center"
+                    title="Reproducir">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  </Button>
+                  <Button 
+                    onClick={() => youtubePlayerRef.current?.pause()}
+                    className="bg-amber-600 hover:bg-amber-500 text-white rounded-full p-2 w-10 h-10 flex items-center justify-center"
+                    title="Pausar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                  </Button>
+                  <Button 
+                    onClick={() => youtubePlayerRef.current?.next()}
+                    className="bg-cyan-800 hover:bg-cyan-700 text-white rounded-full p-2 w-10 h-10 flex items-center justify-center"
+                    title="Siguiente">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                  </Button>
+                </div>
+                
+                {/* Botón de modo background */}
                 <Button onClick={() => setMusicBackgroundMode(true)} variant="secondary">
                   Reproducir en segundo plano
                 </Button>
