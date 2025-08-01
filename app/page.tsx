@@ -299,19 +299,11 @@ const handleLoginComplete = (profile: UserProfile) => {
     // No reproducimos mensaje de bienvenida aquí, se hará después del tutorial
     setShowTutorialModal(true);
     // Guardamos que ya se mostró el tutorial una vez para no repetirlo
-    localStorage.setItem(`nexus_welcome_shown_${profile.id}`, "false");
-  } else {
-    // Si ya ha visto el tutorial y no ha recibido el mensaje de bienvenida aún
-    const welcomeShown = localStorage.getItem(`nexus_welcome_shown_${profile.id}`);
-    
-    if (welcomeShown !== "true") {
-      // Se eliminó el mensaje de bienvenida, pero se mantiene la estructura del código
-      // No hacemos setCurrentText ni speak aquí para eliminar el saludo
-      
-      // Marcar que ya se mostró el mensaje de bienvenida
-      localStorage.setItem(`nexus_welcome_shown_${profile.id}`, "true");
-    }
+    localStorage.setItem(tutorialKey, "true");
+    localStorage.setItem(`nexus_welcome_shown_${profile.id}`, "true");
   }
+  // Eliminamos el bloque else ya que no queremos mostrar el mensaje de bienvenida
+  // para usuarios recurrentes ni hacer ningún tipo de saludo
 }
   
   // Efecto para inicializar el sistema de perfiles
@@ -325,6 +317,14 @@ const handleLoginComplete = (profile: UserProfile) => {
       // Activar Nexus normalmente
       setAppState("initializing");
       setShowLoadingScreen(true);
+
+      // Asegurarnos de inicializar el reconocimiento de voz
+      setTimeout(() => {
+        console.log("🎤 Inicializando sistema de reconocimiento de voz...");
+        if (typeof startAutoListening === 'function') {
+          startAutoListening();
+        }
+      }, 3000); // Pequeño delay para asegurar que todo esté listo
     } else {
       // Si no hay perfil activo, mostrar la pantalla de login
       setShowLoginSystem(true);
@@ -734,7 +734,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
 
   // Función para añadir una canción a una playlist mediante Firebase
   const addSongToPlaylistFB = async (playlistId: string, song: Song) => {
-    if (!activeProfile?.id) return;
+    if (!activeProfile?.id) return false;
 
     try {
       await FirebaseProfileManager.addSongToPlaylist(activeProfile.id, playlistId, song);
@@ -745,26 +745,35 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
           songs: [...pl.songs, song]
         } : pl
       ));
+      return true; // Indica éxito
     } catch (error) {
       console.error('Error al añadir canción a playlist:', error);
+      return false; // Indica fallo
     }
   };
+
+  // Estado para el modal de error de YouTube
+  const [showYoutubeError, setShowYoutubeError] = useState(false);
+  const [youtubeErrorMessage, setYoutubeErrorMessage] = useState("");
 
   // Función para manejar la adición de canciones desde la UI
   const handleAddSongToPlaylist = async () => {
     // Validaciones básicas
     if (!newSongTitle.trim()) {
-      alert('Por favor ingresa un título para la canción');
+      setYoutubeErrorMessage('Por favor ingresa un título para la canción');
+      setShowYoutubeError(true);
       return;
     }
     
     if (!newSongLink.trim()) {
-      alert('Por favor ingresa un enlace de YouTube');
+      setYoutubeErrorMessage('Por favor ingresa un enlace de YouTube');
+      setShowYoutubeError(true);
       return;
     }
     
     if (selectedPlaylistIdx === null || !playlists[selectedPlaylistIdx]) {
-      alert('Por favor selecciona una playlist primero');
+      setYoutubeErrorMessage('Por favor selecciona una playlist primero');
+      setShowYoutubeError(true);
       return;
     }
     
@@ -776,7 +785,8 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     // Extraer el ID del video de YouTube del enlace
     const videoId = extractYoutubeVideoId(newSongLink.trim());
     if (!videoId) {
-      alert('El link de YouTube no es válido. Asegúrate de copiar la URL completa.');
+      setYoutubeErrorMessage('El link de YouTube no es válido. Asegúrate de copiar la URL completa.');
+      setShowYoutubeError(true);
       return;
     }
     
@@ -797,15 +807,14 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         // Limpiar inputs
         setNewSongTitle('');
         setNewSongLink('');
-        
-        // Opcional: mostrar mensaje de éxito
-        // alert(`Canción "${song.title}" añadida a la playlist ${playlists[selectedPlaylistIdx].name}`); 
       } else {
-        alert('No se pudo añadir la canción. Inténtalo nuevamente.');
+        setYoutubeErrorMessage('No se pudo añadir la canción. Inténtalo nuevamente.');
+        setShowYoutubeError(true);
       }
     } catch (error) {
       console.error('Error al añadir canción:', error);
-      alert('Ocurrió un error al añadir la canción. Inténtalo nuevamente.');
+      setYoutubeErrorMessage('Ocurrió un error al añadir la canción. Inténtalo nuevamente.');
+      setShowYoutubeError(true);
     }
   };
   
@@ -835,7 +844,40 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       return match2[2];
     }
     
+    // Patrón para youtube.com/shorts/VIDEO_ID
+    const regExp3 = /\/shorts\/([^\/\?]+)/;
+    const match3 = url.match(regExp3);
+    
+    if (match3 && match3[1].length === 11) {
+      return match3[1];
+    }
+    
+    // Si no se encuentra el ID, devolver null
     return null;
+  };
+
+  // Función para reproducir videos de YouTube
+  const playYoutubeVideo = (videoId: string, title: string = "Reproducción") => {
+    if (!videoId) {
+      console.error("No se proporcionó un ID de video válido");
+      return;
+    }
+    
+    console.log(`🎧 Reproduciendo video de YouTube: ${videoId} - ${title}`);
+    
+    // Establecer los estados necesarios para la reproducción
+    setCurrentVideoId(videoId);
+    setCurrentSongTitle(title);
+    setIsPlayingMusic(true);
+    
+    // Si estamos en segundo plano, mantener el modo de segundo plano
+    // Si no, asegurarse de que el reproductor sea visible
+    if (!musicBackgroundMode) {
+      setMusicBackgroundMode(false);
+    }
+    
+    // Cambiar el estado de la aplicación para reflejar que estamos reproduciendo música
+    setAppState("music_playing");
   };
 
   // Función para borrar todas las playlists (solo para propósitos de debug)
@@ -2762,35 +2804,42 @@ const getMainIcon = () => {
           <li key={pl.id || pl.name} className={`flex items-center justify-between bg-cyan-950/40 rounded px-4 py-2 ${selectedPlaylistIdx===idx?"border-2 border-cyan-400":""}`}>
             <span className="text-cyan-100 font-semibold cursor-pointer" onClick={()=>setSelectedPlaylistIdx(idx)}>{pl.name}</span>
             <span className="text-cyan-400 text-xs">{pl.songs?.length || 0} canciones</span>
-            {/* Botón de reproducción */}
-            <Button
-              size="sm"
-              className="ml-2 bg-green-700 hover:bg-green-800 text-white px-2 py-0.5"
-              onClick={() => {
-                if (pl.songs && pl.songs.length > 0) {
-                  const firstSong = pl.songs[0];
-                  if (firstSong.videoId) {
-                    playYoutubeVideo(firstSong.videoId, firstSong.title);
-                    setShowPlaylistSelector(false);
+            {/* Contenedor de acciones */}
+            <div className="flex items-center gap-1">
+              {/* Botón de reproducción */}
+              <button
+                className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-700 hover:from-emerald-600 hover:to-green-800 text-white rounded-full shadow-lg shadow-green-700/30 transition-all duration-200 border border-emerald-400/30"
+                onClick={() => {
+                  if (pl.songs && pl.songs.length > 0) {
+                    const firstSong = pl.songs[0];
+                    if (firstSong.videoId) {
+                      playYoutubeVideo(firstSong.videoId, firstSong.title);
+                      setShowPlaylistSelector(false);
+                    }
                   }
-                }
-              }}
-              title="Reproducir playlist"
-            >▶️</Button>
-            <Button
-              size="sm"
-              className="ml-2 bg-red-700 hover:bg-red-800 text-white px-2 py-0.5"
-              onClick={() => {
-                if (pl.id) {
-                  deletePlaylist(pl.id);
-                  if(selectedPlaylistIdx===idx) setSelectedPlaylistIdx(null)
-                  else if(selectedPlaylistIdx && selectedPlaylistIdx>idx) setSelectedPlaylistIdx(selectedPlaylistIdx-1)
-                } else {
-                  console.error('No se pudo eliminar la playlist: falta ID');
-                }
-              }}
-              title="Eliminar playlist"
-            >🗑️</Button>
+                }}
+                title="Reproducir playlist"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              </button>
+              
+              {/* Botón de eliminar */}
+              <button
+                className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-rose-500 to-red-700 hover:from-rose-600 hover:to-red-800 text-white rounded-full shadow-lg shadow-red-700/30 transition-all duration-200 border border-rose-400/30"
+                onClick={() => {
+                  if (pl.id) {
+                    deletePlaylist(pl.id);
+                    if(selectedPlaylistIdx===idx) setSelectedPlaylistIdx(null)
+                    else if(selectedPlaylistIdx && selectedPlaylistIdx>idx) setSelectedPlaylistIdx(selectedPlaylistIdx-1)
+                  } else {
+                    console.error('No se pudo eliminar la playlist: falta ID');
+                  }
+                }}
+                title="Eliminar playlist"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+              </button>
+            </div>
           </li>
         ))}
       </ul>
@@ -2804,11 +2853,64 @@ const getMainIcon = () => {
           <ul className="space-y-1 mb-2 max-h-32 overflow-y-auto">
             {playlists[selectedPlaylistIdx].songs.map((song: { title: string, videoId: string }, sidx: number) => (
               <li key={song.title+sidx} className="flex items-center justify-between text-cyan-100 text-sm bg-cyan-900/30 rounded px-2 py-1">
-                <span>{song.title}</span>
-                <a className="ml-2 text-cyan-400 underline" href={`https://youtube.com/watch?v=${song.videoId}`} target="_blank" rel="noopener noreferrer">Ver</a>
+                <span className="truncate max-w-[200px]" title={song.title}>{song.title}</span>
+                <div className="flex items-center gap-1">
+                  {/* Botón reproducir */}
+                  <button
+                    className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-cyan-500 to-cyan-700 hover:from-cyan-600 hover:to-cyan-800 text-white rounded-full shadow-md transition-all duration-200"
+                    onClick={() => playYoutubeVideo(song.videoId, song.title)}
+                    title="Reproducir"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  </button>
+                  
+                  {/* Botón eliminar */}
+                  <button
+                    className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-full shadow-md transition-all duration-200"
+                    onClick={async () => {
+                      if (playlists[selectedPlaylistIdx].id && playlists[selectedPlaylistIdx].songs) {
+                        // Crear una nueva lista de canciones sin la que queremos eliminar
+                        const updatedSongs = [...playlists[selectedPlaylistIdx].songs];
+                        updatedSongs.splice(sidx, 1);
+                        
+                        // Actualizar la playlist en Firebase
+                        const currentPlaylist = playlists[selectedPlaylistIdx];
+                        const playlistToUpdate = {
+                          ...currentPlaylist,
+                          songs: updatedSongs
+                        };
+                        
+                        try {
+                          // Llamar a la función correctamente con los parámetros esperados
+                          const success = await FirebaseProfileManager.updatePlaylist(
+                            activeProfile!.id,
+                            playlistToUpdate
+                          );
+                          
+                          if (success) {
+                            console.log('✅ Canción eliminada correctamente en Firebase');
+                            // Actualizar el estado local
+                            const updatedPlaylists = [...playlists];
+                            updatedPlaylists[selectedPlaylistIdx].songs = updatedSongs;
+                            setPlaylists(updatedPlaylists);
+                          } else {
+                            console.error('❌ Error al eliminar la canción en Firebase');
+                            // Si hay error, recargar las playlists para sincronizar con Firebase
+                            const refreshedPlaylists = await FirebaseProfileManager.getUserPlaylists(activeProfile!.id);
+                            setPlaylists(refreshedPlaylists);
+                          }
+                        } catch (error) {
+                          console.error('Error al eliminar canción:', error);
+                        }
+                      }
+                    }}
+                    title="Eliminar canción"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                </div>
               </li>
-            ))}
-            {playlists[selectedPlaylistIdx].songs.length===0 && <li className="text-cyan-400 text-xs">Sin canciones</li>}
+            ))}{playlists[selectedPlaylistIdx].songs.length===0 && <li className="text-cyan-400 text-xs">Sin canciones</li>}
           </ul>
           {/* FORM AGREGAR CANCIÓN */}
           <div className="flex gap-2 mb-2">
@@ -3017,6 +3119,35 @@ const getMainIcon = () => {
         onConfirm={confirmLogout} 
         onCancel={() => setShowLogoutModal(false)}
       />
+      
+      {/* Modal de error de YouTube */}
+      {showYoutubeError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-slate-900 to-cyan-950 p-6 rounded-xl shadow-xl border border-cyan-600/40 max-w-md w-full transform transition-all animate-fadeIn">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-500/20 p-2 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff5757" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-white">Error</h2>
+            </div>
+            
+            <p className="text-cyan-100 mb-6">{youtubeErrorMessage}</p>
+            
+            <div className="flex justify-end">
+              <button 
+                onClick={() => setShowYoutubeError(false)}
+                className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 💊 RECORDATORIO DE PASTILLAS */}
       {showReminder && (
