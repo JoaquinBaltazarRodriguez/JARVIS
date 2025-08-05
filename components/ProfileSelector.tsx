@@ -484,13 +484,23 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   };
 
   const handleAddProfile = () => {
-    // Limitar a un máximo de 3 perfiles
-    if (localProfiles.length >= 3) {
-      setPasswordError("Límite de 3 perfiles alcanzado. Oculta uno para crear otro.");
-      setTimeout(() => setPasswordError(""), 3000);
+    // Limitar a una sola cuenta
+    if (localProfiles.length >= 1) {
+      setPasswordError("Solo se permite una cuenta por aplicación. Si deseas crear una nueva cuenta, primero debes cerrar sesión de la cuenta actual.");
+      setTimeout(() => setPasswordError(""), 5000);
       return;
     }
     setShowCreateProfile(true);
+  };
+
+  const handleLoginClick = () => {
+    // Limitar a una sola cuenta
+    if (localProfiles.length >= 1) {
+      setPasswordError("Solo se permite una cuenta por aplicación. Si deseas iniciar sesión con otra cuenta, primero debes cerrar sesión de la cuenta actual.");
+      setTimeout(() => setPasswordError(""), 5000);
+      return;
+    }
+    setShowRecoverProfile(true);
   };
 
   return (
@@ -593,10 +603,10 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
             <div
               onClick={handleAddProfile}
               className="group cursor-pointer flex flex-col items-center justify-center space-y-3 transition-all duration-300"
-              aria-label={localProfiles.length >= 3 ? "Límite de perfiles alcanzado" : "Crear perfil"}
-              aria-disabled={localProfiles.length >= 3}
+              aria-label={localProfiles.length >= 1 ? "Solo se permite una cuenta" : "Crear cuenta"}
+              aria-disabled={localProfiles.length >= 1}
               onKeyDown={(e) => {
-                if ((e.key === "Enter" || e.key === " ") && localProfiles.length < 3) {
+                if ((e.key === "Enter" || e.key === " ") && localProfiles.length < 1) {
                   handleAddProfile();
                 }
               }}
@@ -607,19 +617,19 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
                 <span className="text-gray-400 text-3xl group-hover:text-cyan-400 transition-colors duration-300">+</span>
               </div>
               <span className="text-gray-400 text-base md:text-lg text-center group-hover:text-cyan-400 transition-colors duration-300">
-                Agregar perfil
+                Crear cuenta
               </span>
             </div>
             
             {/* Botón para iniciar sesión (recuperar perfil) */}
             <div
-              onClick={() => setShowRecoverProfile(true)}
+              onClick={handleLoginClick}
               className="group cursor-pointer flex flex-col items-center justify-center space-y-3 transition-all duration-300"
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
-                  setShowRecoverProfile(true);
+                  handleLoginClick();
                 }
               }}
             >
@@ -635,6 +645,24 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
               </span>
             </div>
           </div>
+          
+          {/* Error message for single account enforcement */}
+          {passwordError && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mt-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg text-center"
+            >
+              <div className="flex items-center justify-center space-x-2 text-red-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm font-medium">Cuenta única activa</span>
+              </div>
+              <p className="text-red-300 text-sm mt-2">{passwordError}</p>
+            </motion.div>
+          )}
         </div>
       </div>
       
@@ -642,7 +670,7 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
       <Dialog open={showCreateProfile} onOpenChange={setShowCreateProfile}>
         <DialogContent className="max-w-md bg-gray-900 border border-cyan-900/50 text-white shadow-xl shadow-cyan-500/10 z-50">
           <DialogHeader>
-            <DialogTitle className="text-cyan-400 text-xl">Crear nuevo perfil</DialogTitle>
+            <DialogTitle className="text-cyan-400 text-xl">Crear nueva cuenta</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6 mt-4">

@@ -48,14 +48,12 @@ import { useSimpleAudio, setNexusVoiceMuted, isNexusVoiceMuted } from "@/hooks/u
 import { useAutoSpeech } from "@/hooks/useAutoSpeech"
 import { useFuturisticSounds } from "@/hooks/useFuturisticSounds"
 import { ContactsManager } from "@/components/ContactsManager"
-import { LocationsManager } from "@/components/LocationsManager"
 import YouTubePlayer, { type YouTubePlayerRef } from "@/components/YoutubePlayer"
 import { searchYouTube } from "@/lib/youtubeSearch"
 
-const MapViewer = dynamic(() => import("@/components/MapViewer").then((mod) => mod.MapViewer), { ssr: false })
-import type { MapViewerRef } from "@/components/MapViewer"
 
-import { ContactsDB, LocationsDB, CommandDetector, TimeUtils } from "@/lib/database"
+
+import { ContactsDB, CommandDetector, TimeUtils } from "@/lib/database"
 import { ConversationsManager } from "@/components/ConversationsManager"
 import { ConversationsDB, type Conversation, type ConversationMessage } from "@/lib/conversations"
 import { NexusLoginSystem } from "@/components/NexusLoginSystem"
@@ -153,10 +151,8 @@ type AppState =
   | "initializing" // <- ESTADO PARA PANTALLA DE CARGA
   | "active"
   | "calling_confirmation"
-  | "navigation_mode"
   | "music_mode"
   | "music_playing"
-  | "map_active"
   | "intelligent_mode" // <- ESTADO PARA EL MODO INTELIGENTE
   | "functional_mode" // <- ESTADO PARA EL MODO FUNCIONAL
   | "image_download_confirmation"
@@ -993,10 +989,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }
 
-  // 🗺️ ESTADOS PARA MAPA
-  const [isMapActive, setIsMapActive] = useState(false)
-  const [currentDestination, setCurrentDestination] = useState("")
-  const [currentDestinationAddress, setCurrentDestinationAddress] = useState("")
+
 
   // 💬 ESTADOS PARA CONVERSACIONES
   const [showConversationsManager, setShowConversationsManager] = useState(false)
@@ -1028,7 +1021,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     speak(message)
   })
 
-  const mapViewerRef = useRef<MapViewerRef>(null)
+
 
   // Detecta transición de waiting_password a active para animación de inicio
   useEffect(() => {
@@ -1095,10 +1088,10 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       appState === "functional_mode" ||
       appState === "image_download_confirmation"
     ) {
-      if (!isPlayingMusic && !isMapActive && !isListening && !isSpeaking && !isProcessing) {
+      if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
         console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE")
         setTimeout(() => {
-          if (!isPlayingMusic && !isMapActive && !isListening && !isSpeaking && !isProcessing) {
+          if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
             startAutoListening()
           }
         }, 1000)
@@ -1115,18 +1108,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         }, 1000)
       }
     }
-    // 🗺️ ESCUCHA ESPECIAL CUANDO ESTÁ EL MAPA ACTIVO
-    else if (appState === "map_active") {
-      if (!isListening && !isSpeaking && !isProcessing) {
-        console.log("🗺️ STARTING MAP-ONLY LISTENING")
-        setTimeout(() => {
-          if (!isListening && !isSpeaking && !isProcessing) {
-            startAutoListening()
-          }
-        }, 1000)
-      }
-    }
-  }, [appState, isPlayingMusic, isMapActive, isListening, isSpeaking, isProcessing])
+  }, [appState, isPlayingMusic, isListening, isSpeaking, isProcessing])
 
   const handleWakeWordDetected = (detected: boolean) => {
     if (detected && appState === "sleeping") {
@@ -1154,8 +1136,6 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         handlePasswordCheck(text)
       } else if (appState === "calling_confirmation") {
         handleCallConfirmation(text)
-      } else if (appState === "navigation_mode") {
-        handleNavigationCommand(text)
       } else if (appState === "music_mode") {
         if (text.includes("cancelar")) {
           handleCancelAction()
@@ -1212,21 +1192,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
           }
         }
       } else if (appState === "map_active") {
-        // 🗺️ COMANDOS ESPECÍFICOS PARA MAPA
-        if (text.includes("quitar mapa") || text.includes("cerrar mapa") || text.includes("salir del mapa")) {
-          console.log("🗺️ CLOSE MAP COMMAND")
-          handleCloseMap()
-        } else if (
-          text.includes("iniciar navegación") ||
-          text.includes("empezar navegación") ||
-          text.includes("iniciar navegacion") ||
-          text.includes("empezar navegacion")
-        ) {
-          console.log("🗺️ START NAVIGATION COMMAND")
-          handleStartMapNavigation()
-        } else {
-          console.log("🗺️ IGNORING NON-MAP COMMAND WHILE MAP ACTIVE")
-        }
+   
       } else if (appState === "active" || appState === "intelligent_mode" || appState === "functional_mode") {
         if (CommandDetector.isCancelCommand(text)) {
           console.log("❌ CANCEL COMMAND DETECTED")
@@ -1261,9 +1227,6 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         } else if (CommandDetector.isDirectCallCommand(text)) {
           console.log("📱 DIRECT CALL COMMAND DETECTED")
           handleCallCommand(text)
-        } else if (CommandDetector.isNavigationCommand(text)) {
-          console.log("🗺️ NAVIGATION COMMAND DETECTED")
-          handleNavigationStart(text)
         } else if (isYouTubeMusicCommand && isYouTubeMusicCommand(text)) {
           console.log("🎵 YOUTUBE MUSIC COMMAND DETECTED")
           handleYouTubeMusicCommand()
@@ -1492,12 +1455,6 @@ const confirmLogout = async () => {
   setAwaitingPlaylistName(false);
   setWaitingForSong(false);
   
-  // Detener navegación o mapas activos
-  setIsMapActive(false);
-  setIsNavigating(false);
-  setCurrentDestination("");
-  setCurrentDestinationAddress("");
-  
   // Detener la escucha y síntesis de voz
   if (isListening) {
     stopListening();
@@ -1619,110 +1576,6 @@ const confirmLogout = async () => {
       setAppState("active")
     }
   }
-
-  // 🗺️ MANEJAR INICIO DE NAVEGACIÓN
-  const handleNavigationStart = async (text: string) => {
-    setAppState("navigation_mode")
-    setIsNavigating(true)
-    const navMsg = "¿Dónde desea ir? (di cancelar para cancelar la acción)"
-    setCurrentText(navMsg)
-    await speak(navMsg)
-    setCurrentText("")
-  }
-
-  // 🗺️ MANEJAR COMANDO DE NAVEGACIÓN
-  const handleNavigationCommand = async (text: string) => {
-    // Permitir cancelar
-    if (text.toLowerCase().includes("cancelar")) {
-      const cancelMsg = "Navegación cancelada. Volviendo al modo normal."
-      setCurrentText(cancelMsg)
-      await speak(cancelMsg)
-      setCurrentText("")
-      setAppState("active")
-      setIsNavigating(false)
-      return
-    }
-
-    const locationName = text.trim()
-    if (!locationName) {
-      const emptyMsg = "No entendí el destino. Por favor, diga el nombre de una ubicación guardada."
-      setCurrentText(emptyMsg)
-      await speak(emptyMsg)
-      setCurrentText("")
-      setIsNavigating(false)
-      setAppState("active")
-      return
-    }
-
-    const location = LocationsDB.findByName(locationName)
-    if (location) {
-      const navMsg = `Abriendo navegación hacia ${location.name}...`
-      setCurrentText(navMsg)
-      await speak(navMsg)
-      setCurrentText("")
-
-      // 🗺️ ACTIVAR MAPA INTEGRADO
-      setCurrentDestination(location.name)
-      setCurrentDestinationAddress(location.address)
-      setIsMapActive(true)
-      setAppState("map_active")
-      setIsNavigating(false)
-    } else {
-      const notFoundMsg = `No encontré "${locationName}" en sus ubicaciones guardadas. ¿Desea que lo agregue o intente con otra dirección?`
-      setCurrentText(notFoundMsg)
-      await speak(notFoundMsg)
-      setCurrentText("")
-      setIsNavigating(false)
-      setAppState("active")
-    }
-  }
-
-  // 🗺️ CERRAR MAPA
-  const handleCloseMap = async () => {
-    const closeMsg = "Cerrando navegación. Volviendo al modo normal."
-    setCurrentText(closeMsg)
-    await speak(closeMsg)
-    setCurrentText("")
-    setIsMapActive(false)
-    setCurrentDestination("")
-    setCurrentDestinationAddress("")
-    setAppState("active")
-  }
-
-  // 🗺️ MANEJAR INSTRUCCIONES DE NAVEGACIÓN
-  const handleNavigationUpdate = async (instruction: string) => {
-    console.log(" NAVIGATION INSTRUCTION:", instruction)
-    await speak(instruction)
-  }
-
-  // INICIAR NAVEGACIÓN EN MAPA
-  const handleStartMapNavigation = async () => {
-    // Obtener el tratamiento adecuado según género
-    const treatment = getGenderTreatment(activeProfile?.gender);
-    const startMsg = `Iniciando navegación por voz hacia ${currentDestination} ${treatment}.`
-    setCurrentText(startMsg)
-    await speak(startMsg)
-    setCurrentText("")
-
-    // Activar navegación en el componente MapViewer
-    if (mapViewerRef.current) {
-      mapViewerRef.current.startNavigation()
-    }
-  }
-
-  // CENTRAR MAPA EN MI UBICACIÓN
-  const handleCenterMapOnUser = async () => {
-    // Obtener el tratamiento adecuado según género
-    const treatment = getGenderTreatment(activeProfile?.gender);
-    const msg = `Centrando el mapa en su ubicación actual ${treatment}.`
-    setCurrentText(msg)
-    await speak(msg)
-    setCurrentText("")
-    if (mapViewerRef.current && mapViewerRef.current.centerOnUser) {
-      mapViewerRef.current.centerOnUser()
-    }
-  }
-
   // 🔄 NUEVA FUNCIÓN PARA MANEJAR COMPLETADO DE CARGA
   const handleLoadingComplete = async () => {
     console.log("🚀 LOADING COMPLETE!")
@@ -1793,9 +1646,7 @@ const confirmLogout = async () => {
     setIsPlayingMusic(false)
     setCurrentSongTitle("")
     setCurrentVideoId("")
-    setIsMapActive(false)
-    setCurrentDestination("")
-    setCurrentDestinationAddress("")
+
     setPendingImageDownload(null)
     setWaitingImageDownloadConfirmation(false)
     setHasInitialized(false)
@@ -1936,36 +1787,6 @@ const confirmLogout = async () => {
     NexusMemory.saveMemory("context", message, ["user_input"])
 
     try {
-      // 🚦 CANCELAR NAVEGACIÓN SI SE ESTÁ ESPERANDO DIRECCIÓN
-      if (appState === "navigation_mode") {
-        if (CommandDetector.isCancelCommand(message.toLowerCase())) {
-          const cancelMsg = "Navegación cancelada. Volviendo al modo normal."
-          setCurrentText(cancelMsg)
-          await speak(cancelMsg)
-          setCurrentText("")
-          setAppState("active")
-          setIsNavigating(false)
-          setCurrentDestination("")
-          setCurrentDestinationAddress("")
-          setIsProcessing(false)
-          return
-        } else {
-          // Intentar extraer la dirección con extractLocationName
-          let locationName = CommandDetector.extractLocationName(message)
-          let location = locationName ? LocationsDB.findByName(locationName) : null
-
-          // Si no se extrajo nada, intentar buscar directamente por el mensaje completo
-          if (!location && message.trim().length > 0) {
-            location = LocationsDB.findByName(message.trim())
-          }
-          
-          setCurrentText("")
-          setAppState("navigation_mode")
-          setIsProcessing(false)
-          return
-        }
-      }
-
       // 🔧 PROCESAR COMANDOS LOCALES EN MODO NORMAL Y FUNCIONAL
       if (appState === "active" || appState === "functional_mode") {
         const mode = appState === "functional_mode" ? "functional" : "normal"
@@ -1987,11 +1808,7 @@ const confirmLogout = async () => {
                   handleCallCommand(`llama a ${localCommand.data.contactName}`)
                 }
                 break
-              case "navigate":
-                if (localCommand.data?.destination) {
-                  handleNavigationStart(`ir a ${localCommand.data.destination}`)
-                }
-                break
+
               case "youtube" as any:
                 handleYouTubeMusicCommand()
                 break
@@ -2105,7 +1922,7 @@ const confirmLogout = async () => {
             },
           ])
 
-          saveMessageToConversation(data.response)
+          saveMessageToConversation(data.response, "nexus")
           setCurrentText(data.response)
           await speak(data.response)
           setCurrentText("")
@@ -2352,28 +2169,20 @@ const confirmLogout = async () => {
     }
   }
 
-  // --- ICONO PRINCIPAL CON CICLO DE ANIMACIÓN EN MODO NORMAL + MÚSICA ---
-// --- ICONO PRINCIPAL: Modo normal + música fondo = solo una nota musical vibrando ---
-// No se requiere ciclo ni useState/useEffect
-
-
-const getMainIcon = () => {
-  // --- LOGO: Modo normal + música fondo = solo nota musical vibrando ---
-  if (appState === "active" && isPlayingMusic && musicBackgroundMode) {
-    return (
-      <Music className="h-20 w-20 text-green-400 animate-pulse" />
-    );
-  }
-  if (isSpeaking) return <Volume2 className="h-20 w-20 text-cyan-400 animate-pulse" />
-  if (isProcessing) return <Loader2 className="h-20 w-20 text-yellow-400 animate-spin" />
-  if (appState === "sleeping") return <Power className="h-20 w-20 text-gray-500" />
-  if (appState === "waiting_password") return <Lock className="h-20 w-20 text-yellow-400" />
-  if (appState === "initializing") return <Loader2 className="h-20 w-20 text-cyan-400 animate-spin" /> // <- NUEVO ICONO
-  if (appState === "calling_confirmation") return <Phone className="h-20 w-20 text-green-400 animate-pulse" />
-    if (appState === "navigation_mode") return <MapPin className="h-20 w-20 text-blue-400 animate-pulse" />
-    if (appState === "music_mode") return <Music className="h-20 w-20 text-green-400 animate-pulse" />
-    if (appState === "music_playing") return <Music className="h-20 w-20 text-green-400 animate-bounce" />
-    if (appState === "map_active") return <MapPin className="h-20 w-20 text-blue-400 animate-bounce" />
+  const getMainIcon = () => {
+    // --- LOGO: Modo normal + música fondo = solo nota musical vibrando ---
+    if (appState === "active" && isPlayingMusic && musicBackgroundMode) {
+      return (
+        <Music className="h-20 w-20 text-green-400 animate-pulse" />
+      );
+    }
+    if (isSpeaking) return <Volume2 className="h-20 w-20 text-cyan-400 animate-pulse" />
+    if (isProcessing) return <Loader2 className="h-20 w-20 text-yellow-400 animate-spin" />
+    if (appState === "sleeping") return <Power className="h-20 w-20 text-gray-500" />
+    if (appState === "waiting_password") return <Lock className="h-20 w-20 text-yellow-400" />
+    if (appState === "initializing") return <Loader2 className="h-20 w-20 text-cyan-400 animate-spin" />
+    if (appState === "calling_confirmation") return <Phone className="h-20 w-20 text-green-400 animate-pulse" />
+    if (appState === "music_mode" || appState === "music_playing") return <Music className="h-20 w-20 text-green-400" />
     if (appState === "intelligent_mode") return <Brain className="h-20 w-20 text-purple-400 animate-pulse" />
     if (appState === "functional_mode") return <Mail className="h-20 w-20 text-orange-400 animate-pulse" />
     if (appState === "image_download_confirmation")
@@ -2381,7 +2190,7 @@ const getMainIcon = () => {
     return <Unlock className="h-20 w-20 text-cyan-400" />
   }
 
-  const getCircleClasses = () => {
+const getCircleClasses = () => {
   const baseClasses =
     "w-64 h-64 rounded-full border-4 flex items-center justify-center transition-all duration-500 relative";
 
@@ -2419,20 +2228,12 @@ const getMainIcon = () => {
     return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`;
   }
 
-  if (appState === "navigation_mode") {
-    return `${baseClasses} border-blue-500 shadow-blue-500/50 animate-pulse`;
-  }
-
   if (appState === "music_mode") {
     return `${baseClasses} border-green-500 shadow-green-500/50 animate-pulse`;
   }
 
   if (appState === "music_playing") {
     return `${baseClasses} border-green-500 shadow-green-500/70 animate-pulse`;
-  }
-
-  if (appState === "map_active") {
-    return `${baseClasses} border-blue-500 shadow-blue-500/70 animate-pulse`;
   }
 
   if (appState === "intelligent_mode") {
@@ -2450,50 +2251,43 @@ const getMainIcon = () => {
   return `${baseClasses} border-cyan-500 shadow-cyan-500/30`;
 }
 
-  const getStatusText = () => {
-    if (appState === "sleeping") return "Presione para activar NEXUS"
-    if (appState === "waiting_password") {
-      if (isListening) return "Escuchando contraseña..."
-      if (isProcessing) return "Verificando contraseña..."
-      return "Di la contraseña (automático)"
-    }
-    if (appState === "initializing") return "Inicializando NEXUS..." // <- NUEVO TEXTO
-    if (appState === "calling_confirmation") {
-      return pendingCall ? `¿Llamar a ${pendingCall.name}? (Sí/No)` : "Confirmando llamada..."
-    }
-    if (appState === "navigation_mode") {
-      return "¿A dónde quiere ir?"
-    }
-    if (appState === "music_mode") {
-      if (isListening) return "Escuchando canción... (Di 'cancelar' para salir)"
-      return waitingForSong ? "Di el nombre de la canción (o 'cancelar')" : "Seleccionando música..."
-    }
-    if (appState === "image_download_confirmation") {
-      if (isListening) return "¿Descargar imagen? (Sí/No)"
-      return "Esperando confirmación de descarga..."
-    }
-    if (appState === "music_playing") {
-      if (isListening) return "Solo escucho 'NEXUS quitar música'"
-      return "Reproduciendo música (Solo comando: 'quitar música')"
-    }
-    if (appState === "map_active") {
-      if (isListening) return "Solo escucho 'NEXUS quitar mapa'"
-      return "Mapa activo (Solo comando: 'quitar mapa')"
-    }
-    if (appState === "intelligent_mode") {
-      if (isSpeaking) return "NEXUS hablando..."
-      if (isProcessing) return "Procesando con IA avanzada..."
-      if (isListening) return "Modo inteligente - Escuchando... (automático)"
-      return "Modo inteligente activo (automático)"
-    }
-    if (appState === "functional_mode") {
-      return "Modo funcional"
-    }
-    if (isSpeaking) return "NEXUS hablando..."
-    if (isProcessing) return "Procesando con ChatGPT..."
-    if (isListening) return "Escuchando... (automático)"
-    return "Habla libremente (automático)"
+const getStatusText = () => {
+  if (appState === "sleeping") return "Presione para activar NEXUS"
+  if (appState === "waiting_password") {
+    if (isListening) return "Escuchando contraseña..."
+    if (isProcessing) return "Verificando contraseña..."
+    return "Di la contraseña (automático)"
   }
+  if (appState === "initializing") return "Inicializando NEXUS..."
+  if (appState === "calling_confirmation") {
+    return pendingCall ? `¿Llamar a ${pendingCall.name}? (Sí/No)` : "Confirmando llamada..."
+  }
+  if (appState === "music_mode") {
+    if (isListening) return "Escuchando canción... (Di 'cancelar' para salir)"
+    return waitingForSong ? "Di el nombre de la canción (o 'cancelar')" : "Seleccionando música..."
+  }
+  if (appState === "image_download_confirmation") {
+    if (isListening) return "¿Descargar imagen? (Sí/No)"
+    return "Esperando confirmación de descarga..."
+  }
+  if (appState === "music_playing") {
+    if (isListening) return "Solo escucho 'NEXUS quitar música'"
+    return "Reproduciendo música (Solo comando: 'quitar música')"
+  }
+  if (appState === "intelligent_mode") {
+    if (isSpeaking) return "NEXUS hablando..."
+    if (isProcessing) return "Procesando con IA avanzada..."
+    if (isListening) return "Modo inteligente - Escuchando... (automático)"
+    return "Modo inteligente activo (automático)"
+  }
+  if (appState === "functional_mode") {
+    return "Modo funcional"
+  }
+  if (isSpeaking) return "NEXUS hablando..."
+  if (isProcessing) return "Procesando con ChatGPT..."
+  if (isListening) return "Escuchando... (automático)"
+  return "Habla libremente (automático)"
+}
 
   if (!mounted) {
     return (
@@ -2670,23 +2464,6 @@ const getMainIcon = () => {
             }
           >
             <Music className="w-6 h-6 text-cyan-400" />
-          </Button>
-
-          {/* Botón Mapa */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleAccessibleAction("locations", "Ubicaciones", () => setShowLocationsManager(true))}
-            className={`rounded-full p-2 hover:bg-cyan-900 ${focusedElement === "locations" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""}`}
-            title="Ubicaciones"
-            aria-label="Ubicaciones"
-            tabIndex={0}
-            onKeyDown={(e) =>
-              (e.key === "Enter" || e.key === " ") &&
-              handleAccessibleAction("locations", "Ubicaciones", () => setShowLocationsManager(true))
-            }
-          >
-            <MapPin className="w-6 h-6 text-cyan-400" />
           </Button>
 
           {/* Botón Agenda */}
@@ -2971,7 +2748,7 @@ const getMainIcon = () => {
 
       {/* Main Interface - Solo mostrar si no hay mapa o música activa */}
        {/* Render central solo cuando música en segundo plano, modo normal y música sonando */}
-      {!isMapActive && isPlayingMusic && musicBackgroundMode && appState === "active" && (
+      {isPlayingMusic && musicBackgroundMode && appState === "active" && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
           {/* Central Circle SOLO para logo animado música fondo */}
           <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
@@ -2991,7 +2768,7 @@ const getMainIcon = () => {
       )}
 
       {/* Render habitual solo cuando NO está en música en segundo plano */}
-      {!isMapActive && (!isPlayingMusic || !musicBackgroundMode || appState !== "active") && appState !== "functional_mode" && (
+      {(!isPlayingMusic || !musicBackgroundMode || appState !== "active") && appState !== "functional_mode" && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
           {/* Central Circle */}
           <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
@@ -3059,25 +2836,21 @@ const getMainIcon = () => {
                     ? "text-gray-400"
                     : appState === "waiting_password"
                       ? "text-yellow-400"
-                      : appState === "initializing" // <- NUEVO COLOR
+                      : appState === "initializing"
                         ? "text-cyan-400"
                         : appState === "calling_confirmation"
                           ? "text-green-400"
-                          : appState === "navigation_mode"
-                            ? "text-blue-400"
-                            : appState === "music_mode"
+                          : appState === "music_mode"
+                            ? "text-green-400"
+                            : appState === "music_playing"
                               ? "text-green-400"
-                              : appState === "music_playing"
-                                ? "text-green-400"
-                                : appState === "map_active"
-                                  ? "text-blue-400"
-                                  : appState === "intelligent_mode"
-                                    ? "text-purple-400"
-                                    : (appState as AppState) === "functional_mode"
-                                      ? "text-orange-400"
-                                      : appState === "image_download_confirmation"
-                                        ? "text-cyan-400"
-                                        : "text-cyan-400"
+                              : appState === "intelligent_mode"
+                                ? "text-purple-400"
+                                : (appState as AppState) === "functional_mode"
+                                  ? "text-orange-400"
+                                  : appState === "image_download_confirmation"
+                                    ? "text-cyan-400"
+                                    : "text-cyan-400"
                 }`}
               >
                 {getStatusText()}
@@ -3422,51 +3195,12 @@ const getMainIcon = () => {
         </div>
       )}
 
-      {/* 🗺️ MAPA INTEGRADO */}
-      {/* 🗺️ MAPA INTEGRADO */}
-      {isMapActive && (!currentDestination || !currentDestinationAddress) && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/80">
-          <div className="bg-gray-900 text-red-400 p-8 rounded-lg border border-red-500">
-            <p>
-              <b>Error:</b> El mapa fue activado sin un destino o dirección válida.
-            </p>
-            <p>currentDestination: {String(currentDestination)}</p>
-            <p>currentDestinationAddress: {String(currentDestinationAddress)}</p>
-            <p>Por favor, verifique el comando de voz o las ubicaciones registradas.</p>
-            <button
-              className="mt-4 px-4 py-2 bg-red-500 text-white rounded"
-              onClick={() => {
-                setIsMapActive(false)
-                setCurrentDestination("")
-                setCurrentDestinationAddress("")
-                setAppState("active")
-              }}
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
 
-      <MapViewer
-        ref={mapViewerRef}
-        isActive={isMapActive}
-        destination={currentDestination}
-        destinationAddress={currentDestinationAddress}
-        onClose={() => {
-          setIsMapActive(false)
-          setCurrentDestination("")
-          setCurrentDestinationAddress("")
-          setAppState("active")
-        }}
-        onNavigationUpdate={handleNavigationUpdate}
-      />
 
       {/* 📱 GESTORES */}
       <ContactsManager isOpen={showContactsManager} onClose={() => setShowContactsManager(false)} />
 
-      {/* 📍 GESTOR DE UBICACIONES */}
-      <LocationsManager isOpen={showLocationsManager} onClose={() => setShowLocationsManager(false)} />
+
 
       {/* 💬 GESTOR DE CONVERSACIONES */}
       <ConversationsManager
