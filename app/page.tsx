@@ -892,8 +892,11 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       setMusicBackgroundMode(false);
     }
     
-    // Cambiar el estado de la aplicación para reflejar que estamos reproduciendo música
-    setAppState("music_playing");
+    // MANTENER EL MODO ACTUAL - NO CAMBIAR ESTADO CUANDO SE REPRODUCE MÚSICA
+    // Solo cambiar a music_playing si estamos en music_mode específicamente
+    if (appState === "music_mode") {
+      setAppState("music_playing");
+    }
   };
   
   // Función para reproducir la playlist completa
@@ -1004,6 +1007,8 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   // 🖼️ NUEVOS ESTADOS PARA DESCARGA DE IMÁGENES
   const [pendingImageDownload, setPendingImageDownload] = useState<{ url: string; prompt: string } | null>(null)
   const [waitingImageDownloadConfirmation, setWaitingImageDownloadConfirmation] = useState(false)
+
+
 
   const { speak, isSpeaking } = useSimpleAudio()
   useCineSound(isSpeaking) // Efecto cine cuando NEXUS habla
@@ -1701,6 +1706,38 @@ const confirmLogout = async () => {
     return
   }
 
+  // 🎵 COMANDO PARA QUITAR MÚSICA
+  if (isPlayingMusic && (
+    normalized.includes("quitar música") || normalized.includes("quitar musica") ||
+    normalized.includes("cerrar música") || normalized.includes("cerrar musica") ||
+    normalized.includes("parar música") || normalized.includes("parar musica") ||
+    normalized.includes("apagar música") || normalized.includes("apagar musica")
+  )) {
+    const stopMsg = "Cerrando reproductor de música."
+    setCurrentText(stopMsg)
+    await speak(stopMsg)
+    setCurrentText("")
+    
+    // Detener reproductor de YouTube
+    if (youtubePlayerRef.current && typeof youtubePlayerRef.current.stopVideo === 'function') {
+      youtubePlayerRef.current.stopVideo()
+    }
+    
+    // Resetear todos los estados de música
+    setIsPlayingMusic(false)
+    setCurrentSongTitle("")
+    setCurrentVideoId("")
+    setPlaylistMode(false)
+    setCurrentPlaylist(null)
+    setCurrentPlaylistIndex(0)
+    setMusicBackgroundMode(false)
+    setAwaitingPlaylistName(false)
+    setWaitingForSong(false)
+    
+    // NO CAMBIAR EL ESTADO DE LA APLICACIÓN - mantener en el modo actual
+    return
+  }
+
   // --- COMANDOS DE VOZ PARA LECTOR DE PANTALLA ---
   // Mejorar reconocimiento de comandos de voz para lector de pantalla
 
@@ -2113,9 +2150,10 @@ const confirmLogout = async () => {
       setPlaylistMode(false)
       setCurrentPlaylist(null)
       setMusicBackgroundMode(true) // Iniciar siempre en modo background
-      // Mantener el modo actual en lugar de cambiar a music_playing
-      // Solo cambiar a music_playing si no estamos en functional_mode o intelligent_mode
-      if (appState !== ("functional_mode" as AppState) && appState !== "intelligent_mode") {
+      // MANTENER EL MODO ACTUAL - NO CAMBIAR NUNCA EL ESTADO CUANDO SE REPRODUCE MÚSICA
+      // Esto permite que Mi NEXUS mantenga su interfaz Figma incluso con música
+      // Solo cambiar a music_playing si estamos en music_mode específicamente
+      if (appState === "music_mode") {
         setAppState("music_playing")
       }
       
@@ -2723,28 +2761,10 @@ const toggleMode = async () => {
       {/* Selector de Modo NEXUS */}
 
       {/* Main Interface - Solo mostrar si no hay mapa o música activa */}
-       {/* Render central solo cuando música en segundo plano, modo normal y música sonando */}
-      {isPlayingMusic && musicBackgroundMode && appState === "active" && (
-        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
-          {/* Central Circle SOLO para logo animado música fondo */}
-          <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
-            <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">
-              {getMainIcon()}
-            </div>
-          </div>
-          
-          {/* Botón de Playlists en modo background */}
-          <button 
-            onClick={() => setShowPlaylistSelector(true)}
-            className="absolute bottom-24 mx-auto px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 text-white rounded-lg shadow-lg hover:from-cyan-500 hover:to-blue-600 transition-all duration-200 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 18a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"></path><path d="M12 8H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2v-2"></path><path d="M6 10v10"></path><path d="M10 10v10"></path></svg>
-            Playlists
-          </button>
-        </div>
-      )}
+
 
       {/* 🎨 NUEVA INTERFAZ TIPO FIGMA - Solo para Mi NEXUS (appState === "active") */}
-      {appState === "active" && (!isPlayingMusic || !musicBackgroundMode) && (
+      {appState === "active" && (
         <div className="flex-1 flex min-h-screen relative z-10">
           {/* 📂 PANEL LATERAL IZQUIERDO */}
           <div className="w-80 bg-gray-900/50 border-r border-gray-700/50 backdrop-blur-sm flex flex-col">
@@ -2816,20 +2836,20 @@ const toggleMode = async () => {
               </div>
               
               {/* Grid de proyectos */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {/* Ventanita para crear nuevo proyecto */}
                 <div className="group">
-                  <div className="aspect-square bg-gray-800/40 border-2 border-dashed border-gray-600 hover:border-cyan-500/50 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105">
+                  <div className="aspect-square bg-gray-800/40 border-2 border-dashed border-gray-600 hover:border-cyan-500/50 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px]">
                     {/* Icono + */}
-                    <div className="w-12 h-12 rounded-full bg-gray-700/50 group-hover:bg-cyan-500/20 flex items-center justify-center mb-3 transition-all duration-300">
-                      <Plus className="w-6 h-6 text-gray-400 group-hover:text-cyan-400 transition-colors duration-300" />
+                    <div className="w-8 h-8 rounded-full bg-gray-700/50 group-hover:bg-cyan-500/20 flex items-center justify-center mb-2 transition-all duration-300">
+                      <Plus className="w-4 h-4 text-gray-400 group-hover:text-cyan-400 transition-colors duration-300" />
                     </div>
                     
                     {/* Texto */}
-                    <p className="text-gray-400 group-hover:text-cyan-300 text-sm font-medium transition-colors duration-300">
+                    <p className="text-gray-400 group-hover:text-cyan-300 text-xs font-medium transition-colors duration-300 text-center px-2">
                       Nuevo Proyecto
                     </p>
-                    <p className="text-gray-600 group-hover:text-gray-400 text-xs mt-1 transition-colors duration-300">
+                    <p className="text-gray-600 group-hover:text-gray-400 text-[10px] mt-1 transition-colors duration-300 text-center px-2">
                       Haz clic para crear
                     </p>
                   </div>
@@ -2842,25 +2862,7 @@ const toggleMode = async () => {
         </div>
       )}
       
-      {/* 🎵 INTERFAZ ORIGINAL PARA MÚSICA EN SEGUNDO PLANO */}
-      {isPlayingMusic && musicBackgroundMode && appState === "active" && (
-        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
-          {/* Central Circle SOLO para logo animado música fondo */}
-          <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
-            <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">
-              {getMainIcon()}
-            </div>
-          </div>
-          
-          {/* Botón de Playlists en modo background */}
-          <button 
-            onClick={() => setShowPlaylistSelector(true)}
-            className="absolute bottom-24 mx-auto px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 text-white rounded-lg shadow-lg hover:from-cyan-500 hover:to-blue-600 transition-all duration-200 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 18a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"></path><path d="M12 8H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2v-2"></path><path d="M6 10v10"></path><path d="M10 10v10"></path></svg>
-            Playlists
-          </button>
-        </div>
-      )}
+
       
       {/* 🧠 INTERFAZ ORIGINAL PARA OTROS MODOS */}
       {(appState === "intelligent_mode" || appState === "functional_mode") && (
