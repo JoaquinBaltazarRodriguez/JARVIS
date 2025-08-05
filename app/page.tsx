@@ -197,6 +197,9 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   // --- Estado para transición de modo ---
   const [isModeTransitioning, setIsModeTransitioning] = useState(false)
   
+  // 🎤 CONTROL MANUAL DE RECONOCIMIENTO DE VOZ
+  const [isVoiceControlEnabled, setIsVoiceControlEnabled] = useState(false)
+  
   // --- Estados para sistema de perfiles ---
   const [showLoginSystem, setShowLoginSystem] = useState(false)
   const [activeProfile, setActiveProfile] = useState<UserProfile | null>(null)
@@ -1087,8 +1090,14 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }, [mounted, appState, isSupported])
 
-  // 🎵 ESCUCHA SELECTIVA - Diferentes modos
+  // 🎵 ESCUCHA SELECTIVA - Diferentes modos (RESPETA TOGGLE DE VOZ)
   useEffect(() => {
+    // Solo iniciar escucha automática si el control de voz está habilitado
+    if (!isVoiceControlEnabled) {
+      console.log("🔇 Voice control disabled - skipping auto listening")
+      return
+    }
+    
     if (
       appState === "waiting_password" ||
       appState === "active" ||
@@ -1099,9 +1108,9 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       appState === "image_download_confirmation"
     ) {
       if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
-        console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE")
+        console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE (Voice Control Enabled)")
         setTimeout(() => {
-          if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
+          if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing && isVoiceControlEnabled) {
             startAutoListening()
           }
         }, 1000)
@@ -1110,15 +1119,15 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     // 🎵 ESCUCHA ESPECIAL CUANDO ESTÁ REPRODUCIENDO MÚSICA
     else if (appState === "music_playing") {
       if (!isListening && !isSpeaking && !isProcessing) {
-        console.log("🎵 STARTING MUSIC-ONLY LISTENING")
+        console.log("🎵 STARTING MUSIC-ONLY LISTENING (Voice Control Enabled)")
         setTimeout(() => {
-          if (!isListening && !isSpeaking && !isProcessing) {
+          if (!isListening && !isSpeaking && !isProcessing && isVoiceControlEnabled) {
             startAutoListening()
           }
         }, 1000)
       }
     }
-  }, [appState, isPlayingMusic, isListening, isSpeaking, isProcessing])
+  }, [appState, isPlayingMusic, isListening, isSpeaking, isProcessing, isVoiceControlEnabled])
 
   const handleWakeWordDetected = (detected: boolean) => {
     if (detected && appState === "sleeping") {
@@ -1434,14 +1443,16 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
       setBackgroundSubtitle(subtitle);
       setTimeout(() => setBackgroundSubtitle(""), 3000);
     }
-    if (forceListen) {
+    if (forceListen && isVoiceControlEnabled) {
       startAutoListening();
       setTimeout(() => setIsModeTransitioning(false), 800)
       return;
     }
-    setTimeout(() => {
-      startAutoListening();
-    }, 500);
+    if (isVoiceControlEnabled) {
+      setTimeout(() => {
+        startAutoListening();
+      }, 500);
+    }
     setTimeout(() => setIsModeTransitioning(false), 800)
     return;
   }
@@ -1451,7 +1462,37 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
   setTimeout(() => setIsModeTransitioning(false), 800)
 } 
 
-// 🚪 FUNCIÓN PARA CERRAR SESIÓN
+// 🎤 FUNCIÓN PARA TOGGLE DEL RECONOCIMIENTO DE VOZ
+const toggleVoiceControl = async () => {
+  if (isSpeaking || isModeTransitioning) return
+  
+  const newState = !isVoiceControlEnabled
+  setIsVoiceControlEnabled(newState)
+  
+  if (newState) {
+    // Activar reconocimiento de voz
+    const activateMsg = "Reconocimiento de voz activado. Estoy escuchando."
+    setCurrentText(activateMsg)
+    await speak(activateMsg)
+    setCurrentText("")
+    
+    // Iniciar escucha si estamos en un modo activo
+    if (appState === "active" || appState === "functional_mode") {
+      startAutoListening()
+    }
+  } else {
+    // Desactivar reconocimiento de voz
+    const deactivateMsg = "Reconocimiento de voz desactivado. Presiona el botón para reactivar."
+    setCurrentText(deactivateMsg)
+    await speak(deactivateMsg)
+    setCurrentText("")
+    
+    // Detener escucha
+    stopListening()
+  }
+}
+
+// 🚺 FUNCIÓN PARA CERRAR SESIÓN
 const handleLogout = () => {
   // Mostrar modal de confirmación
   setShowLogoutModal(true);
@@ -2345,7 +2386,7 @@ const getStatusText = () => {
   if (isSpeaking) return "NEXUS hablando..."
   if (isProcessing) return "Procesando con ChatGPT..."
   if (isListening) return "Escuchando... (automático)"
-  return "Habla libremente (automático)"
+  return "Pulsa para activar reconocimiento de voz"
 }
 
 // 🔄 FUNCIÓN PARA ALTERNAR ENTRE MODOS
@@ -2771,11 +2812,19 @@ const toggleMode = async () => {
             {/* Círculo NEXUS más pequeño debajo del título */}
             <div className="p-6 border-b border-gray-700/50">
               <div className="flex flex-col items-center">
-                {/* Círculo NEXUS compacto */}
+                {/* Círculo NEXUS compacto con toggle de voz */}
                 <div className="relative mb-4">
-                  <div className={`w-24 h-24 rounded-full bg-black flex items-center justify-center border-2 ${
-                    appState === "active" ? "border-cyan-500/50" : "border-gray-600"
-                  }`}>
+                  <button 
+                    onClick={toggleVoiceControl}
+                    disabled={isSpeaking || isModeTransitioning}
+                    className={`w-24 h-24 rounded-full bg-black flex items-center justify-center border-2 transition-all duration-300 hover:scale-105 ${
+                      isVoiceControlEnabled 
+                        ? "border-green-500/70 shadow-green-500/30 shadow-lg" 
+                        : "border-gray-600 hover:border-cyan-500/50"
+                    } ${isSpeaking || isModeTransitioning ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    title={isVoiceControlEnabled ? "Desactivar reconocimiento de voz" : "Activar reconocimiento de voz"}
+                    aria-label={isVoiceControlEnabled ? "Desactivar reconocimiento de voz" : "Activar reconocimiento de voz"}
+                  >
                     {/* Efectos cuando habla - versión compacta */}
                     {isSpeaking && (
                       <>
@@ -2790,7 +2839,7 @@ const toggleMode = async () => {
                     <div className="w-16 h-16 flex items-center justify-center">
                       {getMainIcon()}
                     </div>
-                  </div>
+                  </button>
                 </div>
                 
                 {/* Status Text compacto */}
@@ -2809,6 +2858,18 @@ const toggleMode = async () => {
                   }`}>
                     {getStatusText()}
                   </p>
+                  
+                  {/* Indicador de estado del reconocimiento de voz - versión compacta */}
+                  <div className="mt-2 flex items-center justify-center gap-1">
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      isVoiceControlEnabled ? "bg-green-400 animate-pulse" : "bg-gray-600"
+                    }`}></div>
+                    <span className={`text-[10px] font-mono ${
+                      isVoiceControlEnabled ? "text-green-400" : "text-gray-500"
+                    }`}>
+                      {isVoiceControlEnabled ? "VOZ" : "MUDO"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2867,9 +2928,19 @@ const toggleMode = async () => {
       {/* 🧠 INTERFAZ ORIGINAL PARA OTROS MODOS */}
       {(appState === "intelligent_mode" || appState === "functional_mode") && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
-          {/* Central Circle */}
+          {/* Central Circle con toggle de voz */}
           <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
-            <div className={getCircleClasses()}>
+            <button 
+              onClick={toggleVoiceControl}
+              disabled={isSpeaking || isModeTransitioning}
+              className={`${getCircleClasses()} transition-all duration-300 hover:scale-105 ${
+                isVoiceControlEnabled 
+                  ? "shadow-green-500/30 shadow-2xl" 
+                  : "hover:shadow-cyan-500/30 hover:shadow-xl"
+              } ${isSpeaking || isModeTransitioning ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              title={isVoiceControlEnabled ? "Desactivar reconocimiento de voz" : "Activar reconocimiento de voz"}
+              aria-label={isVoiceControlEnabled ? "Desactivar reconocimiento de voz" : "Activar reconocimiento de voz"}
+            >
               {/* ✨ EFECTOS FUTURISTAS EN EL CÍRCULO CUANDO HABLA */}
               {isSpeaking && (
                 <>
@@ -2899,7 +2970,7 @@ const toggleMode = async () => {
                 </>
               )}
               <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">{getMainIcon()}</div>
-            </div>
+            </button>
 
             {/* Status Text */}
             <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 text-center w-full">
@@ -2928,6 +2999,18 @@ const toggleMode = async () => {
               >
                 {getStatusText()}
               </p>
+              
+              {/* Indicador de estado del reconocimiento de voz */}
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  isVoiceControlEnabled ? "bg-green-400 animate-pulse" : "bg-gray-600"
+                }`}></div>
+                <span className={`text-xs font-mono ${
+                  isVoiceControlEnabled ? "text-green-400" : "text-gray-500"
+                }`}>
+                  {isVoiceControlEnabled ? "VOZ_ACTIVA" : "VOZ_INACTIVA"}
+                </span>
+              </div>
             </div>
           </div>
 
