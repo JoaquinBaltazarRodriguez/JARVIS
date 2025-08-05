@@ -40,6 +40,7 @@ import {
   VolumeX,
   Eye,
   Globe,
+  ArrowRight,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -67,7 +68,7 @@ import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
 import { NexusMemory } from "@/lib/jarvisMemory"
 import Starfield from "@/components/Starfield"
-import FunctionalModeShell from "@/components/FunctionalModeShell"
+
 import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation"
 import { SettingsModal } from "@/components/SettingsModal"
 import { LoadingScreen } from "@/components/LoadingScreen"
@@ -192,6 +193,9 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [mounted, setMounted] = useState(false)
   const [startupAnim, setStartupAnim] = useState(false)
   const [showLoadingScreen, setShowLoadingScreen] = useState(false)
+  
+  // --- Estado para transición de modo ---
+  const [isModeTransitioning, setIsModeTransitioning] = useState(false)
   
   // --- Estados para sistema de perfiles ---
   const [showLoginSystem, setShowLoginSystem] = useState(false)
@@ -1347,12 +1351,15 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   }
 
   const handleIntelligentMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
+    if (isSpeaking || isModeTransitioning) return
+    
+    setIsModeTransitioning(true)
     setAppState("intelligent_mode");
     
     // Mensaje adaptado al género del perfil
     const tratamiento = activeProfile?.gender === "feminine" ? "Señora" : "Señor";
     const intelligentMsg =
-      `Modo inteligente activado ${tratamiento}. Bienvenid${activeProfile?.gender === "feminine" ? "a" : "o"} al PORTAL-NEXUS, ¿en qué proyecto quiere trabajar hoy?`;
+      `Portal NEXUS activado ${tratamiento}. Bienvenid${activeProfile?.gender === "feminine" ? "a" : "o"} al PORTAL-NEXUS, ¿en qué proyecto quiere trabajar hoy?`;
     
     setMessages((prev) => [...prev, { text: intelligentMsg, type: "nexus" }]);
     if (!silent) {
@@ -1372,13 +1379,18 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         }, 500);
       }
     }
+    
+    setTimeout(() => setIsModeTransitioning(false), 800)
   }
 
   // 🔧 MANEJAR MODO FUNCIONAL
   const handleFunctionalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
+    if (isSpeaking || isModeTransitioning) return
+    
+    setIsModeTransitioning(true)
     setAppState("functional_mode");
     const functionalMsg =
-      "Modo funcional activado. Tiene a su disposición un gestor de espacio de trabajo, con acceso a calendario, notas, y mas funcionalidades.";
+      "Modo Workspace activado. Tiene a su disposición un gestor de espacio de trabajo, con acceso a calendario, notas, y mas funcionalidades.";
     setMessages((prev) => [...prev, { text: functionalMsg, type: "nexus" }]);
     if (!silent) {
       setCurrentText(functionalMsg);
@@ -1397,14 +1409,19 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         }, 500);
       }
     }
+    
+    setTimeout(() => setIsModeTransitioning(false), 800)
   }
 
   // 🔄 VOLVER AL MODO NORMAL
   type ModeHandlerOptions = { silent?: boolean; subtitle?: string; forceListen?: boolean };
 
 const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = false }: ModeHandlerOptions = {}) => {
+  if (isSpeaking || isModeTransitioning) return
+  
+  setIsModeTransitioning(true)
   setAppState("active");
-  const normalMsg = "Volviendo al modo normal. ¿En qué más puedo asistirle?";
+  const normalMsg = "Modo Mi NEXUS activado. ¿En qué más puedo asistirle?";
   setMessages((prev) => [...prev, { text: normalMsg, type: "nexus" }]);
   if (silent) {
     stopListening();
@@ -1414,16 +1431,19 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
     }
     if (forceListen) {
       startAutoListening();
+      setTimeout(() => setIsModeTransitioning(false), 800)
       return;
     }
     setTimeout(() => {
       startAutoListening();
     }, 500);
+    setTimeout(() => setIsModeTransitioning(false), 800)
     return;
   }
   setCurrentText(normalMsg);
   await speak(normalMsg);
   setCurrentText("");
+  setTimeout(() => setIsModeTransitioning(false), 800)
 } 
 
 // 🚪 FUNCIÓN PARA CERRAR SESIÓN
@@ -2290,6 +2310,17 @@ const getStatusText = () => {
   return "Habla libremente (automático)"
 }
 
+// 🔄 FUNCIÓN PARA ALTERNAR ENTRE MODOS
+const toggleMode = async () => {
+  if (isSpeaking) return
+  
+  if (appState === "active") {
+    await handleFunctionalMode({ silent: false })
+  } else if (appState === "functional_mode") {
+    await handleNormalMode({ silent: false })
+  }
+}
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
@@ -2298,93 +2329,12 @@ const getStatusText = () => {
     )
   }
 
-  // --- INTERFAZ ESTÁTICA PARA MODO FUNCIONAL ---
-  if (appState === "functional_mode" as AppState) {
-    // Usamos el componente memoizado FunctionalModeShell que nunca se vuelve a renderizar
-    // gracias al comparador personalizado (siempre retorna true)
-    const handleMusicControlInFunctional = (action: string) => {
-      console.log('Music control action en modo funcional:', action) // Para debug
-      
-      if (action === 'toggle') {
-        if (youtubePlayerRef.current && 
-            typeof youtubePlayerRef.current.pauseVideo === 'function' && 
-            typeof youtubePlayerRef.current.playVideo === 'function') {
-          if (!isPlayingMusic) {
-            youtubePlayerRef.current.playVideo();
-            setIsPlayingMusic(true);
-          } else {
-            youtubePlayerRef.current.pauseVideo();
-            setIsPlayingMusic(false);
-          }
-        }
-      } else if (action === 'quitar' || action === 'close') {
-        // Detener la música
-        if (youtubePlayerRef.current && 
-            typeof youtubePlayerRef.current.stopVideo === 'function') {
-          youtubePlayerRef.current.stopVideo();
-          setCurrentSongTitle("");
-          setMusicBackgroundMode(false);
-          setIsPlayingMusic(false);
-        }
-      } else if (action === 'foreground') {
-        // Cambiar a modo música
-        setAppState('music_mode');
-      } else if (action === 'next' && playlistMode && currentPlaylist) {
-        // Reproducir siguiente canción
-        if (currentPlaylistIndex < currentPlaylist.songs.length - 1) {
-          const nextIndex = currentPlaylistIndex + 1;
-          setCurrentPlaylistIndex(nextIndex);
-          const nextSong = currentPlaylist.songs[nextIndex];
-          setCurrentSongTitle(nextSong.title);
-          setCurrentVideoId(nextSong.videoId);
-          
-          // Actualizar el reproductor
-          if (youtubePlayerRef.current && 
-              typeof youtubePlayerRef.current.loadVideoById === 'function') {
-            youtubePlayerRef.current.loadVideoById(nextSong.videoId);
-          }
-        }
-      } else if (action === 'previous' && playlistMode && currentPlaylist) {
-        // Reproducir canción anterior
-        if (currentPlaylistIndex > 0) {
-          const prevIndex = currentPlaylistIndex - 1;
-          setCurrentPlaylistIndex(prevIndex);
-          const prevSong = currentPlaylist.songs[prevIndex];
-          setCurrentSongTitle(prevSong.title);
-          setCurrentVideoId(prevSong.videoId);
-          
-          // Actualizar el reproductor
-          if (youtubePlayerRef.current && 
-              typeof youtubePlayerRef.current.loadVideoById === 'function') {
-            youtubePlayerRef.current.loadVideoById(prevSong.videoId);
-          }
-        }
-      } else if (action === 'foreground') {
-        // Cambiar a modo primer plano
-        setMusicBackgroundMode(false);
-      }
-    };
-    
-    return (
-      <FunctionalModeShell 
-        onNormal={() => handleNormalMode({ silent: true, subtitle: "Cambiando a modo normal" })} 
-        onIntelligent={() => handleIntelligentMode({ silent: true, subtitle: "Cambiando a modo inteligente" })} 
-        onFunctional={() => handleFunctionalMode({ silent: true, subtitle: "Cambiando a modo funcional" })} 
-        musicBackgroundMode={musicBackgroundMode}
-        currentSongTitle={currentSongTitle}
-        onShowSettings={() => setShowSettings(true)}
-        onShowConversations={() => setShowConversationsManager(true)}
-        onShowLocations={() => setShowLocationsManager(true)}
-        onMusicControl={handleMusicControlInFunctional}
-      />
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-black/95 relative overflow-hidden">
-      {/* El modo funcional se maneja completamente con el componente memoizado FunctionalModeShell */}
-      {appState !== "functional_mode" && (
-        <>
+      {/* Render universal para todos los modos */}
+      <>
           {/* Fondo estático de estrellas (excepto en pantalla de carga) */}
           <Starfield startupMode={startupAnim} />
 
@@ -2426,7 +2376,6 @@ const getStatusText = () => {
             <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
           </div>
         </>
-      )}
       {/* Header */}
       <div className="flex justify-between items-center p-6 border-b border-cyan-500/20 relative z-10">
         <div className="flex items-center space-x-4">
@@ -2443,7 +2392,7 @@ const getStatusText = () => {
             {appState === "functional_mode" && (
               <span className="flex items-center gap-1 px-3 py-1 bg-orange-900/60 rounded-full border border-orange-500 ml-2">
                 <Mail className="w-5 h-5 text-orange-400" />
-                <span className="text-orange-300 text-xs font-semibold">MODO FUNCIONAL</span>
+                <span className="text-orange-300 text-xs font-semibold">WORKSPACE</span>
               </span>
             )}
           </div>
@@ -2786,7 +2735,7 @@ const getStatusText = () => {
       )}
 
       {/* Render habitual solo cuando NO está en música en segundo plano */}
-      {(!isPlayingMusic || !musicBackgroundMode || appState !== "active") && appState !== "functional_mode" && (
+      {(!isPlayingMusic || !musicBackgroundMode || appState !== "active") && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
           {/* Central Circle */}
           <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
@@ -2822,23 +2771,7 @@ const getStatusText = () => {
               <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">{getMainIcon()}</div>
             </div>
 
-            {/* Botones de modo centrados debajo del logo, solo si hasInitialized y modo activo */}
-            {hasInitialized && ["active","intelligent_mode"].includes(appState) && (
-              <div className="flex gap-8 mt-10 justify-center items-center w-full">
-                <button
-                  className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState==="active"?"bg-cyan-900/90 text-cyan-200 border-cyan-400 scale-105":"bg-cyan-900/60 text-cyan-400 border-cyan-700 hover:scale-105"}`}
-                  onClick={() => { if (!isSpeaking && appState!=="active") handleNormalMode({silent:false}) }}
-                  tabIndex={0}
-                  aria-label="Mi NEXUS"
-                >Mi NEXUS</button>
-                <button
-                  className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState===("functional_mode" as AppState)?"bg-orange-900/90 text-orange-200 border-orange-400 scale-105":"bg-orange-900/60 text-orange-400 border-orange-700 hover:scale-105"}`}
-                  onClick={() => { if (!isSpeaking && appState!==("functional_mode" as AppState)) handleFunctionalMode({silent:false}) }}
-                  tabIndex={0}
-                  aria-label="Workspace"
-                >Workspace</button>
-              </div>
-            )}
+
 
             {/* Status Text */}
             <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 text-center w-full">
@@ -3075,9 +3008,9 @@ const getStatusText = () => {
         </div>
       )}
 
-      {/* Mini barra de música en segundo plano con controles */}
-      {isPlayingMusic && currentVideoId && musicBackgroundMode && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-cyan-900/90 rounded-lg shadow-xl flex items-center px-4 py-3 z-40 border border-cyan-600 gap-3">
+      {/* Mini barra de música en segundo plano con controles - SIEMPRE VISIBLE CUANDO HAY MÚSICA */}
+      {isPlayingMusic && currentVideoId && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-cyan-900/95 rounded-lg shadow-2xl flex items-center px-4 py-3 z-[9998] border-2 border-cyan-500 gap-3">
           {/* Indicador de modo y escucha */}
           <div className="flex flex-col items-center justify-center mr-3">
             <span className="text-xs font-bold text-cyan-200">
@@ -3207,7 +3140,33 @@ const getStatusText = () => {
         </div>
       )}
 
-
+      {/* 🔄 BOTÓN FLOTANTE DE CAMBIO DE MODO - SIEMPRE VISIBLE */}
+      {hasInitialized && (
+        <div className="fixed bottom-6 right-6 z-[9999]">
+          <button
+            onClick={toggleMode}
+            disabled={isSpeaking}
+            className={`
+              flex items-center gap-3 px-6 py-4 rounded-full
+              font-bold text-white border-2 shadow-2xl
+              hover:scale-110 transition-all duration-200
+              ${
+                appState === "active" 
+                  ? 'bg-orange-600 border-orange-400 hover:bg-orange-500' 
+                  : 'bg-cyan-600 border-cyan-400 hover:bg-cyan-500'
+              }
+            `}
+          >
+            <ArrowRight 
+              size={24} 
+              className={appState === "functional_mode" ? 'rotate-180' : ''} 
+            />
+            <span className="text-lg">
+              {appState === "active" ? "Workspace" : "Mi NEXUS"}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* 📱 GESTORES */}
       <ContactsManager isOpen={showContactsManager} onClose={() => setShowContactsManager(false)} />
