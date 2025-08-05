@@ -2541,6 +2541,18 @@ const toggleMode = async () => {
       {showPlaylistSelector && (
   <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
     <div className="bg-gray-900 rounded-lg p-8 shadow-xl border border-cyan-800 relative min-w-[340px] max-w-[90vw] min-h-[400px]">
+      {/* Botón de cerrar en la esquina superior derecha */}
+      <button
+        onClick={() => { setShowPlaylistSelector(false); setSelectedPlaylistIdx(null); }}
+        className="absolute top-4 right-4 text-cyan-400 hover:text-cyan-300 transition-colors duration-200 z-10"
+        aria-label="Cerrar panel de playlists"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      
       <h2 className="text-cyan-300 text-xl font-bold mb-4 flex items-center gap-2">
         <Music className="inline-block w-6 h-6 text-cyan-400" /> Playlists Registradas
       </h2>
@@ -2559,7 +2571,7 @@ const toggleMode = async () => {
           }}
         />
         <Button
-          className="bg-cyan-700 hover:bg-cyan-800 text-white"
+          className="bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600 hover:border-gray-500 transition-all duration-200"
           disabled={!newPlaylistName.trim() || !activeProfile?.id}
           onClick={async () => { 
             if (newPlaylistName.trim() && activeProfile?.id) {
@@ -2579,7 +2591,7 @@ const toggleMode = async () => {
             <div className="flex items-center gap-1">
               {/* Botón de reproducción */}
               <button
-                className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-700 hover:from-emerald-600 hover:to-green-800 text-white rounded-full shadow-lg shadow-green-700/30 transition-all duration-200 border border-emerald-400/30"
+                className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-green-400 hover:bg-gray-800/50 rounded transition-all duration-200"
                 onClick={() => {
                   if (pl.songs && pl.songs.length > 0) {
                     // Reproducir la playlist completa empezando por la primera canción
@@ -2594,7 +2606,7 @@ const toggleMode = async () => {
               
               {/* Botón de eliminar */}
               <button
-                className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-rose-500 to-red-700 hover:from-rose-600 hover:to-red-800 text-white rounded-full shadow-lg shadow-red-700/30 transition-all duration-200 border border-rose-400/30"
+                className="flex items-center justify-center w-8 h-8 text-gray-400 hover:text-red-400 hover:bg-gray-800/50 rounded transition-all duration-200"
                 onClick={() => {
                   if (pl.id) {
                     deletePlaylist(pl.id);
@@ -2626,7 +2638,7 @@ const toggleMode = async () => {
                 <div className="flex items-center gap-1">
                   {/* Botón reproducir */}
                   <button
-                    className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-cyan-500 to-cyan-700 hover:from-cyan-600 hover:to-cyan-800 text-white rounded-full shadow-md transition-all duration-200"
+                    className="flex items-center justify-center w-6 h-6 text-gray-500 hover:text-cyan-400 hover:bg-gray-800/30 rounded transition-all duration-200"
                     onClick={() => playYoutubeVideo(song.videoId, song.title)}
                     title="Reproducir"
                   >
@@ -2635,7 +2647,7 @@ const toggleMode = async () => {
                   
                   {/* Botón eliminar */}
                   <button
-                    className="flex items-center justify-center w-6 h-6 bg-gradient-to-br from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white rounded-full shadow-md transition-all duration-200"
+                    className="flex items-center justify-center w-6 h-6 text-gray-500 hover:text-red-400 hover:bg-gray-800/30 rounded transition-all duration-200"
                     onClick={async () => {
                       if (playlists[selectedPlaylistIdx].id && playlists[selectedPlaylistIdx].songs) {
                         // Crear una nueva lista de canciones sin la que queremos eliminar
@@ -2697,17 +2709,14 @@ const toggleMode = async () => {
               onKeyDown={e=>{if(e.key==="Enter"){handleAddSongToPlaylist()}}}
             />
             <Button
-              className="bg-cyan-700 hover:bg-cyan-800 text-white"
+              className="bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600 hover:border-gray-500 transition-all duration-200"
               disabled={!newSongTitle.trim()||!newSongLink.trim()}
               onClick={handleAddSongToPlaylist}
             >Añadir</Button>
           </div>
         </div>
       )}
-      <Button
-        className="w-full bg-cyan-700 hover:bg-cyan-800 text-white mt-2"
-        onClick={() => { setShowPlaylistSelector(false); setSelectedPlaylistIdx(null); }}
-      >Cerrar</Button>
+
     </div>
   </div>
 )}
@@ -3008,30 +3017,7 @@ const toggleMode = async () => {
             </span>
           </div>
           
-          {/* Botones para cambiar de modo */}
-          <div className="flex items-center gap-1 mr-2 border-r border-cyan-700/50 pr-3">
-            <button
-              className="bg-cyan-700 hover:bg-cyan-800 text-white rounded-full p-2 shadow-md border border-cyan-400 w-7 h-7 flex items-center justify-center"
-              onClick={() => handleNormalMode({ silent: true, subtitle: "Cambiando a modo normal" })}
-              title="Modo Normal"
-            >
-              <Unlock className="w-3 h-3" />
-            </button>
-            <button
-              className="bg-purple-700 hover:bg-purple-800 text-white rounded-full p-2 shadow-md border border-purple-400 w-7 h-7 flex items-center justify-center"
-              onClick={() => handleIntelligentMode({ silent: true, subtitle: "Cambiando a modo inteligente" })}
-              title="Modo Inteligente"
-            >
-              <Brain className="w-3 h-3" />
-            </button>
-            <button
-              className="bg-orange-700 hover:bg-orange-800 text-white rounded-full p-2 shadow-md border border-orange-400 w-7 h-7 flex items-center justify-center"
-              onClick={() => handleFunctionalMode({ silent: true, subtitle: "Cambiando a modo funcional" })}
-              title="Modo Funcional"
-            >
-              <Mail className="w-3 h-3" />
-            </button>
-          </div>
+
 
           <Music className="mr-1 text-cyan-300" />
           <span className="text-cyan-100 font-medium mr-2 truncate max-w-[140px]">{currentSongTitle || "Música en segundo plano"}</span>
@@ -3096,21 +3082,30 @@ const toggleMode = async () => {
 
           
           <div className="flex items-center gap-2 ml-auto">
-            <Button size="sm" variant="outline" className="bg-cyan-950/50 hover:bg-cyan-800" onClick={() => setMusicBackgroundMode(false)}>
-              <svg width="16" height="16" className="mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            {/* Botón primer plano - minimalista */}
+            <button
+              onClick={() => setMusicBackgroundMode(false)}
+              className="flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-cyan-400 hover:bg-gray-800/30 rounded transition-all duration-200 text-xs"
+              title="Primer plano"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
                 <polyline points="10 17 15 12 10 7"/>
                 <line x1="15" y1="12" x2="3" y2="12"/>
               </svg>
-              Primer plano
-            </Button>
-            <Button size="sm" variant="outline" className="bg-red-950/50 hover:bg-red-900/50" onClick={() => handleMusicControl("quitar")}>
-              <svg width="16" height="16" className="mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            </button>
+            
+            {/* Botón cerrar - minimalista */}
+            <button
+              onClick={() => handleMusicControl("quitar")}
+              className="flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-red-400 hover:bg-gray-800/30 rounded transition-all duration-200 text-xs"
+              title="Cerrar música"
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <line x1="18" y1="6" x2="6" y2="18"/>
                 <line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
-              Cerrar
-            </Button>
+            </button>
           </div>
 
           {/* Indicador de música en segundo plano */}
@@ -3120,28 +3115,25 @@ const toggleMode = async () => {
         </div>
       )}
 
-      {/* 🔄 BOTÓN FLOTANTE DE CAMBIO DE MODO - SIEMPRE VISIBLE */}
+      {/* 🔄 BOTÓN FLOTANTE DE CAMBIO DE MODO - MINIMALISTA */}
       {hasInitialized && (
         <div className="fixed bottom-6 right-6 z-[9999]">
           <button
             onClick={toggleMode}
             disabled={isSpeaking}
-            className={`
-              flex items-center gap-3 px-6 py-4 rounded-full
-              font-bold text-white border-2 shadow-2xl
-              hover:scale-110 transition-all duration-200
-              ${
-                appState === "active" 
-                  ? 'bg-orange-600 border-orange-400 hover:bg-orange-500' 
-                  : 'bg-cyan-600 border-cyan-400 hover:bg-cyan-500'
-              }
-            `}
+            className="
+              flex items-center gap-2 px-4 py-2 rounded-lg
+              bg-gray-800/80 hover:bg-gray-700/90 text-gray-300 hover:text-white
+              border border-gray-600 hover:border-gray-500
+              backdrop-blur-sm transition-all duration-200
+              text-sm font-medium
+            "
           >
             <ArrowRight 
-              size={24} 
+              size={16} 
               className={appState === "functional_mode" ? 'rotate-180' : ''} 
             />
-            <span className="text-lg">
+            <span>
               {appState === "active" ? "Workspace" : "Mi NEXUS"}
             </span>
           </button>
