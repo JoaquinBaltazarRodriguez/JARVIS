@@ -2743,8 +2743,127 @@ const toggleMode = async () => {
         </div>
       )}
 
-      {/* Render habitual solo cuando NO está en música en segundo plano */}
-      {(!isPlayingMusic || !musicBackgroundMode || appState !== "active") && (
+      {/* 🎨 NUEVA INTERFAZ TIPO FIGMA - Solo para Mi NEXUS (appState === "active") */}
+      {appState === "active" && (!isPlayingMusic || !musicBackgroundMode) && (
+        <div className="flex-1 flex min-h-screen relative z-10">
+          {/* 📂 PANEL LATERAL IZQUIERDO */}
+          <div className="w-80 bg-gray-900/50 border-r border-gray-700/50 backdrop-blur-sm flex flex-col">
+            {/* Círculo NEXUS más pequeño debajo del título */}
+            <div className="p-6 border-b border-gray-700/50">
+              <div className="flex flex-col items-center">
+                {/* Círculo NEXUS compacto */}
+                <div className="relative mb-4">
+                  <div className={`w-24 h-24 rounded-full bg-black flex items-center justify-center border-2 ${
+                    appState === "active" ? "border-cyan-500/50" : "border-gray-600"
+                  }`}>
+                    {/* Efectos cuando habla - versión compacta */}
+                    {isSpeaking && (
+                      <>
+                        <div className="absolute inset-0 rounded-full border-2 border-cyan-400/30 animate-ping"></div>
+                        <div className="absolute inset-2 rounded-full border-2 border-cyan-400/20 animate-ping delay-75"></div>
+                        <div className="absolute top-2 left-2 w-1 h-1 bg-cyan-400 rounded-full animate-bounce delay-100"></div>
+                        <div className="absolute top-3 right-3 w-0.5 h-0.5 bg-cyan-300 rounded-full animate-bounce delay-200"></div>
+                        <div className="absolute bottom-3 left-3 w-1 h-1 bg-cyan-500 rounded-full animate-bounce delay-300"></div>
+                        <div className="absolute bottom-2 right-2 w-0.5 h-0.5 bg-cyan-200 rounded-full animate-bounce delay-400"></div>
+                      </>
+                    )}
+                    <div className="w-16 h-16 flex items-center justify-center">
+                      {getMainIcon()}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Status Text compacto */}
+                <div className="text-center">
+                  <p className={`text-xs font-medium ${
+                    appState === "sleeping" ? "text-gray-400" :
+                    appState === "waiting_password" ? "text-yellow-400" :
+                    appState === "initializing" ? "text-cyan-400" :
+                    appState === "calling_confirmation" ? "text-green-400" :
+                    appState === "music_mode" ? "text-green-400" :
+                    appState === "music_playing" ? "text-green-400" :
+                    appState === "intelligent_mode" ? "text-purple-400" :
+                    (appState as AppState) === "functional_mode" ? "text-orange-400" :
+                    appState === "image_download_confirmation" ? "text-cyan-400" :
+                    "text-cyan-400"
+                  }`}>
+                    {getStatusText()}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Espacio para futuras funciones del panel lateral */}
+            <div className="flex-1 p-6">
+              <div className="text-gray-500 text-sm">
+                {/* Aquí irán las futuras funciones como papelera, etc. */}
+                <div className="text-center opacity-50">
+                  Panel de herramientas
+                  <br />
+                  <span className="text-xs">(En desarrollo)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* 🎯 ÁREA PRINCIPAL DERECHA - Grid de Proyectos */}
+          <div className="flex-1 bg-gray-950/30 backdrop-blur-sm">
+            <div className="h-full p-8">
+              {/* Header del área de proyectos */}
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-white mb-2">Proyectos</h2>
+                <p className="text-gray-400 text-sm">Crea y gestiona tus proyectos de trabajo</p>
+              </div>
+              
+              {/* Grid de proyectos */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {/* Ventanita para crear nuevo proyecto */}
+                <div className="group">
+                  <div className="aspect-square bg-gray-800/40 border-2 border-dashed border-gray-600 hover:border-cyan-500/50 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105">
+                    {/* Icono + */}
+                    <div className="w-12 h-12 rounded-full bg-gray-700/50 group-hover:bg-cyan-500/20 flex items-center justify-center mb-3 transition-all duration-300">
+                      <Plus className="w-6 h-6 text-gray-400 group-hover:text-cyan-400 transition-colors duration-300" />
+                    </div>
+                    
+                    {/* Texto */}
+                    <p className="text-gray-400 group-hover:text-cyan-300 text-sm font-medium transition-colors duration-300">
+                      Nuevo Proyecto
+                    </p>
+                    <p className="text-gray-600 group-hover:text-gray-400 text-xs mt-1 transition-colors duration-300">
+                      Haz clic para crear
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Aquí se mostrarán los proyectos existentes en el futuro */}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 🎵 INTERFAZ ORIGINAL PARA MÚSICA EN SEGUNDO PLANO */}
+      {isPlayingMusic && musicBackgroundMode && appState === "active" && (
+        <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
+          {/* Central Circle SOLO para logo animado música fondo */}
+          <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
+            <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">
+              {getMainIcon()}
+            </div>
+          </div>
+          
+          {/* Botón de Playlists en modo background */}
+          <button 
+            onClick={() => setShowPlaylistSelector(true)}
+            className="absolute bottom-24 mx-auto px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 text-white rounded-lg shadow-lg hover:from-cyan-500 hover:to-blue-600 transition-all duration-200 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 18a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"></path><path d="M12 8H4a2 2 0 0 0-2 2v10c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2v-2"></path><path d="M6 10v10"></path><path d="M10 10v10"></path></svg>
+            Playlists
+          </button>
+        </div>
+      )}
+      
+      {/* 🧠 INTERFAZ ORIGINAL PARA OTROS MODOS */}
+      {(appState === "intelligent_mode" || appState === "functional_mode") && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
           {/* Central Circle */}
           <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
@@ -2760,7 +2879,7 @@ const toggleMode = async () => {
                   <div className="absolute bottom-6 left-8 w-1.5 h-1.5 bg-cyan-500 rounded-full animate-bounce delay-300"></div>
                   <div className="absolute bottom-4 right-4 w-1 h-1 bg-cyan-200 rounded-full animate-bounce delay-400"></div>
                   <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
-                    <div className="text-cyan-400 text-xs font-mono animate-pulse opacity-70">{">"} NEXUS_SPEAKING</div>
+                    <div className="text-cyan-400 text-xs font-mono animate-pulse opacity-70">{">"}  NEXUS_SPEAKING</div>
                   </div>
                   <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
                     <div className="text-cyan-400 text-xs font-mono animate-pulse opacity-70">
@@ -2768,7 +2887,7 @@ const toggleMode = async () => {
                     </div>
                   </div>
                   <div className="absolute top-1/2 -left-20 transform -translate-y-1/2 rotate-90">
-                    <div className="text-cyan-400 text-xs font-mono animate-pulse opacity-50">{">"} AI_PROCESSING</div>
+                    <div className="text-cyan-400 text-xs font-mono animate-pulse opacity-50">{">"}  AI_PROCESSING</div>
                   </div>
                   <div className="absolute top-1/2 -right-20 transform -translate-y-1/2 -rotate-90">
                     <div className="text-cyan-400 text-xs font-mono animate-pulse opacity-50">
@@ -2779,8 +2898,6 @@ const toggleMode = async () => {
               )}
               <div className="w-48 h-48 rounded-full bg-black flex items-center justify-center">{getMainIcon()}</div>
             </div>
-
-
 
             {/* Status Text */}
             <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 text-center w-full">
@@ -2812,8 +2929,6 @@ const toggleMode = async () => {
             </div>
           </div>
 
-
-
           {/* 🖼️ MOSTRAR IMAGEN ACTUAL - SIN BOTÓN DE DESCARGA MANUAL */}
           {currentImage && !waitingImageDownloadConfirmation && (
             <Card className="mb-8 bg-gray-900/80 border-cyan-500/30 p-6 max-w-md backdrop-blur-sm relative overflow-hidden">
@@ -2823,7 +2938,7 @@ const toggleMode = async () => {
               <div className="text-center relative z-10">
                 <div className="flex items-center justify-center mb-3">
                   <ImageIcon className="h-4 w-4 text-cyan-400 mr-2" />
-                  <p className="text-cyan-100 text-sm font-medium font-mono">{">"} IMAGE_DISPLAY:</p>
+                  <p className="text-cyan-100 text-sm font-medium font-mono">{">"}  IMAGE_DISPLAY:</p>
                 </div>
                 <div className="rounded-lg overflow-hidden border border-cyan-500/30 mb-3">
                   <img
