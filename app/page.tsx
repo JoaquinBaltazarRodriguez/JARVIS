@@ -1090,14 +1090,8 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }, [mounted, appState, isSupported])
 
-  // 🎵 ESCUCHA SELECTIVA - Diferentes modos (RESPETA TOGGLE DE VOZ)
+  // 🎵 ESCUCHA SELECTIVA - Diferentes modos
   useEffect(() => {
-    // Solo iniciar escucha automática si el control de voz está habilitado
-    if (!isVoiceControlEnabled) {
-      console.log("🔇 Voice control disabled - skipping auto listening")
-      return
-    }
-    
     if (
       appState === "waiting_password" ||
       appState === "active" ||
@@ -1108,9 +1102,9 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       appState === "image_download_confirmation"
     ) {
       if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
-        console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE (Voice Control Enabled)")
+        console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE")
         setTimeout(() => {
-          if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing && isVoiceControlEnabled) {
+          if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
             startAutoListening()
           }
         }, 1000)
@@ -1119,15 +1113,15 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     // 🎵 ESCUCHA ESPECIAL CUANDO ESTÁ REPRODUCIENDO MÚSICA
     else if (appState === "music_playing") {
       if (!isListening && !isSpeaking && !isProcessing) {
-        console.log("🎵 STARTING MUSIC-ONLY LISTENING (Voice Control Enabled)")
+        console.log("🎵 STARTING MUSIC-ONLY LISTENING")
         setTimeout(() => {
-          if (!isListening && !isSpeaking && !isProcessing && isVoiceControlEnabled) {
+          if (!isListening && !isSpeaking && !isProcessing) {
             startAutoListening()
           }
         }, 1000)
       }
     }
-  }, [appState, isPlayingMusic, isListening, isSpeaking, isProcessing, isVoiceControlEnabled])
+  }, [appState, isPlayingMusic, isListening, isSpeaking, isProcessing])
 
   const handleWakeWordDetected = (detected: boolean) => {
     if (detected && appState === "sleeping") {
@@ -1140,10 +1134,14 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }
 
+  // 🧠 OPTIMIZADO: useEffect con dependencias específicas para prevenir bucles infinitos
   useEffect(() => {
     if (transcript && !isProcessing) {
       const text = transcript.toLowerCase().trim()
       console.log("💬 PROCESSING:", text, "| STATE:", appState)
+      
+      // Resetear transcript inmediatamente para prevenir re-procesamiento
+      resetTranscript()
 
       // --- NUEVO FLUJO PARA PLAYLISTS ---
       if (awaitingPlaylistName) {
@@ -2386,7 +2384,7 @@ const getStatusText = () => {
   if (isSpeaking) return "NEXUS hablando..."
   if (isProcessing) return "Procesando con ChatGPT..."
   if (isListening) return "Escuchando... (automático)"
-  return "Pulsa para activar reconocimiento de voz"
+  return "Habla libremente (automático)"
 }
 
 // 🔄 FUNCIÓN PARA ALTERNAR ENTRE MODOS
@@ -2858,18 +2856,6 @@ const toggleMode = async () => {
                   }`}>
                     {getStatusText()}
                   </p>
-                  
-                  {/* Indicador de estado del reconocimiento de voz - versión compacta */}
-                  <div className="mt-2 flex items-center justify-center gap-1">
-                    <div className={`w-1.5 h-1.5 rounded-full ${
-                      isVoiceControlEnabled ? "bg-green-400 animate-pulse" : "bg-gray-600"
-                    }`}></div>
-                    <span className={`text-[10px] font-mono ${
-                      isVoiceControlEnabled ? "text-green-400" : "text-gray-500"
-                    }`}>
-                      {isVoiceControlEnabled ? "VOZ" : "MUDO"}
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2999,18 +2985,6 @@ const toggleMode = async () => {
               >
                 {getStatusText()}
               </p>
-              
-              {/* Indicador de estado del reconocimiento de voz */}
-              <div className="mt-2 flex items-center justify-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${
-                  isVoiceControlEnabled ? "bg-green-400 animate-pulse" : "bg-gray-600"
-                }`}></div>
-                <span className={`text-xs font-mono ${
-                  isVoiceControlEnabled ? "text-green-400" : "text-gray-500"
-                }`}>
-                  {isVoiceControlEnabled ? "VOZ_ACTIVA" : "VOZ_INACTIVA"}
-                </span>
-              </div>
             </div>
           </div>
 
