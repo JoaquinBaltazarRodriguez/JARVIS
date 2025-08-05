@@ -1091,45 +1091,60 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }, [mounted, appState, playClickSound, playHoverSound])
 
-  useEffect(() => {
-    if (mounted && appState === "sleeping" && isSupported) {
-      console.log("🌙 Starting continuous listening for wake word...")
-      startContinuousListening(handleWakeWordDetected)
-    }
-  }, [mounted, appState, isSupported])
+  // DESACTIVADO: No escuchar automáticamente para evitar consumo de memoria
+  // useEffect(() => {
+  //   if (mounted && appState === "sleeping" && isSupported) {
+  //     console.log("🌙 Starting continuous listening for wake word...")
+  //     startContinuousListening(handleWakeWordDetected)
+  //   }
+  // }, [mounted, appState, isSupported])
 
-  // 🎵 ESCUCHA SELECTIVA - Diferentes modos
-  useEffect(() => {
-    if (
-      appState === "waiting_password" ||
-      appState === "active" ||
-      appState === "navigation_mode" ||
-      appState === "music_mode" ||
-      appState === "intelligent_mode" ||
-      appState === "functional_mode" ||
-      appState === "image_download_confirmation"
-    ) {
-      if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
-        console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE")
-        setTimeout(() => {
-          if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
-            startAutoListening()
-          }
-        }, 1000)
-      }
-    }
-    // 🎵 ESCUCHA ESPECIAL CUANDO ESTÁ REPRODUCIENDO MÚSICA
-    else if (appState === "music_playing") {
-      if (!isListening && !isSpeaking && !isProcessing) {
-        console.log("🎵 STARTING MUSIC-ONLY LISTENING")
-        setTimeout(() => {
-          if (!isListening && !isSpeaking && !isProcessing) {
-            startAutoListening()
-          }
-        }, 1000)
-      }
-    }
-  }, [appState, isPlayingMusic, isListening, isSpeaking, isProcessing])
+  // DESACTIVADO: Escucha selectiva automática para evitar consumo de memoria
+  // Solo se activará manualmente cuando el usuario haga clic
+  // useEffect(() => {
+  //   // PREVENIR BUCLE INFINITO: Solo iniciar escucha si no está activa
+  //   if (isListening || isSpeaking || isProcessing) {
+  //     return
+  //   }
+
+  //   let timeoutId: NodeJS.Timeout
+
+  //   if (
+  //     appState === "waiting_password" ||
+  //     appState === "active" ||
+  //     appState === "navigation_mode" ||
+  //     appState === "music_mode" ||
+  //     appState === "intelligent_mode" ||
+  //     appState === "functional_mode" ||
+  //     appState === "image_download_confirmation"
+  //   ) {
+  //     // SOLO iniciar si NO está reproduciendo música
+  //     if (!isPlayingMusic) {
+  //       console.log("🎤 STARTING AUTO LISTENING - NORMAL MODE")
+  //       timeoutId = setTimeout(() => {
+  //         if (!isPlayingMusic && !isListening && !isSpeaking && !isProcessing) {
+  //           startAutoListening()
+  //         }
+  //       }, 1000)
+  //     }
+  //   }
+  //   // 🎵 ESCUCHA ESPECIAL CUANDO ESTÁ REPRODUCIENDO MÚSICA (SIN BUCLE)
+  //   else if (appState === "music_playing") {
+  //     console.log("🎵 STARTING MUSIC-ONLY LISTENING")
+  //     timeoutId = setTimeout(() => {
+  //       if (!isListening && !isSpeaking && !isProcessing) {
+  //         startAutoListening()
+  //       }
+  //     }, 1000)
+  //   }
+
+  //   // CLEANUP: Limpiar timeout al desmontar
+  //   return () => {
+  //     if (timeoutId) {
+  //       clearTimeout(timeoutId)
+  //     }
+  //   }
+  // }, [appState, isListening, isSpeaking, isProcessing]) // REMOVIDO isPlayingMusic de dependencias
 
   const handleWakeWordDetected = (detected: boolean) => {
     if (detected && appState === "sleeping") {
@@ -1140,6 +1155,36 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       setCurrentText(passwordPrompt)
       speak(passwordPrompt).then(() => setCurrentText(""))
     }
+  }
+
+  // 🎤 CONTROL MANUAL DE VOZ - ACTIVACIÓN SOLO POR CLIC
+  const toggleVoiceControl = () => {
+    if (isSpeaking || isModeTransitioning) return
+    
+    if (isVoiceControlEnabled) {
+      // DESACTIVAR: Parar toda escucha y volver a sleeping
+      console.log("🔇 DESACTIVANDO NEXUS MANUALMENTE")
+      stopListening()
+      setIsVoiceControlEnabled(false)
+      setAppState("sleeping")
+      setCurrentText("NEXUS desactivado")
+      speak("NEXUS desactivado").then(() => setCurrentText(""))
+    } else {
+      // ACTIVAR: Solo iniciar escucha manual
+      console.log("🎤 ACTIVANDO NEXUS MANUALMENTE")
+      setIsVoiceControlEnabled(true)
+      setAppState("active")
+      setCurrentText("NEXUS activado. Haga clic en el círculo para hablar")
+      speak("NEXUS activado. Haga clic en el círculo para hablar").then(() => setCurrentText(""))
+    }
+  }
+
+  // 🎤 INICIAR ESCUCHA MANUAL (SOLO CUANDO ESTÉ ACTIVADO)
+  const startManualListening = () => {
+    if (!isVoiceControlEnabled || isSpeaking || isListening || isProcessing) return
+    
+    console.log("🎤 INICIANDO ESCUCHA MANUAL")
+    startAutoListening()
   }
 
   // 🧠 OPTIMIZADO: useEffect con dependencias específicas para prevenir bucles infinitos
@@ -1468,35 +1513,7 @@ const handleNormalMode = async ({ silent = false, subtitle = "", forceListen = f
   setTimeout(() => setIsModeTransitioning(false), 800)
 } 
 
-// 🎤 FUNCIÓN PARA TOGGLE DEL RECONOCIMIENTO DE VOZ
-const toggleVoiceControl = async () => {
-  if (isSpeaking || isModeTransitioning) return
-  
-  const newState = !isVoiceControlEnabled
-  setIsVoiceControlEnabled(newState)
-  
-  if (newState) {
-    // Activar reconocimiento de voz
-    const activateMsg = "Reconocimiento de voz activado. Estoy escuchando."
-    setCurrentText(activateMsg)
-    await speak(activateMsg)
-    setCurrentText("")
-    
-    // Iniciar escucha si estamos en un modo activo
-    if (appState === "active" || appState === "functional_mode") {
-      startAutoListening()
-    }
-  } else {
-    // Desactivar reconocimiento de voz
-    const deactivateMsg = "Reconocimiento de voz desactivado. Presiona el botón para reactivar."
-    setCurrentText(deactivateMsg)
-    await speak(deactivateMsg)
-    setCurrentText("")
-    
-    // Detener escucha
-    stopListening()
-  }
-}
+// FUNCIÓN ELIMINADA: toggleVoiceControl duplicada - usando la nueva versión manual
 
 // 🚺 FUNCIÓN PARA CERRAR SESIÓN
 const handleLogout = () => {
@@ -2359,40 +2376,38 @@ const getCircleClasses = () => {
 
 const getStatusText = () => {
   if (appState === "sleeping") return "Presione para activar NEXUS"
+  if (!isVoiceControlEnabled) return "NEXUS desactivado - Clic para activar"
+  
   if (appState === "waiting_password") {
     if (isListening) return "Escuchando contraseña..."
     if (isProcessing) return "Verificando contraseña..."
-    return "Di la contraseña (automático)"
+    return "Di la contraseña (manual)"
   }
   if (appState === "initializing") return "Inicializando NEXUS..."
   if (appState === "calling_confirmation") {
     return pendingCall ? `¿Llamar a ${pendingCall.name}? (Sí/No)` : "Confirmando llamada..."
   }
   if (appState === "music_mode") {
-    if (isListening) return "Escuchando canción... (Di 'cancelar' para salir)"
-    return waitingForSong ? "Di el nombre de la canción (o 'cancelar')" : "Seleccionando música..."
-  }
-  if (appState === "image_download_confirmation") {
-    if (isListening) return "¿Descargar imagen? (Sí/No)"
-    return "Esperando confirmación de descarga..."
+    if (isListening) return "Modo música - Escuchando..."
+    return "Modo música - Clic para hablar"
   }
   if (appState === "music_playing") {
-    if (isListening) return "Solo escucho 'NEXUS quitar música'"
-    return "Reproduciendo música (Solo comando: 'quitar música')"
+    return "Reproduciendo música - Clic para comandos"
   }
   if (appState === "intelligent_mode") {
     if (isSpeaking) return "NEXUS hablando..."
     if (isProcessing) return "Procesando con IA avanzada..."
-    if (isListening) return "Modo inteligente - Escuchando... (automático)"
-    return "Modo inteligente activo (automático)"
+    if (isListening) return "Modo inteligente - Escuchando..."
+    return "Modo inteligente - Clic para hablar"
   }
   if (appState === "functional_mode") {
-    return "Modo funcional"
+    if (isListening) return "Modo funcional - Escuchando..."
+    return "Modo funcional - Clic para hablar"
   }
   if (isSpeaking) return "NEXUS hablando..."
   if (isProcessing) return "Procesando con ChatGPT..."
-  if (isListening) return "Escuchando... (automático)"
-  return "Habla libremente (automático)"
+  if (isListening) return "Escuchando..."
+  return "NEXUS activado - Clic para hablar"
 }
 
 // 📋 FUNCIONES PARA MANEJO DEL PANEL LATERAL
@@ -2851,15 +2866,21 @@ const toggleMode = async () => {
                 {/* Círculo NEXUS compacto con toggle de voz */}
                 <div className="relative mb-4">
                   <button 
-                    onClick={toggleVoiceControl}
+                    onClick={isVoiceControlEnabled ? startManualListening : toggleVoiceControl}
                     disabled={isSpeaking || isModeTransitioning}
                     className={`w-24 h-24 rounded-full bg-black flex items-center justify-center border-2 transition-all duration-300 hover:scale-105 ${
                       isVoiceControlEnabled 
-                        ? "border-green-500/70 shadow-green-500/30 shadow-lg" 
+                        ? (isListening ? "border-red-500/70 shadow-red-500/30 shadow-lg" : "border-green-500/70 shadow-green-500/30 shadow-lg") 
                         : "border-gray-600 hover:border-cyan-500/50"
                     } ${isSpeaking || isModeTransitioning ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                    title={isVoiceControlEnabled ? "Desactivar reconocimiento de voz" : "Activar reconocimiento de voz"}
-                    aria-label={isVoiceControlEnabled ? "Desactivar reconocimiento de voz" : "Activar reconocimiento de voz"}
+                    title={
+                      !isVoiceControlEnabled ? "Activar NEXUS" :
+                      isListening ? "Escuchando..." : "Hacer clic para hablar"
+                    }
+                    aria-label={
+                      !isVoiceControlEnabled ? "Activar NEXUS" :
+                      isListening ? "Escuchando..." : "Hacer clic para hablar"
+                    }
                   >
                     {/* Efectos cuando habla - versión compacta */}
                     {isSpeaking && (
