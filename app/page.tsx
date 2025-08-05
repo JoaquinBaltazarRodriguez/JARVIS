@@ -2803,27 +2803,7 @@ const toggleMode = async () => {
             </div>
           </div>
 
-          {/* Current Speech con efectos futuristas */}
-          {currentText && (
-            <Card className="mb-8 bg-gray-900/80 border-cyan-500/30 p-6 max-w-lg backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-transparent to-cyan-500/5 animate-pulse"></div>
-              <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse"></div>
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-pulse delay-500"></div>
-              <div className="text-center relative z-10">
-                <p className="text-cyan-100 text-sm mb-3 font-medium font-mono">
-                  {"> "} {(appState as AppState) === "intelligent_mode"
-                    ? "NEXUS_INTELLIGENT_OUTPUT:"
-                     : (appState as AppState) === "functional_mode"
-                      ? "NEXUS_FUNCTIONAL_OUTPUT:"
-                      : appState === "image_download_confirmation"
-                        ? "NEXUS_DOWNLOAD_CONFIRMATION:"
-                        : "NEXUS_OUTPUT:"}
-                </p>
-                <p className="text-cyan-300 text-lg leading-relaxed font-light">{currentText}</p>
-                <span className="inline-block w-2 h-5 bg-cyan-400 ml-1 animate-pulse"></span>
-              </div>
-            </Card>
-          )}
+
 
           {/* 🖼️ MOSTRAR IMAGEN ACTUAL - SIN BOTÓN DE DESCARGA MANUAL */}
           {currentImage && !waitingImageDownloadConfirmation && (
