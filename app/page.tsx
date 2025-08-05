@@ -39,6 +39,7 @@ import {
   HelpCircle,
   VolumeX,
   Eye,
+  Globe,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -2435,8 +2436,8 @@ const getStatusText = () => {
             <span className="text-cyan-200 text-base font-semibold drop-shadow-md" style={{textShadow:'0 2px 8px #000'}}>{getStatusText()}</span>
             {appState === "intelligent_mode" && (
               <span className="flex items-center gap-1 px-3 py-1 bg-purple-900/60 rounded-full border border-purple-500 ml-2">
-                <Brain className="w-5 h-5 text-purple-400" />
-                <span className="text-purple-300 text-xs font-semibold">MODO INTELIGENTE</span>
+                <Globe className="w-5 h-5 text-purple-400" />
+                <span className="text-purple-300 text-xs font-semibold">PORTAL NEXUS</span>
               </span>
             )}
             {appState === "functional_mode" && (
@@ -2464,6 +2465,23 @@ const getStatusText = () => {
             }
           >
             <Music className="w-6 h-6 text-cyan-400" />
+          </Button>
+
+          {/* Botón Portal NEXUS */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleAccessibleAction("portal", "Portal NEXUS", () => { if (!isSpeaking && appState !== "intelligent_mode") handleIntelligentMode({silent:false}) })}
+            className={`rounded-full p-2 hover:bg-purple-900 ${focusedElement === "portal" && screenReaderEnabled ? "border-2 border-green-400 bg-green-900/30" : ""} ${appState === "intelligent_mode" ? "bg-purple-900/50 border border-purple-500" : ""}`}
+            title="Portal NEXUS"
+            aria-label="Portal NEXUS"
+            tabIndex={0}
+            onKeyDown={(e) =>
+              (e.key === "Enter" || e.key === " ") &&
+              handleAccessibleAction("portal", "Portal NEXUS", () => { if (!isSpeaking && appState !== "intelligent_mode") handleIntelligentMode({silent:false}) })
+            }
+          >
+            <Globe className={`w-6 h-6 ${appState === "intelligent_mode" ? "text-purple-300" : "text-purple-400"}`} />
           </Button>
 
           {/* Botón Agenda */}
@@ -2811,20 +2829,14 @@ const getStatusText = () => {
                   className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState==="active"?"bg-cyan-900/90 text-cyan-200 border-cyan-400 scale-105":"bg-cyan-900/60 text-cyan-400 border-cyan-700 hover:scale-105"}`}
                   onClick={() => { if (!isSpeaking && appState!=="active") handleNormalMode({silent:false}) }}
                   tabIndex={0}
-                  aria-label="Modo Normal"
-                >Modo Normal</button>
-                <button
-                  className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState==="intelligent_mode"?"bg-purple-900/90 text-purple-200 border-purple-400 scale-105":"bg-purple-900/60 text-purple-400 border-purple-700 hover:scale-105"}`}
-                  onClick={() => { if (!isSpeaking && appState!=="intelligent_mode") handleIntelligentMode({silent:false}) }}
-                  tabIndex={0}
-                  aria-label="Modo Inteligente"
-                >Modo Inteligente</button>
+                  aria-label="Mi NEXUS"
+                >Mi NEXUS</button>
                 <button
                   className={`px-8 py-3 rounded-[10px] text-lg font-bold border-2 transition-all duration-200 shadow-lg ${appState===("functional_mode" as AppState)?"bg-orange-900/90 text-orange-200 border-orange-400 scale-105":"bg-orange-900/60 text-orange-400 border-orange-700 hover:scale-105"}`}
                   onClick={() => { if (!isSpeaking && appState!==("functional_mode" as AppState)) handleFunctionalMode({silent:false}) }}
                   tabIndex={0}
-                  aria-label="Modo Funcional"
-                >Modo Funcional</button>
+                  aria-label="Workspace"
+                >Workspace</button>
               </div>
             )}
 
