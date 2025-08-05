@@ -41,6 +41,7 @@ import {
   Eye,
   Globe,
   ArrowRight,
+  CheckCircle,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -199,6 +200,13 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   
   // 🎤 CONTROL MANUAL DE RECONOCIMIENTO DE VOZ
   const [isVoiceControlEnabled, setIsVoiceControlEnabled] = useState(false)
+  
+  // 📋 ESTADOS PARA NAVEGACIÓN DEL PANEL LATERAL
+  const [currentView, setCurrentView] = useState<'inicio' | 'finalizadas' | 'papelera'>('inicio')
+  const [customSections, setCustomSections] = useState<{id: string, name: string}[]>([])
+  const [selectedSection, setSelectedSection] = useState<string | null>(null)
+  const [showAddSectionModal, setShowAddSectionModal] = useState(false)
+  const [newSectionName, setNewSectionName] = useState('')
   
   // --- Estados para sistema de perfiles ---
   const [showLoginSystem, setShowLoginSystem] = useState(false)
@@ -2387,6 +2395,36 @@ const getStatusText = () => {
   return "Habla libremente (automático)"
 }
 
+// 📋 FUNCIONES PARA MANEJO DEL PANEL LATERAL
+const handleViewChange = (view: 'inicio' | 'finalizadas' | 'papelera') => {
+  setCurrentView(view)
+  setSelectedSection(null) // Limpiar selección de sección al cambiar vista
+}
+
+const handleSectionSelect = (sectionId: string) => {
+  setSelectedSection(sectionId)
+  setCurrentView('inicio') // Las secciones se muestran en la vista de inicio
+}
+
+const handleAddSection = () => {
+  if (newSectionName.trim()) {
+    const newSection = {
+      id: Date.now().toString(),
+      name: newSectionName.trim()
+    }
+    setCustomSections(prev => [...prev, newSection])
+    setNewSectionName('')
+    setShowAddSectionModal(false)
+  }
+}
+
+const handleDeleteSection = (sectionId: string) => {
+  setCustomSections(prev => prev.filter(section => section.id !== sectionId))
+  if (selectedSection === sectionId) {
+    setSelectedSection(null)
+  }
+}
+
 // 🔄 FUNCIÓN PARA ALTERNAR ENTRE MODOS
 const toggleMode = async () => {
   if (isSpeaking) return
@@ -2860,14 +2898,128 @@ const toggleMode = async () => {
               </div>
             </div>
             
-            {/* Espacio para futuras funciones del panel lateral */}
-            <div className="flex-1 p-6">
-              <div className="text-gray-500 text-sm">
-                {/* Aquí irán las futuras funciones como papelera, etc. */}
-                <div className="text-center opacity-50">
-                  Panel de herramientas
-                  <br />
-                  <span className="text-xs">(En desarrollo)</span>
+            {/* 📋 NAVEGACIÓN DEL PANEL LATERAL */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Navegación principal */}
+              <div className="p-4 border-b border-gray-700/50">
+                <nav className="space-y-2">
+                  {/* Inicio */}
+                  <button
+                    onClick={() => handleViewChange('inicio')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      currentView === 'inicio' && !selectedSection
+                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                        : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'
+                    }`}
+                  >
+                    <Power className="w-4 h-4" />
+                    Inicio
+                  </button>
+                  
+                  {/* Tareas finalizadas */}
+                  <button
+                    onClick={() => handleViewChange('finalizadas')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      currentView === 'finalizadas'
+                        ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                        : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'
+                    }`}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Tareas finalizadas
+                  </button>
+                  
+                  {/* Papelera */}
+                  <button
+                    onClick={() => handleViewChange('papelera')}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      currentView === 'papelera'
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                        : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'
+                    }`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Papelera
+                  </button>
+                </nav>
+              </div>
+              
+              {/* Sección de Secciones Personalizadas */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="p-4 border-b border-gray-700/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-300">Secciones</h3>
+                    <button
+                      onClick={() => setShowAddSectionModal(true)}
+                      className="w-6 h-6 rounded-md bg-gray-700/50 hover:bg-cyan-500/20 flex items-center justify-center transition-all duration-200 group"
+                      title="Agregar sección"
+                    >
+                      <Plus className="w-3 h-3 text-gray-400 group-hover:text-cyan-400" />
+                    </button>
+                  </div>
+                  
+                  {/* Lista de secciones con scroll */}
+                  <div className="max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                    <div className="space-y-1">
+                      {customSections.map((section) => (
+                        <div key={section.id} className="group flex items-center gap-2">
+                          <button
+                            onClick={() => handleSectionSelect(section.id)}
+                            className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-all duration-200 ${
+                              selectedSection === section.id
+                                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-300'
+                            }`}
+                          >
+                            <div className="w-2 h-2 rounded-full bg-purple-400 opacity-60"></div>
+                            <span className="truncate">{section.name}</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSection(section.id)}
+                            className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded bg-red-500/20 hover:bg-red-500/30 flex items-center justify-center transition-all duration-200"
+                            title="Eliminar sección"
+                          >
+                            <X className="w-3 h-3 text-red-400" />
+                          </button>
+                        </div>
+                      ))}
+                      
+                      {customSections.length === 0 && (
+                        <div className="text-xs text-gray-500 text-center py-4 opacity-60">
+                          No hay secciones
+                          <br />
+                          <span className="text-[10px]">Haz clic en + para agregar</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Sección de Equipo */}
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-300">Equipo</h3>
+                    <button
+                      className="w-6 h-6 rounded-md bg-gray-700/50 hover:bg-orange-500/20 flex items-center justify-center transition-all duration-200 group opacity-50 cursor-not-allowed"
+                      title="Próximamente"
+                      disabled
+                    >
+                      <Plus className="w-3 h-3 text-gray-500" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-gray-500">
+                      <User className="w-3 h-3" />
+                      <span>Mi espacio de trabajo</span>
+                    </div>
+                    
+                    <div className="text-xs text-gray-600 text-center py-2 opacity-50">
+                      Colaboración en equipo
+                      <br />
+                      <span className="text-[10px]">(Próximamente)</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2876,33 +3028,94 @@ const toggleMode = async () => {
           {/* 🎯 ÁREA PRINCIPAL DERECHA - Grid de Proyectos */}
           <div className="flex-1 bg-gray-950/30 backdrop-blur-sm">
             <div className="h-full p-8">
-              {/* Header del área de proyectos */}
+              {/* Header del área de proyectos - Dinámico según vista */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-white mb-2">Proyectos</h2>
-                <p className="text-gray-400 text-sm">Crea y gestiona tus proyectos de trabajo</p>
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  {selectedSection 
+                    ? customSections.find(s => s.id === selectedSection)?.name || 'Sección'
+                    : currentView === 'inicio' 
+                      ? 'Proyectos'
+                      : currentView === 'finalizadas'
+                        ? 'Tareas Finalizadas'
+                        : 'Papelera'
+                  }
+                </h2>
+                <p className="text-gray-400 text-sm">
+                  {selectedSection 
+                    ? 'Proyectos organizados en esta sección personalizada'
+                    : currentView === 'inicio'
+                      ? 'Crea y gestiona tus proyectos de trabajo'
+                      : currentView === 'finalizadas'
+                        ? 'Proyectos que has marcado como completados'
+                        : 'Proyectos eliminados que puedes restaurar'
+                  }
+                </p>
               </div>
               
-              {/* Grid de proyectos */}
+              {/* Grid de proyectos - Dinámico según vista */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                {/* Ventanita para crear nuevo proyecto */}
-                <div className="group">
-                  <div className="aspect-square bg-gray-800/40 border-2 border-dashed border-gray-600 hover:border-cyan-500/50 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px]">
-                    {/* Icono + */}
-                    <div className="w-8 h-8 rounded-full bg-gray-700/50 group-hover:bg-cyan-500/20 flex items-center justify-center mb-2 transition-all duration-300">
-                      <Plus className="w-4 h-4 text-gray-400 group-hover:text-cyan-400 transition-colors duration-300" />
+                {/* Ventanita para crear nuevo proyecto - Solo en inicio */}
+                {(currentView === 'inicio') && (
+                  <div className="group">
+                    <div className="aspect-square bg-gray-800/40 border-2 border-dashed border-gray-600 hover:border-cyan-500/50 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px]">
+                      {/* Icono + */}
+                      <div className="w-8 h-8 rounded-full bg-gray-700/50 group-hover:bg-cyan-500/20 flex items-center justify-center mb-2 transition-all duration-300">
+                        <Plus className="w-4 h-4 text-gray-400 group-hover:text-cyan-400 transition-colors duration-300" />
+                      </div>
+                      
+                      {/* Texto */}
+                      <p className="text-gray-400 group-hover:text-cyan-300 text-xs font-medium transition-colors duration-300 text-center px-2">
+                        Nuevo Proyecto
+                      </p>
+                      <p className="text-gray-600 group-hover:text-gray-400 text-[10px] mt-1 transition-colors duration-300 text-center px-2">
+                        Haz clic para crear
+                      </p>
                     </div>
-                    
-                    {/* Texto */}
-                    <p className="text-gray-400 group-hover:text-cyan-300 text-xs font-medium transition-colors duration-300 text-center px-2">
-                      Nuevo Proyecto
-                    </p>
-                    <p className="text-gray-600 group-hover:text-gray-400 text-[10px] mt-1 transition-colors duration-300 text-center px-2">
-                      Haz clic para crear
+                  </div>
+                )}
+                
+                {/* Contenido dinámico según vista */}
+                {currentView === 'finalizadas' && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                    <CheckCircle className="w-16 h-16 text-green-400/50 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-300 mb-2">No hay tareas finalizadas</h3>
+                    <p className="text-gray-500 text-sm max-w-md">
+                      Cuando marques proyectos como completados, aparecerán aquí para que puedas revisarlos.
                     </p>
                   </div>
-                </div>
+                )}
                 
-                {/* Aquí se mostrarán los proyectos existentes en el futuro */}
+                {currentView === 'papelera' && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                    <Trash2 className="w-16 h-16 text-red-400/50 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-300 mb-2">La papelera está vacía</h3>
+                    <p className="text-gray-500 text-sm max-w-md">
+                      Los proyectos eliminados aparecerán aquí. Podrás restaurarlos o eliminarlos permanentemente.
+                    </p>
+                  </div>
+                )}
+                
+                {selectedSection && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                    <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
+                      <div className="w-8 h-8 rounded-full bg-purple-400/60"></div>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-300 mb-2">
+                      Sección: {customSections.find(s => s.id === selectedSection)?.name}
+                    </h3>
+                    <p className="text-gray-500 text-sm max-w-md">
+                      Esta sección está vacía. Los proyectos que asignes a esta sección aparecerán aquí.
+                    </p>
+                  </div>
+                )}
+                
+                {currentView === 'inicio' && !selectedSection && customSections.length === 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-8 text-center">
+                    <p className="text-gray-500 text-sm">
+                      Crea tu primer proyecto haciendo clic en el botón de arriba
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -3373,6 +3586,60 @@ const toggleMode = async () => {
         profileName={activeProfile?.name || ""}
         isFeminine={activeProfile?.gender === "feminine"}
       />
+      
+      {/* 📋 MODAL PARA AGREGAR SECCIÓN */}
+      {showAddSectionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-white mb-4">Nueva Sección</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Nombre de la sección
+              </label>
+              <input
+                type="text"
+                value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                placeholder="Ej: Desarrollo Web, Diseño, Marketing..."
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                maxLength={30}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddSection()
+                  } else if (e.key === 'Escape') {
+                    setShowAddSectionModal(false)
+                    setNewSectionName('')
+                  }
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {newSectionName.length}/30 caracteres
+              </p>
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowAddSectionModal(false)
+                  setNewSectionName('')
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors duration-200"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddSection}
+                disabled={!newSectionName.trim()}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200"
+              >
+                Crear Sección
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
