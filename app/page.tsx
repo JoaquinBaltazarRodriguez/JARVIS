@@ -3622,6 +3622,72 @@ const toggleMode = async () => {
                   </div>
                 )}
                 
+                {/* Proyectos creados - Solo en inicio */}
+                {currentView === 'inicio' && !selectedSection && projects.map((project) => (
+                  <div key={project.id} className="group">
+                    <div className="aspect-square bg-gray-800/60 border border-gray-700/50 hover:border-cyan-500/50 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:bg-gray-800/80 hover:scale-105 max-w-[220px] flex flex-col relative">
+                      {/* Header con foto de perfil y creador */}
+                      <div className="flex items-center gap-2 mb-4">
+                        {/* Foto de perfil del usuario que creó el proyecto */}
+                        {activeProfile?.photoUrl ? (
+                          <img 
+                            src={activeProfile.photoUrl} 
+                            alt={activeProfile.name}
+                            className="w-6 h-6 rounded-full object-cover border border-gray-600"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                            {activeProfile?.name?.charAt(0).toUpperCase() || project.responsible?.name?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        <span className="text-xs text-gray-400 truncate flex-1">
+                          Creado por {project.responsible?.name || activeProfile?.name || 'Usuario'}
+                        </span>
+                      </div>
+                      
+                      {/* Título del proyecto - Estilo elegante y profesional */}
+                      <div className="flex-1 flex items-center justify-center mb-4">
+                        <h3 className="text-lg font-semibold text-white text-center leading-tight tracking-wide">
+                          <span className="bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+                            {project.title}
+                          </span>
+                        </h3>
+                      </div>
+                      
+                      {/* Fechas con formato completo */}
+                      <div className="space-y-1 mt-auto">
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
+                          <span>Creado: {new Date(project.createdAt).toLocaleDateString('es-ES', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric' 
+                          }).replace(/\//g, '/')}</span>
+                        </div>
+                        {project.dueDate && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <div className="w-1 h-1 bg-orange-400 rounded-full"></div>
+                            <span>Vence: {new Date(project.dueDate).toLocaleDateString('es-ES', { 
+                              day: '2-digit', 
+                              month: '2-digit', 
+                              year: 'numeric' 
+                            }).replace(/\//g, '/')}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Indicador de prioridad */}
+                      {project.priority && (
+                        <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${
+                          project.priority === 'high' ? 'bg-red-400' :
+                          project.priority === 'medium' ? 'bg-yellow-400' :
+                          'bg-green-400'
+                        }`}></div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                
                 {/* Contenido dinámico según vista */}
                 {currentView === 'finalizadas' && (
                   <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
