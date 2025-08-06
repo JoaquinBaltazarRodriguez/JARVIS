@@ -75,6 +75,8 @@
     "uuid": "^11.1.0",
     "vaul": "^0.9.6",
     "whatsapp-web.js": "^1.30.0",
+    "youtube-audio-stream": "^0.3.61",
+    "ytdl-core": "^4.11.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {

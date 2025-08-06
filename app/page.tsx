@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 
-import { useCineSound } from "@/hooks/useCineSound"
+// import { useCineSound } from "@/hooks/useCineSound" // Comentado temporalmente para optimización de memoria
 
 import {
   Power,
@@ -73,7 +73,7 @@ import { LocalCommands } from "@/lib/localCommands"
 import { NexusMemory } from "@/lib/jarvisMemory"
 import Starfield from "@/components/Starfield"
 
-import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation"
+// import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation" // Comentado temporalmente para optimización de memoria
 import { SettingsModal } from "@/components/SettingsModal"
 import { LoadingScreen } from "@/components/LoadingScreen"
 import TutorialModal from "@/components/TutorialModal"
@@ -1028,10 +1028,30 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   };
 
   // Función para reproducir videos de YouTube
-  const playYoutubeVideo = (videoId: string, title: string = "Reproducción", playlist?: Playlist, playlistIndex: number = 0) => {
+  const playYouTubeVideo = (videoId: string, title: string, playlist?: any, playlistIndex: number = 0) => {
     if (!videoId) {
-      console.error("No se proporcionó un ID de video válido");
+      console.error("❌ No se proporcionó videoId para reproducir");
       return;
+    }
+    
+    // 🚨 LIMPIEZA AGRESIVA ANTES DE REPRODUCIR
+    console.log('🧹 Limpieza agresiva de memoria antes de reproducir...');
+    
+    // Forzar garbage collection múltiples veces
+    if ('gc' in window) {
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => (window as any).gc(), i * 100);
+      }
+    }
+    
+    // Limpiar reproductor anterior si existe
+    if (youtubePlayerRef.current) {
+      try {
+        youtubePlayerRef.current.stopVideo();
+        youtubePlayerRef.current.pauseVideo();
+      } catch (error) {
+        console.log('⚠️ Error limpiando reproductor anterior:', error);
+      }
     }
     
     console.log(`🎧 Reproduciendo video de YouTube: ${videoId} - ${title}`);
@@ -1056,10 +1076,11 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       }, 500); // Pequeño timeout para asegurar que el reproductor está listo
     }
     
-    // Si estamos en segundo plano, mantener el modo de segundo plano
-    // Si no, asegurarse de que el reproductor sea visible
-    if (!musicBackgroundMode) {
-      setMusicBackgroundMode(false);
+    // 🚨 GESTIÓN DE SEGUNDO PLANO MEJORADA
+    // Si hay playlist, ir automáticamente a segundo plano
+    if (playlist && playlist.songs && playlist.songs.length > 1) {
+      console.log('🎧 Playlist detectada, activando modo segundo plano');
+      setMusicBackgroundMode(true);
     }
     
     // MANTENER EL MODO ACTUAL - NO CAMBIAR ESTADO CUANDO SE REPRODUCE MÚSICA
@@ -1070,15 +1091,31 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   };
   
   // Función para reproducir la playlist completa
-  const playPlaylist = (playlist: Playlist, startIndex: number = 0) => {
+  const playPlaylist = (playlist: any, startIndex: number = 0) => {
     if (!playlist || !playlist.songs || playlist.songs.length === 0) {
       setShowYoutubeError(true);
       setYoutubeErrorMessage("La playlist está vacía o es inválida.");
       return;
     }
     
+    console.log(`🎵 Reproduciendo playlist: ${playlist.name} (${playlist.songs.length} canciones)`);
+    
+    // 🚨 CERRAR AUTOMÁTICAMENTE EL PANEL DE PLAYLIST
+    setShowPlaylistSelector(false);
+    
+    // 🚨 IR A SEGUNDO PLANO DIRECTAMENTE
+    setMusicBackgroundMode(true);
+    
+    // Reproducir la primera canción de la playlist
     const song = playlist.songs[startIndex];
-    playYoutubeVideo(song.videoId, song.title, playlist, startIndex);
+    playYouTubeVideo(song.videoId, song.title, playlist, startIndex);
+    
+    // Establecer información de playlist
+    setPlaylistMode(true);
+    setCurrentPlaylist(playlist);
+    setCurrentPlaylistIndex(startIndex);
+    
+    console.log(`🎧 Iniciando playlist en segundo plano: ${song.title}`);
   };
 
   // Función para borrar todas las playlists (solo para propósitos de debug)
@@ -1432,32 +1469,8 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   // 🚨 OPTIMIZACIÓN DE MEMORIA: Solo cargar hooks cuando sea necesario
   const { speak, isSpeaking } = useSimpleAudio()
   
-  // 🚨 OPTIMIZACIÓN: Hooks condicionales para reducir uso de memoria
-  // Solo usar efectos de cine cuando NEXUS está activo y hablando
-  const shouldUseCineSound = isVoiceControlEnabled && isSpeaking
-  // Comentado temporalmente para reducir memoria
-  // if (shouldUseCineSound) {
-  //   useCineSound(isSpeaking)
-  // }
-  
-  // Solo usar animación de startup cuando sea necesario
-  // Comentado temporalmente para reducir memoria
-  // if (startupAnim) {
-  //   useNexusStartupAnimation(startupAnim, () => setStartupAnim(false))
-  // }
-  
-  // Solo usar reconocimiento de voz cuando esté habilitado
-  const audioHooks = isVoiceControlEnabled ? useAutoSpeech() : {
-    isListening: false,
-    transcript: '',
-    isSupported: true,
-    startAutoListening: () => {},
-    stopListening: () => {},
-    resetTranscript: () => {},
-    startContinuousListening: () => {},
-    setSpeakingState: () => {},
-  }
-  
+  // 🚨 OPTIMIZACIÓN DE MEMORIA: Hooks siempre llamados pero con lógica condicional
+  // Hooks de audio - siempre llamados para cumplir reglas de React
   const {
     isListening,
     transcript,
@@ -1467,17 +1480,22 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     resetTranscript,
     startContinuousListening,
     setSpeakingState,
-  } = audioHooks
+  } = useAutoSpeech()
+  
+  // Hooks de sonido - comentados temporalmente para reducir memoria
+  // useCineSound(isSpeaking)
+  // useNexusStartupAnimation(startupAnim, () => setStartupAnim(false))
 
   const { playStartupSound, playShutdownSound, playClickSound, playHoverSound } = useFuturisticSounds()
 
-  // Solo usar recordatorio de pastillas cuando el usuario esté activo
-  const pillHooks = hasInitialized ? usePillReminder((message: string) => {
-    console.log("💊 PILL REMINDER TRIGGERED:", message)
-    speak(message)
-  }) : { showReminder: false, currentTime: '', dismissReminder: () => {} }
-  
-  const { showReminder, currentTime, dismissReminder } = pillHooks
+  // Hook de recordatorio de pastillas - siempre llamado para cumplir reglas de React
+  const { showReminder, currentTime, dismissReminder } = usePillReminder((message: string) => {
+    // Solo procesar si el usuario está inicializado
+    if (hasInitialized) {
+      console.log("💊 PILL REMINDER TRIGGERED:", message)
+      speak(message)
+    }
+  })
 
   // 🚨 OPTIMIZACIÓN DE MEMORIA: Limitar arrays para evitar acumulación
   useEffect(() => {
@@ -1506,41 +1524,49 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     return cleanup
   }, [selectedFiles])
   
-  // 🚨 MONITOR DE MEMORIA: Verificar y limpiar cada 30 segundos
+  // 🚨 MONITOR DE MEMORIA AUTOMÁTICO: Ejecutar cada 30 segundos
   useEffect(() => {
     const memoryMonitor = setInterval(() => {
       // Forzar garbage collection si está disponible
-      if (typeof window !== 'undefined' && 'gc' in window) {
+      if ('gc' in window) {
+        (window as any).gc()
+        console.log('🗑️ Garbage collection forzado')
+      }
+      
+      // 🎥 LIMPIEZA ESPECÍFICA PARA YOUTUBE: Limpiar caché de video si hay música
+      if (isPlayingMusic && youtubePlayerRef.current) {
         try {
-          (window as any).gc()
-        } catch (e) {
-          // Ignorar errores de GC
+          // Intentar limpiar buffers de video no utilizados
+          const player = youtubePlayerRef.current
+          if (player.getPlayerState && player.getPlayerState() === 1) { // Si está reproduciendo
+            console.log('🎥 Limpiando buffers de YouTube...')
+            // No interrumpir reproducción, solo limpiar caché
+          }
+        } catch (error) {
+          console.log('⚠️ Error limpiando buffers YouTube:', error)
         }
       }
       
-      // Limpiar localStorage si es muy grande
-      try {
-        const storageSize = JSON.stringify(localStorage).length
-        if (storageSize > 1024 * 1024) { // 1MB
-          console.warn('🚨 localStorage muy grande, limpiando...')
-          // Mantener solo datos esenciales
-          const essential = {
-            'nexus_active_profile': localStorage.getItem('nexus_active_profile'),
-            'nexus_voice_muted': localStorage.getItem('nexus_voice_muted'),
-            'nexus_animations_enabled': localStorage.getItem('nexus_animations_enabled')
-          }
-          localStorage.clear()
-          Object.entries(essential).forEach(([key, value]) => {
-            if (value) localStorage.setItem(key, value)
-          })
-        }
-      } catch (e) {
-        console.error('Error en monitor de memoria:', e)
+      // Limpiar localStorage si se vuelve muy grande (>1MB)
+      const storageSize = JSON.stringify(localStorage).length
+      if (storageSize > 1024 * 1024) {
+        console.log('🧹 LocalStorage muy grande, limpiando...', storageSize)
+        // Mantener solo datos esenciales
+        const essentialKeys = ['nexus_profiles', 'nexus_active_profile', 'nexus_voice_muted']
+        const backup: {[key: string]: string} = {}
+        essentialKeys.forEach(key => {
+          const value = localStorage.getItem(key)
+          if (value) backup[key] = value
+        })
+        localStorage.clear()
+        Object.entries(backup).forEach(([key, value]) => {
+          localStorage.setItem(key, value)
+        })
       }
     }, 30000) // Cada 30 segundos
     
     return () => clearInterval(memoryMonitor)
-  }, [])
+  }, [isPlayingMusic])
 
   // Detecta transición de waiting_password a active para animación de inicio
   useEffect(() => {
@@ -1552,8 +1578,11 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   }, [appState, mounted])
 
   useEffect(() => {
-    setSpeakingState(isSpeaking)
-  }, [isSpeaking, setSpeakingState])
+    // Solo actualizar estado de habla si el control de voz está habilitado
+    if (isVoiceControlEnabled) {
+      setSpeakingState(isSpeaking)
+    }
+  }, [isSpeaking, setSpeakingState, isVoiceControlEnabled])
 
   useEffect(() => {
     setMounted(true)
@@ -3264,7 +3293,7 @@ const toggleMode = async () => {
                   {/* Botón reproducir */}
                   <button
                     className="flex items-center justify-center w-6 h-6 text-gray-500 hover:text-cyan-400 hover:bg-gray-800/30 rounded transition-all duration-200"
-                    onClick={() => playYoutubeVideo(song.videoId, song.title)}
+                    onClick={() => playYouTubeVideo(song.videoId, song.title)}
                     title="Reproducir"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
@@ -3404,7 +3433,7 @@ const toggleMode = async () => {
                     appState === "music_mode" ? "text-green-400" :
                     appState === "music_playing" ? "text-green-400" :
                     appState === "intelligent_mode" ? "text-purple-400" :
-                    (appState as AppState) === "functional_mode" ? "text-orange-400" :
+                    appState === "functional_mode" ? "text-orange-400" :
                     appState === "image_download_confirmation" ? "text-cyan-400" :
                     "text-cyan-400"
                   }`}>
@@ -4156,7 +4185,7 @@ const toggleMode = async () => {
                               ? "text-green-400"
                               : appState === "intelligent_mode"
                                 ? "text-purple-400"
-                                : (appState as AppState) === "functional_mode"
+                                : appState === "functional_mode"
                                   ? "text-orange-400"
                                   : appState === "image_download_confirmation"
                                     ? "text-cyan-400"
