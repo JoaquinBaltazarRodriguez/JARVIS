@@ -152,3 +152,42 @@
     transform: scale(1.02);
   }
 }
+
+/* Estilos personalizados para scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(6, 182, 212, 0.6) rgba(55, 65, 81, 0.3);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(55, 65, 81, 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.8), rgba(6, 182, 212, 0.6));
+  border-radius: 4px;
+  border: 1px solid rgba(55, 65, 81, 0.5);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(6, 182, 212, 1), rgba(6, 182, 212, 0.8));
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+}
+
+/* Fondo con líneas guía para textarea */
+.lined-background {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 31px,
+    rgba(156, 163, 175, 0.25) 31px, /* Más transparente y estético */
+    rgba(156, 163, 175, 0.25) 32px
+  );
+  background-size: calc(100% - 48px) 32px; /* Más márgenes laterales */
+  background-position: 24px 8px; /* Ajustado para alinear con el texto */
+  background-repeat: repeat-y;
+}

@@ -4089,17 +4089,22 @@ const toggleMode = async () => {
               
               {/* Área de texto principal con referencia */}
               <div className="flex-1 p-6">
-                <textarea
-                  ref={textareaRef}
-                  value={newProject.notes}
-                  onChange={(e) => updateProjectField('notes', e.target.value)}
-                  placeholder="Describe los detalles del proyecto, objetivos, requisitos, etc.\n\nConsejos para usar el editor:\n- Selecciona texto y usa los botones de formato\n- Usa **texto** para negrita\n- Usa texto subrayado con el botón U\n- Usa los selectores para títulos y colores"
-                  className="w-full h-full bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none text-sm leading-relaxed font-mono"
-                  style={{ 
-                    minHeight: 'calc(100vh - 200px)',
-                    fontSize: editorFormat.fontSize,
-                    color: editorFormat.color
-                  }}
+                {/* Contenedor con borde y márgenes */}
+                <div className="bg-gray-900/30 border border-gray-700/50 rounded-lg mx-4 mb-20 relative">
+                  
+                  
+                  <textarea
+                    ref={textareaRef}
+                    value={newProject.notes}
+                    onChange={(e) => updateProjectField('notes', e.target.value)}
+                    className="w-full bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none text-sm leading-relaxed font-mono p-4 custom-scrollbar relative z-10"
+                    style={{ 
+                      height: '500px', // Altura perfecta como solicitaste
+                      maxHeight: '500px', // Altura máxima
+                      fontSize: editorFormat.fontSize,
+                      color: editorFormat.color,
+                      lineHeight: '32px' // Altura de línea consistente con las nuevas guías
+                    }}
                   onKeyDown={(e) => {
                     // Atajos de teclado
                     if (e.ctrlKey || e.metaKey) {
@@ -4113,6 +4118,7 @@ const toggleMode = async () => {
                     }
                   }}
                 />
+                </div>
               </div>
             </div>
           </div>
