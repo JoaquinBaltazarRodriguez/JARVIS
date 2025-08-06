@@ -42,6 +42,9 @@ import {
   Globe,
   ArrowRight,
   CheckCircle,
+  Bold,
+  Underline,
+  Crown,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -62,7 +65,7 @@ import { ConversationsDB, type Conversation, type ConversationMessage } from "@/
 import { NexusLoginSystem } from "@/components/NexusLoginSystem"
 import { ProfilesManager } from "@/lib/profilesManager"
 import { getGenderTreatment } from "@/lib/utils"
-import type { UserProfile } from "@/components/ProfileSelector"
+// UserProfile type imported from firebaseProfileManager below
 import { usePillReminder } from "@/hooks/usePillReminder"
 // importación eliminada para limpiar la UI
 import { TokenManager } from "@/lib/tokenManager"
@@ -75,7 +78,8 @@ import { SettingsModal } from "@/components/SettingsModal"
 import { LoadingScreen } from "@/components/LoadingScreen"
 import TutorialModal from "@/components/TutorialModal"
 import TutorialGuide from "@/components/TutorialGuide"
-import { FirebaseProfileManager, Playlist, Song } from "@/lib/firebaseProfileManager"
+import { FirebaseProfileManager, type UserProfile } from "@/lib/firebaseProfileManager"
+import { FirebaseProjectsManager, type Project } from "@/lib/firebaseProjectsManager"
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 
@@ -207,6 +211,36 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
   const [showAddSectionModal, setShowAddSectionModal] = useState(false)
   const [newSectionName, setNewSectionName] = useState('')
+  const [isCreatingSection, setIsCreatingSection] = useState(false)
+  
+  // 📋 ESTADOS PARA CREACIÓN DE PROYECTOS
+  const [showCreateProject, setShowCreateProject] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [newProject, setNewProject] = useState({
+    title: '',
+    isCompleted: false,
+    responsible: null as UserProfile | null,
+    dueDate: '',
+    section: null as string | null,
+    sections: [] as string[],
+    priority: null as 'bajo' | 'medio' | 'alto' | null,
+    notes: '',
+    collaborators: [] as UserProfile[]
+  })
+  
+  // 📝 ESTADOS PARA EDITOR DE TEXTO ENRIQUECIDO
+  const [editorFormat, setEditorFormat] = useState({
+    bold: false,
+    underline: false,
+    fontSize: '14px',
+    color: '#ffffff',
+    textFormat: 'p' as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p'
+  })
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  
+  // 📋 ESTADOS PARA MENÚS DESPLEGABLES
+  const [showSectionsMenu, setShowSectionsMenu] = useState(false)
+  const [showPriorityMenu, setShowPriorityMenu] = useState(false)
   
   // --- Estados para sistema de perfiles ---
   const [showLoginSystem, setShowLoginSystem] = useState(false)
@@ -405,6 +439,24 @@ const handleLoginComplete = (profile: UserProfile) => {
     // Cargar configuraciones al montar
     loadAccessibilitySettings();
   }, [])
+  
+  // useEffect para cerrar menús desplegables al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.relative')) {
+        setShowSectionsMenu(false);
+        setShowPriorityMenu(false);
+      }
+    };
+    
+    if (showSectionsMenu || showPriorityMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showSectionsMenu, showPriorityMenu])
 
   // --- Estados para input y sugerencias de comandos ---
   const startupAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -586,6 +638,74 @@ const handleLoginComplete = (profile: UserProfile) => {
     setCurrentText("")
   }
 
+  // 📝 FUNCIONES PARA EDITOR DE TEXTO ENRIQUECIDO
+  const applyTextFormat = (formatType: string, value?: string) => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = textarea.value.substring(start, end)
+    const beforeText = textarea.value.substring(0, start)
+    const afterText = textarea.value.substring(end)
+    
+    let formattedText = selectedText
+    
+    switch (formatType) {
+      case 'bold':
+        if (selectedText) {
+          formattedText = editorFormat.bold 
+            ? selectedText.replace(/\*\*(.*?)\*\*/g, '$1')
+            : `**${selectedText}**`
+        }
+        setEditorFormat(prev => ({ ...prev, bold: !prev.bold }))
+        break
+        
+      case 'underline':
+        if (selectedText) {
+          formattedText = editorFormat.underline
+            ? selectedText.replace(/<u>(.*?)<\/u>/g, '$1')
+            : `<u>${selectedText}</u>`
+        }
+        setEditorFormat(prev => ({ ...prev, underline: !prev.underline }))
+        break
+        
+      case 'fontSize':
+        if (value) {
+          setEditorFormat(prev => ({ ...prev, fontSize: value }))
+        }
+        break
+        
+      case 'color':
+        if (value && selectedText) {
+          formattedText = `<span style="color: ${value}">${selectedText}</span>`
+          setEditorFormat(prev => ({ ...prev, color: value }))
+        }
+        break
+        
+      case 'textFormat':
+        if (value && selectedText) {
+          const tag = value === 'p' ? '' : value
+          if (tag) {
+            formattedText = `<${tag}>${selectedText}</${tag}>`
+          }
+          setEditorFormat(prev => ({ ...prev, textFormat: value as any }))
+        }
+        break
+    }
+    
+    if (selectedText) {
+      const newText = beforeText + formattedText + afterText
+      setNewProject(prev => ({ ...prev, notes: newText }))
+      
+      // Restaurar posición del cursor
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start, start + formattedText.length)
+      }, 0)
+    }
+  }
+
   // ESTADOS PARA FUNCIONALIDADES
   const [pendingCall, setPendingCall] = useState<{ name: string; phone: string } | null>(null)
   const [isNavigating, setIsNavigating] = useState(false)
@@ -648,9 +768,6 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   // Estados para mostrar/ocultar el selector de playlists
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
 
-  // Estado para crear secciones
-  const [isCreatingSection, setIsCreatingSection] = useState(false)
-
   // Cargar playlists del usuario actual desde Firebase
   useEffect(() => {
     // Si no hay usuario activo, no hacemos nada
@@ -689,6 +806,26 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     };
 
     loadUserSections();
+  }, [activeProfile?.id]);
+
+  // Cargar proyectos del usuario actual desde Firebase
+  useEffect(() => {
+    // Si no hay usuario activo, no hacemos nada
+    if (!activeProfile?.id) return;
+
+    // Cargar proyectos del usuario desde Firebase
+    const loadUserProjects = async () => {
+      try {
+        const userProjects = await FirebaseProjectsManager.getUserProjects(activeProfile.id);
+        setProjects(userProjects);
+        console.log('✅ Proyectos cargados:', userProjects.length);
+      } catch (error) {
+        console.error('❌ Error al cargar proyectos del usuario:', error);
+        setProjects([]);
+      }
+    };
+
+    loadUserProjects();
   }, [activeProfile?.id]);
 
   // Función para crear una nueva playlist
@@ -1039,6 +1176,134 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     setSelectedSection(null); // Limpiar selección de sección al cambiar vista
   };
 
+  // ===== FUNCIONES PARA MANEJAR PROYECTOS =====
+  
+  // Función para abrir el modal de creación de proyecto
+  const handleCreateProject = () => {
+    setShowCreateProject(true);
+    // Establecer el perfil activo como responsable por defecto
+    if (activeProfile) {
+      setNewProject(prev => ({
+        ...prev,
+        responsible: activeProfile,
+        collaborators: [activeProfile] // El creador siempre es colaborador
+      }));
+    }
+  };
+  
+  // Función para cerrar el modal de creación
+  const handleCloseCreateProject = () => {
+    setShowCreateProject(false);
+    // Cerrar menús desplegables
+    setShowSectionsMenu(false);
+    setShowPriorityMenu(false);
+    // Resetear el formulario
+    setNewProject({
+      title: '',
+      isCompleted: false,
+      responsible: null,
+      dueDate: '',
+      section: null,
+      sections: [],
+      priority: null,
+      notes: '',
+      collaborators: []
+    });
+    // Resetear formato del editor
+    setEditorFormat({
+      bold: false,
+      underline: false,
+      fontSize: '14px',
+      color: '#ffffff',
+      textFormat: 'p'
+    });
+  };
+  
+  // Función para actualizar campos del proyecto
+  const updateProjectField = (field: string, value: any) => {
+    setNewProject(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+  
+  // Función para agregar colaborador
+  const addCollaborator = (profile: UserProfile) => {
+    setNewProject(prev => ({
+      ...prev,
+      collaborators: [...prev.collaborators.filter(c => c.id !== profile.id), profile]
+    }));
+  };
+  
+  // Función para remover colaborador
+  const removeCollaborator = (profileId: string) => {
+    setNewProject(prev => ({
+      ...prev,
+      collaborators: prev.collaborators.filter(c => c.id !== profileId)
+    }));
+  };
+  
+  // Función para guardar el proyecto
+  const saveProject = async () => {
+    if (!newProject.title.trim()) {
+      alert('El título del proyecto es obligatorio');
+      return;
+    }
+    
+    if (!activeProfile) {
+      alert('No hay un perfil activo');
+      return;
+    }
+    
+    try {
+      // Buscar el nombre de la sección si se seleccionó una
+      const selectedSection = newProject.section 
+        ? customSections.find(s => s.id === newProject.section)
+        : null;
+      
+      // Preparar datos del proyecto para Firebase
+      const projectData = {
+        title: newProject.title.trim(),
+        isCompleted: newProject.isCompleted,
+        responsibleUserId: activeProfile.id,
+        responsibleUserName: activeProfile.name,
+        dueDate: newProject.dueDate || null,
+        sectionId: newProject.section,
+        sectionName: selectedSection?.name || null,
+        sections: newProject.sections || [],
+        priority: newProject.priority,
+        notes: newProject.notes.trim(),
+        collaborators: newProject.collaborators.map(c => c.id)
+      };
+      
+      // Guardar en Firebase
+      const savedProject = await FirebaseProjectsManager.createProject(
+        activeProfile.id,
+        projectData
+      );
+      
+      if (savedProject) {
+        // Agregar a la lista local
+        setProjects(prev => [savedProject, ...prev]);
+        
+        // Cerrar la vista de creación
+        handleCloseCreateProject();
+        
+        // Feedback al usuario
+        if (typeof speak === 'function') {
+          speak('Proyecto creado exitosamente');
+        }
+        
+        console.log('✅ Proyecto guardado en Firebase:', savedProject);
+      } else {
+        throw new Error('No se pudo guardar el proyecto');
+      }
+    } catch (error) {
+      console.error('❌ Error al crear proyecto:', error);
+      alert('Error al crear el proyecto. Intenta nuevamente.');
+    }
+  };
+
   // --- ACCESIBILIDAD GLOBAL ---
   // Ya se declaró screenReaderEnabled arriba en los estados de configuración
   const [focusedElement, setFocusedElement] = useState<string | null>(null)
@@ -1109,7 +1374,49 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }
 
-
+  // 🎤 FUNCIÓN PARA TOGGLE SIMPLE DE CONTROL DE VOZ NEXUS
+  const toggleNexusVoiceControl = () => {
+    if (!isVoiceControlEnabled) {
+      // ACTIVAR: Habilitar control de voz y cambiar a estado activo
+      setIsVoiceControlEnabled(true);
+      setAppState("active");
+      
+      // Mensaje de confirmación y luego iniciar escucha
+      if (typeof speak === "function") {
+        speak("NEXUS activado y escuchando").then(() => {
+          // Iniciar escucha después de que termine de hablar
+          setTimeout(() => {
+            if (typeof startAutoListening === "function" && !isListening && !isSpeaking) {
+              console.log("🎤 Iniciando escucha automática después de activar NEXUS");
+              startAutoListening();
+            }
+          }, 300);
+        });
+      } else {
+        // Si no hay función speak, iniciar escucha inmediatamente
+        setTimeout(() => {
+          if (typeof startAutoListening === "function" && !isListening) {
+            console.log("🎤 Iniciando escucha automática (sin speak)");
+            startAutoListening();
+          }
+        }, 300);
+      }
+    } else {
+      // DESACTIVAR: Deshabilitar control de voz y mantener estado activo
+      setIsVoiceControlEnabled(false);
+      // NO cambiar appState a "sleeping" - mantener "active"
+      
+      // Parar cualquier escucha activa
+      if (typeof stopListening === "function") {
+        stopListening();
+      }
+      
+      // Mensaje de confirmación
+      if (typeof speak === "function") {
+        speak("NEXUS desactivado");
+      }
+    }
+  };
 
   // 💬 ESTADOS PARA CONVERSACIONES
   const [showConversationsManager, setShowConversationsManager] = useState(false)
@@ -1161,6 +1468,23 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  // 🔄 useEffect para mantener escucha automática cuando esté activado
+  useEffect(() => {
+    if (isVoiceControlEnabled && !isListening && !isSpeaking && !isProcessing && appState === "active") {
+      // Reiniciar escucha automática si se detiene
+      const timeoutId = setTimeout(() => {
+        if (isVoiceControlEnabled && !isListening && !isSpeaking && !isProcessing) {
+          console.log("🔄 Reiniciando escucha automática");
+          if (typeof startAutoListening === "function") {
+            startAutoListening();
+          }
+        }
+      }, 1000); // Esperar 1 segundo antes de reiniciar
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isVoiceControlEnabled, isListening, isSpeaking, isProcessing, appState, startAutoListening]);
 
   // 🔊 AGREGAR SONIDOS DE CLIC GLOBALES
   useEffect(() => {
@@ -1258,29 +1582,9 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }
 
-  // 🎤 CONTROL MANUAL DE VOZ - ACTIVACIÓN SOLO POR CLIC
-  const toggleVoiceControl = () => {
-    if (isSpeaking || isModeTransitioning) return
-    
-    if (isVoiceControlEnabled) {
-      // DESACTIVAR: Parar toda escucha y volver a sleeping
-      console.log("🔇 DESACTIVANDO NEXUS MANUALMENTE")
-      stopListening()
-      setIsVoiceControlEnabled(false)
-      setAppState("sleeping")
-      setCurrentText("NEXUS desactivado")
-      speak("NEXUS desactivado").then(() => setCurrentText(""))
-    } else {
-      // ACTIVAR: Solo iniciar escucha manual
-      console.log("🎤 ACTIVANDO NEXUS MANUALMENTE")
-      setIsVoiceControlEnabled(true)
-      setAppState("active")
-      setCurrentText("NEXUS activado. Haga clic en el círculo para hablar")
-      speak("NEXUS activado. Haga clic en el círculo para hablar").then(() => setCurrentText(""))
-    }
-  }
 
-  // 🎤 INICIAR ESCUCHA MANUAL (SOLO CUANDO ESTÉ ACTIVADO)
+
+  // INICIAR ESCUCHA MANUAL (SOLO CUANDO ESTÉ ACTIVADO)
   const startManualListening = () => {
     if (!isVoiceControlEnabled || isSpeaking || isListening || isProcessing) return
     
@@ -2957,7 +3261,7 @@ const toggleMode = async () => {
 
 
       {/* 🎨 NUEVA INTERFAZ TIPO FIGMA - Solo para Mi NEXUS (appState === "active") */}
-      {appState === "active" && (
+      {appState === "active" && !showCreateProject && (
         <div className="flex-1 flex min-h-screen relative z-10">
           {/* 📂 PANEL LATERAL IZQUIERDO */}
           <div className="w-80 bg-gray-900/50 border-r border-gray-700/50 backdrop-blur-sm flex flex-col">
@@ -2967,7 +3271,7 @@ const toggleMode = async () => {
                 {/* Círculo NEXUS compacto con toggle de voz */}
                 <div className="relative mb-4">
                   <button 
-                    onClick={isVoiceControlEnabled ? startManualListening : toggleVoiceControl}
+                    onClick={toggleNexusVoiceControl}
                     disabled={isSpeaking || isModeTransitioning}
                     className={`w-24 h-24 rounded-full bg-black flex items-center justify-center border-2 transition-all duration-300 hover:scale-105 ${
                       isVoiceControlEnabled 
@@ -2976,11 +3280,11 @@ const toggleMode = async () => {
                     } ${isSpeaking || isModeTransitioning ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                     title={
                       !isVoiceControlEnabled ? "Activar NEXUS" :
-                      isListening ? "Escuchando..." : "Hacer clic para hablar"
+                      "Desactivar NEXUS"
                     }
                     aria-label={
                       !isVoiceControlEnabled ? "Activar NEXUS" :
-                      isListening ? "Escuchando..." : "Hacer clic para hablar"
+                      "Desactivar NEXUS"
                     }
                   >
                     {/* Efectos cuando habla - versión compacta */}
@@ -3179,7 +3483,10 @@ const toggleMode = async () => {
                 {/* Ventanita para crear nuevo proyecto - Solo en inicio */}
                 {(currentView === 'inicio') && (
                   <div className="group">
-                    <div className="aspect-square bg-gray-800/40 border-2 border-dashed border-gray-600 hover:border-cyan-500/50 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px]">
+                    <div 
+                      onClick={handleCreateProject}
+                      className="aspect-square bg-gray-800/40 border-2 border-dashed border-gray-600 hover:border-cyan-500/50 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px]"
+                    >
                       {/* Icono + */}
                       <div className="w-8 h-8 rounded-full bg-gray-700/50 group-hover:bg-cyan-500/20 flex items-center justify-center mb-2 transition-all duration-300">
                         <Plus className="w-4 h-4 text-gray-400 group-hover:text-cyan-400 transition-colors duration-300" />
@@ -3244,15 +3551,463 @@ const toggleMode = async () => {
         </div>
       )}
       
+      {/* 📋 VISTA DE CREACIÓN DE PROYECTO - Ocupa todo el espacio */}
+      {appState === "active" && showCreateProject && (
+        <div className="flex-1 min-h-screen bg-gray-950/30 backdrop-blur-sm relative z-10">
+          {/* Header con botón de cerrar */}
+          <div className="sticky top-0 z-20 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50">
+            <div className="flex items-center justify-between p-4">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Crear Nuevo Proyecto</h1>
+                <p className="text-gray-400 text-sm">Completa la información para crear tu proyecto</p>
+              </div>
+              <button
+                onClick={handleCloseCreateProject}
+                className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors duration-200 group"
+                title="Cancelar y volver"
+              >
+                <X className="w-5 h-5 text-gray-400 group-hover:text-white" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Contenido principal */}
+          <div className="flex h-[calc(100vh-80px)]">
+            {/* Panel lateral izquierdo - Configuración del proyecto */}
+            <div className="w-80 bg-gray-900/40 backdrop-blur-sm border-r border-gray-700/50 p-6 overflow-y-auto">
+              <div className="space-y-8">
+                {/* Título del proyecto */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    Escribe el nombre de la tarea
+                  </label>
+                  <input
+                    type="text"
+                    value={newProject.title}
+                    onChange={(e) => updateProjectField('title', e.target.value)}
+                    placeholder="Ej: Rediseño de la página web"
+                    className="w-full px-0 py-2 bg-transparent border-0 border-b border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500 text-sm transition-colors"
+                    maxLength={100}
+                    autoFocus
+                  />
+                </div>
+                
+                {/* Responsable */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    Responsable
+                  </label>
+                  <div className="flex items-center gap-3">
+                    {activeProfile && (
+                      <div className="relative">
+                        <button
+                          onClick={() => {
+                            // Toggle responsable
+                            const isCurrentlyResponsible = newProject.responsible?.id === activeProfile.id;
+                            updateProjectField('responsible', isCurrentlyResponsible ? null : activeProfile);
+                          }}
+                          className="relative group"
+                        >
+                          <div 
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm border-2 transition-all duration-200 hover:scale-105"
+                            style={{
+                              backgroundImage: activeProfile.photoUrl 
+                                ? `url(${activeProfile.photoUrl})` 
+                                : 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              borderColor: newProject.responsible?.id === activeProfile.id ? '#fbbf24' : '#374151'
+                            }}
+                          >
+                            {!activeProfile.photoUrl && activeProfile.name.charAt(0).toUpperCase()}
+                          </div>
+                          {newProject.responsible?.id === activeProfile.id && (
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center">
+                              <Crown className="w-3 h-3 text-yellow-900" />
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Fecha de entrega */}
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <label className="text-sm font-medium text-gray-300">
+                      Fecha de entrega
+                    </label>
+                    <button 
+                      onClick={() => {
+                        // Crear un input temporal para seleccionar fecha
+                        const input = document.createElement('input');
+                        input.type = 'date';
+                        input.style.position = 'absolute';
+                        input.style.left = '-9999px';
+                        input.value = newProject.dueDate;
+                        document.body.appendChild(input);
+                        input.showPicker();
+                        input.addEventListener('change', (e) => {
+                          updateProjectField('dueDate', (e.target as HTMLInputElement).value);
+                          document.body.removeChild(input);
+                        });
+                        input.addEventListener('blur', () => {
+                          if (document.body.contains(input)) {
+                            document.body.removeChild(input);
+                          }
+                        });
+                      }}
+                      className="text-gray-400 hover:text-cyan-400 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                  {/* Mostrar fecha seleccionada */}
+                  {newProject.dueDate && (
+                    <div className="flex items-center justify-between bg-gray-800/30 rounded px-3 py-2">
+                      <span className="text-sm text-cyan-400">
+                        {new Date(newProject.dueDate).toLocaleDateString('es-ES', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </span>
+                      <button
+                        onClick={() => updateProjectField('dueDate', '')}
+                        className="text-gray-400 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Sección */}
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-3">
+                    <label className="text-sm font-medium text-gray-300">
+                      Sección
+                    </label>
+                    <button 
+                      onClick={() => setShowSectionsMenu(!showSectionsMenu)}
+                      className="text-gray-400 hover:text-cyan-400 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {/* Menú desplegable de secciones */}
+                  {showSectionsMenu && (
+                    <div className="absolute top-full left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-10 mb-3">
+                      <div className="p-2">
+                        {/* Secciones predefinidas */}
+                        {customSections.length > 0 && (
+                          <>
+                            <div className="text-xs text-gray-400 mb-2 px-2">Secciones existentes:</div>
+                            {customSections.map((section) => (
+                              <button
+                                key={section.id}
+                                onClick={() => {
+                                  if (!newProject.sections.includes(section.name)) {
+                                    updateProjectField('sections', [...(newProject.sections || []), section.name]);
+                                  }
+                                  setShowSectionsMenu(false);
+                                }}
+                                className="w-full text-left px-2 py-1 text-sm text-white hover:bg-gray-700 rounded transition-colors"
+                              >
+                                {section.name}
+                              </button>
+                            ))}
+                            <div className="border-t border-gray-600 my-2"></div>
+                          </>
+                        )}
+                        
+                        {/* Opción para crear nueva sección */}
+                        <button
+                          onClick={() => {
+                            const sectionName = prompt('Nombre de la nueva sección:');
+                            if (sectionName && sectionName.trim()) {
+                              updateProjectField('sections', [...(newProject.sections || []), sectionName.trim()]);
+                            }
+                            setShowSectionsMenu(false);
+                          }}
+                          className="w-full text-left px-2 py-1 text-sm text-cyan-400 hover:bg-gray-700 rounded transition-colors"
+                        >
+                          + Crear nueva sección
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Mostrar secciones agregadas */}
+                  {newProject.sections && newProject.sections.length > 0 && (
+                    <div className="space-y-2">
+                      {newProject.sections.map((section, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-800/30 rounded px-3 py-2">
+                          <span className="text-sm text-cyan-400">• {section}</span>
+                          <button
+                            onClick={() => {
+                              const updatedSections = newProject.sections.filter((_, i) => i !== index);
+                              updateProjectField('sections', updatedSections);
+                            }}
+                            className="text-gray-400 hover:text-red-400 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Prioridad */}
+                <div className="relative">
+                  <div className="flex items-center gap-3 mb-3">
+                    <label className="text-sm font-medium text-gray-300">
+                      Prioridad
+                    </label>
+                    <button 
+                      onClick={() => setShowPriorityMenu(!showPriorityMenu)}
+                      className="text-gray-400 hover:text-cyan-400 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {/* Menú desplegable de prioridades */}
+                  {showPriorityMenu && (
+                    <div className="absolute top-full left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-10 mb-3">
+                      <div className="p-2">
+                        <div className="text-xs text-gray-400 mb-2 px-2">Seleccionar prioridad:</div>
+                        
+                        {/* Opción Bajo */}
+                        <button
+                          onClick={() => {
+                            updateProjectField('priority', 'bajo');
+                            setShowPriorityMenu(false);
+                          }}
+                          className="w-full text-left px-2 py-2 text-sm text-white hover:bg-gray-700 rounded transition-colors flex items-center gap-2"
+                        >
+                          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                          <span>Bajo</span>
+                        </button>
+                        
+                        {/* Opción Medio */}
+                        <button
+                          onClick={() => {
+                            updateProjectField('priority', 'medio');
+                            setShowPriorityMenu(false);
+                          }}
+                          className="w-full text-left px-2 py-2 text-sm text-white hover:bg-gray-700 rounded transition-colors flex items-center gap-2"
+                        >
+                          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                          <span>Medio</span>
+                        </button>
+                        
+                        {/* Opción Alto */}
+                        <button
+                          onClick={() => {
+                            updateProjectField('priority', 'alto');
+                            setShowPriorityMenu(false);
+                          }}
+                          className="w-full text-left px-2 py-2 text-sm text-white hover:bg-gray-700 rounded transition-colors flex items-center gap-2"
+                        >
+                          <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                          <span>Alto</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Mostrar prioridad seleccionada */}
+                  {newProject.priority && (
+                    <div className="flex items-center gap-2 bg-gray-800/30 rounded px-3 py-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        newProject.priority === 'alto' ? 'bg-red-500' :
+                        newProject.priority === 'medio' ? 'bg-yellow-500' :
+                        'bg-green-500'
+                      }`}></div>
+                      <span className="text-sm text-cyan-400 capitalize">{newProject.priority}</span>
+                      <button
+                        onClick={() => updateProjectField('priority', null)}
+                        className="ml-auto text-gray-400 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Colaboradores */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    Colaboradores
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {/* Fotos de colaboradores existentes */}
+                    {newProject.collaborators.map((collaborator) => (
+                      <div key={collaborator.id} className="relative">
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                          style={{
+                            backgroundImage: collaborator.photoUrl 
+                              ? `url(${collaborator.photoUrl})` 
+                              : 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center'
+                          }}
+                        >
+                          {!collaborator.photoUrl && collaborator.name.charAt(0).toUpperCase()}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Botón agregar colaborador */}
+                    <button className="w-8 h-8 rounded-full border-2 border-dashed border-gray-500 flex items-center justify-center text-gray-400 hover:border-cyan-400 hover:text-cyan-400 transition-colors">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Botón de guardar */}
+              <div className="mt-8 pt-6 border-t border-gray-700/50">
+                <button
+                  onClick={saveProject}
+                  disabled={!newProject.title.trim()}
+                  className="w-full px-4 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm"
+                >
+                  Crear Proyecto
+                </button>
+              </div>
+            </div>
+            
+            {/* Área principal - Editor de notas */}
+            <div className="flex-1 flex flex-col">
+              {/* Barra de herramientas funcional */}
+              <div className="bg-gray-900/40 border-b border-gray-700/50 p-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Botón Bold */}
+                  <button 
+                    onClick={() => applyTextFormat('bold')}
+                    className={`p-2 rounded hover:bg-gray-700 transition-colors ${
+                      editorFormat.bold ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="Negrita (Ctrl+B)"
+                  >
+                    <Bold className="w-4 h-4" />
+                  </button>
+                  
+                  {/* Botón Underline */}
+                  <button 
+                    onClick={() => applyTextFormat('underline')}
+                    className={`p-2 rounded hover:bg-gray-700 transition-colors ${
+                      editorFormat.underline ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="Subrayado (Ctrl+U)"
+                  >
+                    <Underline className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="w-px h-6 bg-gray-600 mx-2"></div>
+                  
+                  {/* Selector de tamaño de fuente */}
+                  <select 
+                    value={editorFormat.fontSize}
+                    onChange={(e) => applyTextFormat('fontSize', e.target.value)}
+                    className="bg-gray-700 text-gray-300 text-sm px-3 py-1 rounded border-none outline-none hover:bg-gray-600 transition-colors"
+                    title="Tamaño de fuente"
+                  >
+                    <option value="12px">12px</option>
+                    <option value="14px">14px</option>
+                    <option value="16px">16px</option>
+                    <option value="18px">18px</option>
+                    <option value="20px">20px</option>
+                    <option value="24px">24px</option>
+                  </select>
+                  
+                  {/* Selector de color */}
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={editorFormat.color}
+                      onChange={(e) => applyTextFormat('color', e.target.value)}
+                      className="w-8 h-8 rounded border-2 border-gray-600 hover:border-gray-500 outline-none cursor-pointer transition-colors"
+                      title="Color del texto"
+                    />
+                  </div>
+                  
+                  <div className="w-px h-6 bg-gray-600 mx-2"></div>
+                  
+                  {/* Selector de formato de bloque */}
+                  <select 
+                    value={editorFormat.textFormat}
+                    onChange={(e) => applyTextFormat('textFormat', e.target.value)}
+                    className="bg-gray-700 text-gray-300 text-sm px-3 py-1 rounded border-none outline-none hover:bg-gray-600 transition-colors min-w-[100px]"
+                    title="Formato de texto"
+                  >
+                    <option value="p">Párrafo</option>
+                    <option value="h1">Título 1</option>
+                    <option value="h2">Título 2</option>
+                    <option value="h3">Título 3</option>
+                    <option value="h4">Título 4</option>
+                    <option value="h5">Título 5</option>
+                    <option value="h6">Título 6</option>
+                  </select>
+                  
+                  {/* Indicador de estado */}
+                  <div className="ml-auto flex items-center gap-2 text-xs text-gray-500">
+                    {editorFormat.bold && <span className="px-2 py-1 bg-cyan-600/20 text-cyan-400 rounded">B</span>}
+                    {editorFormat.underline && <span className="px-2 py-1 bg-cyan-600/20 text-cyan-400 rounded">U</span>}
+                    <span>{editorFormat.fontSize}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Área de texto principal con referencia */}
+              <div className="flex-1 p-6">
+                <textarea
+                  ref={textareaRef}
+                  value={newProject.notes}
+                  onChange={(e) => updateProjectField('notes', e.target.value)}
+                  placeholder="Describe los detalles del proyecto, objetivos, requisitos, etc.\n\nConsejos para usar el editor:\n- Selecciona texto y usa los botones de formato\n- Usa **texto** para negrita\n- Usa texto subrayado con el botón U\n- Usa los selectores para títulos y colores"
+                  className="w-full h-full bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none text-sm leading-relaxed font-mono"
+                  style={{ 
+                    minHeight: 'calc(100vh - 200px)',
+                    fontSize: editorFormat.fontSize,
+                    color: editorFormat.color
+                  }}
+                  onKeyDown={(e) => {
+                    // Atajos de teclado
+                    if (e.ctrlKey || e.metaKey) {
+                      if (e.key === 'b') {
+                        e.preventDefault();
+                        applyTextFormat('bold');
+                      } else if (e.key === 'u') {
+                        e.preventDefault();
+                        applyTextFormat('underline');
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       
-      {/* 🧠 INTERFAZ ORIGINAL PARA OTROS MODOS */}
+      {/* INTERFAZ ORIGINAL PARA OTROS MODOS */}
       {(appState === "intelligent_mode" || appState === "functional_mode") && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
           {/* Central Circle con toggle de voz */}
           <div className="relative flex flex-col items-center justify-center mb-20 w-full mt-[-70px]">
             <button 
-              onClick={toggleVoiceControl}
+              onClick={toggleNexusVoiceControl}
               disabled={isSpeaking || isModeTransitioning}
               className={`${getCircleClasses()} transition-all duration-300 hover:scale-105 ${
                 isVoiceControlEnabled 
@@ -3762,6 +4517,7 @@ const toggleMode = async () => {
           </div>
         </div>
       )}
+
     </div>
   )
 }

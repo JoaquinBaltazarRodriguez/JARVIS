@@ -21,6 +21,9 @@ import {
   import { auth, db, storage } from './firebase';
   import { UserProfile } from '@/components/ProfileSelector';
   
+  // Re-export UserProfile for external use
+  export type { UserProfile };
+  
   // Definición de tipos para playlists
   export interface Song {
     title: string;
