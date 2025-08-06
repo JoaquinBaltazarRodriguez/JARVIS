@@ -203,7 +203,7 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   
   // 📋 ESTADOS PARA NAVEGACIÓN DEL PANEL LATERAL
   const [currentView, setCurrentView] = useState<'inicio' | 'finalizadas' | 'papelera'>('inicio')
-  const [customSections, setCustomSections] = useState<{id: string, name: string}[]>([])
+  const [customSections, setCustomSections] = useState<{id: string, name: string, createdAt: Date}[]>([])
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
   const [showAddSectionModal, setShowAddSectionModal] = useState(false)
   const [newSectionName, setNewSectionName] = useState('')
@@ -648,6 +648,9 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   // Estados para mostrar/ocultar el selector de playlists
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false)
 
+  // Estado para crear secciones
+  const [isCreatingSection, setIsCreatingSection] = useState(false)
+
   // Cargar playlists del usuario actual desde Firebase
   useEffect(() => {
     // Si no hay usuario activo, no hacemos nada
@@ -667,6 +670,25 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     };
 
     loadUserPlaylists();
+  }, [activeProfile?.id]);
+
+  // Cargar secciones del usuario actual desde Firebase
+  useEffect(() => {
+    // Si no hay usuario activo, no hacemos nada
+    if (!activeProfile?.id) return;
+
+    // Cargar secciones del usuario desde Firebase
+    const loadUserSections = async () => {
+      try {
+        const userSections = await FirebaseProfileManager.getUserSections(activeProfile.id);
+        setCustomSections(userSections);
+      } catch (error) {
+        console.error('Error al cargar secciones del usuario:', error);
+        setCustomSections([]);
+      }
+    };
+
+    loadUserSections();
   }, [activeProfile?.id]);
 
   // Función para crear una nueva playlist
@@ -935,8 +957,87 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       console.error('Error al limpiar playlists:', error);
     }
   };
-  
 
+  // ===== FUNCIONES PARA MANEJAR SECCIONES PERSONALIZADAS =====
+  
+  // Función para crear una nueva sección
+  const createCustomSection = async () => {
+    if (!activeProfile?.id || !newSectionName.trim()) {
+      console.error("No se puede crear sección: falta perfil activo o nombre");
+      return;
+    }
+    
+    if (newSectionName.trim().length > 30) {
+      alert("El nombre de la sección no puede exceder 30 caracteres");
+      return;
+    }
+    
+    setIsCreatingSection(true);
+    
+    try {
+      // Crear la sección en Firebase - IMPORTANTE: pasar solo el string nombre
+      const newSection = await FirebaseProfileManager.createSection(
+        activeProfile.id,
+        newSectionName.trim() // ✅ String, no objeto
+      );
+      
+      if (newSection) {
+        // Actualizar el estado local
+        setCustomSections(prev => [...prev, newSection]);
+        
+        // Limpiar y cerrar modal
+        setNewSectionName("");
+        setShowAddSectionModal(false);
+        
+        console.log(`Sección "${newSection.name}" creada exitosamente`);
+      } else {
+        alert("No se pudo crear la sección. Inténtalo nuevamente.");
+      }
+    } catch (error) {
+      console.error('Error al crear sección:', error);
+      alert('Hubo un error al crear la sección. Por favor intenta nuevamente.');
+    } finally {
+      setIsCreatingSection(false);
+    }
+  };
+  
+  // Función para eliminar una sección
+  const deleteCustomSection = async (sectionId: string) => {
+    if (!activeProfile?.id) return;
+    
+    try {
+      const success = await FirebaseProfileManager.deleteSection(activeProfile.id, sectionId);
+      
+      if (success) {
+        // Actualizar estado local eliminando la sección del array
+        setCustomSections(prev => prev.filter(section => section.id !== sectionId));
+        
+        // Si la sección eliminada estaba seleccionada, deseleccionar
+        if (selectedSection === sectionId) {
+          setSelectedSection(null);
+        }
+        
+        console.log(`Sección ${sectionId} eliminada exitosamente`);
+      } else {
+        alert("No se pudo eliminar la sección. Intenta nuevamente.");
+      }
+    } catch (error) {
+      console.error('Error al eliminar sección:', error);
+      alert("Error al eliminar la sección. Intenta nuevamente.");
+    }
+  };
+  
+  // Función para seleccionar una sección
+  const selectCustomSection = (sectionId: string) => {
+    setSelectedSection(sectionId);
+    // Aquí podrías agregar lógica adicional para filtrar proyectos por sección
+  };
+  
+  // Función para cambiar vista principal (inicio, finalizadas, papelera)
+  const changeMainView = (view: 'inicio' | 'finalizadas' | 'papelera') => {
+    setCurrentView(view);
+    setSelectedSection(null); // Limpiar selección de sección al cambiar vista
+  };
 
   // --- ACCESIBILIDAD GLOBAL ---
   // Ya se declaró screenReaderEnabled arriba en los estados de configuración
@@ -3628,7 +3729,7 @@ const toggleMode = async () => {
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    handleAddSection()
+                    createCustomSection()
                   } else if (e.key === 'Escape') {
                     setShowAddSectionModal(false)
                     setNewSectionName('')
@@ -3651,7 +3752,7 @@ const toggleMode = async () => {
                 Cancelar
               </button>
               <button
-                onClick={handleAddSection}
+                onClick={createCustomSection}
                 disabled={!newSectionName.trim()}
                 className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200"
               >

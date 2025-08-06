@@ -32,6 +32,13 @@ import {
     name: string;
     songs: Song[];
   }
+
+  // Definición de tipos para secciones personalizadas
+  export interface CustomSection {
+    id: string;
+    name: string;
+    createdAt: Date;
+  }
   
   export class FirebaseProfileManager {
     // Crear un nuevo perfil
@@ -317,6 +324,94 @@ import {
         return true;
       } catch (error) {
         console.error("Error al actualizar playlist:", error);
+        return false;
+      }
+    }
+
+    // Cerrar sesión
+    static async logout(): Promise<boolean> {
+      try {
+        await signOut(auth);
+        return true;
+      } catch (error) {
+        console.error("Error al cerrar sesión:", error);
+        return false;
+      }
+    }
+
+    // ===== FUNCIONES PARA MANEJAR SECCIONES PERSONALIZADAS =====
+    
+    // Crear una nueva sección
+    static async createSection(userId: string, name: string): Promise<CustomSection | null> {
+      try {
+        const sectionRef = doc(collection(db, `users/${userId}/sections`));
+        const newSection = {
+          name: name.trim(),
+          createdAt: new Date()
+        };
+        await setDoc(sectionRef, newSection);
+        
+        const completeSection: CustomSection = {
+          id: sectionRef.id,
+          name: newSection.name,
+          createdAt: newSection.createdAt
+        };
+        
+        console.log(`Sección "${name}" creada exitosamente para usuario ${userId}`);
+        return completeSection;
+      } catch (error) {
+        console.error("Error al crear sección:", error);
+        return null;
+      }
+    }
+    
+    // Obtener todas las secciones de un usuario
+    static async getUserSections(userId: string): Promise<CustomSection[]> {
+      try {
+        console.log(`Obteniendo secciones para usuario ${userId}...`);
+        const sectionsSnapshot = await getDocs(collection(db, `users/${userId}/sections`));
+        const sections: CustomSection[] = [];
+        
+        sectionsSnapshot.forEach(doc => {
+          const sectionData = doc.data();
+          sections.push({
+            id: doc.id,
+            name: sectionData.name,
+            createdAt: sectionData.createdAt.toDate ? sectionData.createdAt.toDate() : sectionData.createdAt
+          });
+        });
+        
+        console.log(`Se encontraron ${sections.length} secciones para el usuario`);
+        return sections;
+      } catch (error) {
+        console.error("Error al obtener secciones:", error);
+        return [];
+      }
+    }
+    
+    // Eliminar una sección
+    static async deleteSection(userId: string, sectionId: string): Promise<boolean> {
+      try {
+        await deleteDoc(doc(db, `users/${userId}/sections`, sectionId));
+        console.log(`Sección ${sectionId} eliminada exitosamente`);
+        return true;
+      } catch (error) {
+        console.error("Error al eliminar sección:", error);
+        return false;
+      }
+    }
+    
+    // Actualizar una sección
+    static async updateSection(userId: string, section: CustomSection): Promise<boolean> {
+      try {
+        await updateDoc(doc(db, `users/${userId}/sections`, section.id), {
+          name: section.name.trim(),
+          createdAt: section.createdAt
+        });
+        console.log(`Sección ${section.id} actualizada exitosamente`);
+        return true;
+      } catch (error) {
+        console.error("Error al actualizar sección:", error);
         return false;
       }
     }
