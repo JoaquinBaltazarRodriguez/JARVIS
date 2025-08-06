@@ -1429,9 +1429,35 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
 
 
 
+  // 🚨 OPTIMIZACIÓN DE MEMORIA: Solo cargar hooks cuando sea necesario
   const { speak, isSpeaking } = useSimpleAudio()
-  useCineSound(isSpeaking) // Efecto cine cuando NEXUS habla
-  useNexusStartupAnimation(startupAnim, () => setStartupAnim(false))
+  
+  // 🚨 OPTIMIZACIÓN: Hooks condicionales para reducir uso de memoria
+  // Solo usar efectos de cine cuando NEXUS está activo y hablando
+  const shouldUseCineSound = isVoiceControlEnabled && isSpeaking
+  // Comentado temporalmente para reducir memoria
+  // if (shouldUseCineSound) {
+  //   useCineSound(isSpeaking)
+  // }
+  
+  // Solo usar animación de startup cuando sea necesario
+  // Comentado temporalmente para reducir memoria
+  // if (startupAnim) {
+  //   useNexusStartupAnimation(startupAnim, () => setStartupAnim(false))
+  // }
+  
+  // Solo usar reconocimiento de voz cuando esté habilitado
+  const audioHooks = isVoiceControlEnabled ? useAutoSpeech() : {
+    isListening: false,
+    transcript: '',
+    isSupported: true,
+    startAutoListening: () => {},
+    stopListening: () => {},
+    resetTranscript: () => {},
+    startContinuousListening: () => {},
+    setSpeakingState: () => {},
+  }
+  
   const {
     isListening,
     transcript,
@@ -1441,16 +1467,80 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     resetTranscript,
     startContinuousListening,
     setSpeakingState,
-  } = useAutoSpeech()
+  } = audioHooks
 
   const { playStartupSound, playShutdownSound, playClickSound, playHoverSound } = useFuturisticSounds()
 
-  const { showReminder, currentTime, dismissReminder } = usePillReminder((message: string) => {
+  // Solo usar recordatorio de pastillas cuando el usuario esté activo
+  const pillHooks = hasInitialized ? usePillReminder((message: string) => {
     console.log("💊 PILL REMINDER TRIGGERED:", message)
     speak(message)
-  })
+  }) : { showReminder: false, currentTime: '', dismissReminder: () => {} }
+  
+  const { showReminder, currentTime, dismissReminder } = pillHooks
 
-
+  // 🚨 OPTIMIZACIÓN DE MEMORIA: Limitar arrays para evitar acumulación
+  useEffect(() => {
+    // Limitar mensajes a máximo 50 para evitar acumulación de memoria
+    if (messages.length > 50) {
+      setMessages(prev => prev.slice(-50))
+    }
+    
+    // Limitar archivos seleccionados
+    if (selectedFiles.length > 10) {
+      setSelectedFiles(prev => prev.slice(-10))
+    }
+  }, [messages.length, selectedFiles.length])
+  
+  // 🚨 LIMPIEZA DE MEMORIA: Limpiar recursos no utilizados
+  useEffect(() => {
+    const cleanup = () => {
+      // Limpiar URLs de objetos que ya no se usan
+      selectedFiles.forEach(file => {
+        if (file.url && file.url.startsWith('blob:')) {
+          URL.revokeObjectURL(file.url)
+        }
+      })
+    }
+    
+    return cleanup
+  }, [selectedFiles])
+  
+  // 🚨 MONITOR DE MEMORIA: Verificar y limpiar cada 30 segundos
+  useEffect(() => {
+    const memoryMonitor = setInterval(() => {
+      // Forzar garbage collection si está disponible
+      if (typeof window !== 'undefined' && 'gc' in window) {
+        try {
+          (window as any).gc()
+        } catch (e) {
+          // Ignorar errores de GC
+        }
+      }
+      
+      // Limpiar localStorage si es muy grande
+      try {
+        const storageSize = JSON.stringify(localStorage).length
+        if (storageSize > 1024 * 1024) { // 1MB
+          console.warn('🚨 localStorage muy grande, limpiando...')
+          // Mantener solo datos esenciales
+          const essential = {
+            'nexus_active_profile': localStorage.getItem('nexus_active_profile'),
+            'nexus_voice_muted': localStorage.getItem('nexus_voice_muted'),
+            'nexus_animations_enabled': localStorage.getItem('nexus_animations_enabled')
+          }
+          localStorage.clear()
+          Object.entries(essential).forEach(([key, value]) => {
+            if (value) localStorage.setItem(key, value)
+          })
+        }
+      } catch (e) {
+        console.error('Error en monitor de memoria:', e)
+      }
+    }, 30000) // Cada 30 segundos
+    
+    return () => clearInterval(memoryMonitor)
+  }, [])
 
   // Detecta transición de waiting_password a active para animación de inicio
   useEffect(() => {
