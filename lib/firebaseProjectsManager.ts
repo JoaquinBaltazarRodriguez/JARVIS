@@ -21,7 +21,7 @@ export interface Project {
   dueDate: string | null
   sectionId: string | null
   sectionName: string | null
-  priority: 'bajo' | 'medio' | 'alto'
+  priority: 'bajo' | 'medio' | 'alto' | null
   notes: string
   collaborators: string[] // Array de IDs de usuarios
   createdAt: Date
@@ -36,6 +36,7 @@ export class FirebaseProjectsManager {
     projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
   ): Promise<Project | null> {
     try {
+      console.log('🔍 DEBUG - createProject received priority:', projectData.priority, typeof projectData.priority);
       const projectRef = doc(collection(db, `users/${userId}/projects`))
       const now = new Date()
       
@@ -47,11 +48,20 @@ export class FirebaseProjectsManager {
         updatedAt: now
       }
       
-      await setDoc(projectRef, {
+      const dataToSave = {
         ...newProject,
+        priority: newProject.priority === null ? null : newProject.priority, // Explicitly preserve null
         createdAt: Timestamp.fromDate(now),
         updatedAt: Timestamp.fromDate(now)
-      })
+      };
+      
+      console.log('🔍 DEBUG - Data being saved to Firebase:', {
+        title: dataToSave.title,
+        priority: dataToSave.priority,
+        priorityType: typeof dataToSave.priority
+      });
+      
+      await setDoc(projectRef, dataToSave)
       
       console.log('✅ Proyecto creado exitosamente:', newProject.title)
       return newProject

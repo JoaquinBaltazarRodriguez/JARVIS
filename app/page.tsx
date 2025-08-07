@@ -923,6 +923,11 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     const loadUserProjects = async () => {
       try {
         const userProjects = await FirebaseProjectsManager.getUserProjects(activeProfile.id);
+        console.log('🔍 DEBUG - Projects loaded from Firebase:', userProjects.map(p => ({
+          title: p.title,
+          priority: p.priority,
+          priorityType: typeof p.priority
+        })));
         setProjects(userProjects);
         console.log('✅ Proyectos cargados:', userProjects.length);
       } catch (error) {
@@ -1410,6 +1415,14 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }));
   };
   
+  // Helper function to check if priority should be displayed
+  const shouldDisplayPriority = (priority: any): priority is 'bajo' | 'medio' | 'alto' => {
+    return priority !== null && 
+           priority !== undefined && 
+           priority !== '' && 
+           ['bajo', 'medio', 'alto'].includes(priority);
+  };
+
   // Función para guardar el proyecto (crear o editar)
   const saveProject = async () => {
     if (!newProject.title.trim()) {
@@ -1429,6 +1442,10 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         : null;
       
       // Preparar datos del proyecto para Firebase
+      console.log('🔍 DEBUG - newProject.priority:', newProject.priority, typeof newProject.priority);
+      console.log('🔍 DEBUG - newProject full object:', newProject);
+      console.log('🔍 DEBUG - shouldDisplayPriority result:', shouldDisplayPriority(newProject.priority));
+      
       const projectData = {
         title: newProject.title.trim(),
         isCompleted: newProject.isCompleted,
@@ -1442,6 +1459,8 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         notes: newProject.notes.trim(),
         collaborators: newProject.collaborators.map(c => c.id)
       };
+      
+      console.log('🔍 DEBUG - projectData.priority:', projectData.priority, typeof projectData.priority);
       
       let savedProject;
       let updateSuccess = false;
@@ -3841,17 +3860,19 @@ const getCircleClasses = () => {
                             }).replace(/\//g, '/')}</span>
                           </div>
                         )}
-                        {project.priority && (
+                        {shouldDisplayPriority(project.priority) && (
                           <div className="flex items-center gap-1 text-xs text-gray-500">
                             <div className={`w-1 h-1 rounded-full ${
                               project.priority === 'alto' ? 'bg-red-500' :
                               project.priority === 'medio' ? 'bg-yellow-500' :
-                              'bg-green-500'
+                              project.priority === 'bajo' ? 'bg-green-500' :
+                              'bg-gray-500'
                             }`}></div>
                             <span>Prioridad: {
                               project.priority === 'alto' ? 'Alta' :
                               project.priority === 'medio' ? 'Media' :
-                              'Baja'
+                              project.priority === 'bajo' ? 'Baja' :
+                              'Desconocida'
                             }</span>
                           </div>
                         )}
@@ -3940,17 +3961,19 @@ const getCircleClasses = () => {
                             }).replace(/\//g, '/')}</span>
                           </div>
                         )}
-                        {project.priority && (
+                        {shouldDisplayPriority(project.priority) && (
                           <div className="flex items-center gap-1 text-xs text-gray-600">
                             <div className={`w-1 h-1 rounded-full opacity-50 ${
                               project.priority === 'alto' ? 'bg-red-500' :
                               project.priority === 'medio' ? 'bg-yellow-500' :
-                              'bg-green-500'
+                              project.priority === 'bajo' ? 'bg-green-500' :
+                              'bg-gray-500'
                             }`}></div>
                             <span>Prioridad: {
                               project.priority === 'alto' ? 'Alta' :
                               project.priority === 'medio' ? 'Media' :
-                              'Baja'
+                              project.priority === 'bajo' ? 'Baja' :
+                              'Desconocida'
                             }</span>
                           </div>
                         )}
