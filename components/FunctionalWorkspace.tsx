@@ -28,6 +28,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 export interface WorkspaceProject {
   id: string;
   name: string;
+  priority?: "low" | "medium" | "high";
   sections: WorkspaceSection[];
 }
 export interface WorkspaceSection {
@@ -419,7 +420,19 @@ export const FunctionalWorkspace: React.FC = () => {
             
             {projects.map((project) => (
               <div key={project.id} className="mb-4">
-                <div className="flex items-center justify-between w-full hover:bg-cyan-950/30 rounded px-2 py-1.5">
+                <div className="flex items-center justify-between w-full hover:bg-cyan-950/30 rounded px-2 py-1.5 relative">
+                  {/* Indicador de prioridad */}
+                  {project.priority && (
+                    <div className={cn(
+                      "absolute top-2 left-2 w-2 h-2 rounded-full",
+                      {
+                        "bg-red-500": project.priority === "high",
+                        "bg-yellow-500": project.priority === "medium", 
+                        "bg-green-500": project.priority === "low"
+                      }
+                    )} />
+                  )}
+                  
                   <button 
                     className="flex items-center text-left flex-1"
                     onClick={() => toggleExpand(project.id)}

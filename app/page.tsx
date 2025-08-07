@@ -215,6 +215,7 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   // 📋 ESTADOS PARA CREACIÓN DE PROYECTOS
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
+  const [trashedProjects, setTrashedProjects] = useState<Project[]>([])
   const [newProject, setNewProject] = useState({
     title: '',
     isCompleted: false,
@@ -1443,6 +1444,87 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       console.error('❌ Error al crear proyecto:', error);
       alert('Error al crear el proyecto. Intenta nuevamente.');
     }
+  };
+
+  // Función para mover proyecto a la papelera
+  const handleMoveToTrash = async (projectId: string) => {
+    if (!activeProfile) {
+      alert('No hay un perfil activo');
+      return;
+    }
+    
+    try {
+      // Encontrar el proyecto en la lista actual
+      const projectToTrash = projects.find(p => p.id === projectId);
+      if (!projectToTrash) {
+        console.error('Proyecto no encontrado:', projectId);
+        return;
+      }
+      
+      // Remover de la lista de proyectos activos
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+      
+      // Agregar a la lista de proyectos eliminados
+      setTrashedProjects(prev => [projectToTrash, ...prev]);
+      
+      // Feedback al usuario
+      if (typeof speak === 'function') {
+        speak('Proyecto movido a la papelera');
+      }
+      
+      console.log('🗑️ Proyecto movido a papelera:', projectToTrash.title);
+    } catch (error) {
+      console.error('❌ Error al mover proyecto a papelera:', error);
+      alert('Error al mover el proyecto a la papelera. Intenta nuevamente.');
+    }
+  };
+
+  // Función para restaurar proyecto desde la papelera
+  const handleRestoreFromTrash = async (projectId: string) => {
+    if (!activeProfile) {
+      alert('No hay un perfil activo');
+      return;
+    }
+    
+    try {
+      // Encontrar el proyecto en la papelera
+      const projectToRestore = trashedProjects.find(p => p.id === projectId);
+      if (!projectToRestore) {
+        console.error('Proyecto no encontrado en papelera:', projectId);
+        return;
+      }
+      
+      // Remover de la papelera
+      setTrashedProjects(prev => prev.filter(p => p.id !== projectId));
+      
+      // Restaurar a la lista de proyectos activos
+      setProjects(prev => [projectToRestore, ...prev]);
+      
+      // Feedback al usuario
+      if (typeof speak === 'function') {
+        speak('Proyecto restaurado exitosamente');
+      }
+      
+      console.log('♾️ Proyecto restaurado:', projectToRestore.title);
+    } catch (error) {
+      console.error('❌ Error al restaurar proyecto:', error);
+      alert('Error al restaurar el proyecto. Intenta nuevamente.');
+    }
+  };
+
+  // Funciones de navegación
+  const handleViewChange = (view: 'inicio' | 'finalizadas' | 'papelera') => {
+    setCurrentView(view);
+    setSelectedSection(null);
+  };
+
+  const handleSectionSelect = (sectionId: string) => {
+    setSelectedSection(sectionId);
+    setCurrentView('inicio'); // Asegurar que estamos en la vista de inicio
+  };
+
+  const handleDeleteSection = (sectionId: string) => {
+    deleteCustomSection(sectionId);
   };
 
   // --- ACCESIBILIDAD GLOBAL ---
@@ -2975,47 +3057,16 @@ const getCircleClasses = () => {
 }
 
 
-
-// 📋 FUNCIONES PARA MANEJO DEL PANEL LATERAL
-const handleViewChange = (view: 'inicio' | 'finalizadas' | 'papelera') => {
-  setCurrentView(view)
-  setSelectedSection(null) // Limpiar selección de sección al cambiar vista
-}
-
-const handleSectionSelect = (sectionId: string) => {
-  setSelectedSection(sectionId)
-  setCurrentView('inicio') // Las secciones se muestran en la vista de inicio
-}
-
-const handleAddSection = () => {
-  if (newSectionName.trim()) {
-    const newSection = {
-      id: Date.now().toString(),
-      name: newSectionName.trim()
+  // 🔄 FUNCIÓN PARA ALTERNAR ENTRE MODOS
+  const toggleMode = async () => {
+    if (isSpeaking) return
+    
+    if (appState === "active") {
+      await handleFunctionalMode({ silent: false })
+    } else if (appState === "functional_mode") {
+      await handleNormalMode({ silent: false })
     }
-    setCustomSections(prev => [...prev, newSection])
-    setNewSectionName('')
-    setShowAddSectionModal(false)
   }
-}
-
-const handleDeleteSection = (sectionId: string) => {
-  setCustomSections(prev => prev.filter(section => section.id !== sectionId))
-  if (selectedSection === sectionId) {
-    setSelectedSection(null)
-  }
-}
-
-// 🔄 FUNCIÓN PARA ALTERNAR ENTRE MODOS
-const toggleMode = async () => {
-  if (isSpeaking) return
-  
-  if (appState === "active") {
-    await handleFunctionalMode({ silent: false })
-  } else if (appState === "functional_mode") {
-    await handleNormalMode({ silent: false })
-  }
-}
 
   if (!mounted) {
     return (
@@ -3423,9 +3474,9 @@ const toggleMode = async () => {
 
       {/* 🎨 NUEVA INTERFAZ TIPO FIGMA - Solo para Mi NEXUS (appState === "active") */}
       {appState === "active" && !showCreateProject && (
-        <div className="flex-1 flex min-h-screen relative z-10">
+        <div className="flex-1 flex h-screen relative z-10">
           {/* 📂 PANEL LATERAL IZQUIERDO */}
-          <div className="w-80 bg-gray-900/50 border-r border-gray-700/50 backdrop-blur-sm flex flex-col">
+          <div className="w-80 bg-gray-900/50 border-r border-gray-700/50 backdrop-blur-sm flex flex-col overflow-y-scroll nexus-scrollbar-sidebar h-screen">
             {/* Círculo NEXUS más pequeño debajo del título */}
             <div className="p-6 border-b border-gray-700/50">
               <div className="flex flex-col items-center">
@@ -3613,8 +3664,8 @@ const toggleMode = async () => {
           </div>
           
           {/* 🎯 ÁREA PRINCIPAL DERECHA - Grid de Proyectos */}
-          <div className="flex-1 bg-gray-950/30 backdrop-blur-sm">
-            <div className="h-full p-8">
+          <div className="flex-1 bg-gray-950/30 backdrop-blur-sm overflow-y-scroll nexus-scrollbar h-screen">
+            <div className="p-8">
               {/* Header del área de proyectos - Dinámico según vista */}
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-white mb-2">
@@ -3640,7 +3691,7 @@ const toggleMode = async () => {
               </div>
               
               {/* Grid de proyectos - Dinámico según vista */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 pb-8">
                 {/* Ventanita para crear nuevo proyecto - Solo en inicio */}
                 {(currentView === 'inicio') && (
                   <div className="group">
@@ -3668,6 +3719,17 @@ const toggleMode = async () => {
                 {currentView === 'inicio' && !selectedSection && projects.map((project) => (
                   <div key={project.id} className="group">
                     <div className="aspect-square bg-gray-800/60 border border-gray-700/50 hover:border-cyan-500/50 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:bg-gray-800/80 hover:scale-105 max-w-[220px] flex flex-col relative">
+                      {/* Icono de papelera en hover */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveToTrash(project.id);
+                        }}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-600/80 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                        title="Mover a papelera"
+                      >
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </button>
                       {/* Header con foto de perfil y creador */}
                       <div className="flex items-center gap-2 mb-4">
                         {/* Foto de perfil del usuario que creó el proyecto */}
@@ -3683,7 +3745,7 @@ const toggleMode = async () => {
                           </div>
                         )}
                         <span className="text-xs text-gray-400 truncate flex-1">
-                          Creado por {project.responsible?.name || activeProfile?.name || 'Usuario'}
+                          Creado por {project.responsibleUserName || activeProfile?.name || 'Usuario'}
                         </span>
                       </div>
                       
@@ -3716,16 +3778,23 @@ const toggleMode = async () => {
                             }).replace(/\//g, '/')}</span>
                           </div>
                         )}
+                        {project.priority && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <div className={`w-1 h-1 rounded-full ${
+                              project.priority === 'alto' ? 'bg-red-500' :
+                              project.priority === 'medio' ? 'bg-yellow-500' :
+                              'bg-green-500'
+                            }`}></div>
+                            <span>Prioridad: {
+                              project.priority === 'alto' ? 'Alta' :
+                              project.priority === 'medio' ? 'Media' :
+                              'Baja'
+                            }</span>
+                          </div>
+                        )}
                       </div>
                       
-                      {/* Indicador de prioridad */}
-                      {project.priority && (
-                        <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${
-                          project.priority === 'high' ? 'bg-red-400' :
-                          project.priority === 'medium' ? 'bg-yellow-400' :
-                          'bg-green-400'
-                        }`}></div>
-                      )}
+
                     </div>
                   </div>
                 ))}
@@ -3741,7 +3810,94 @@ const toggleMode = async () => {
                   </div>
                 )}
                 
-                {currentView === 'papelera' && (
+                {/* Proyectos en papelera */}
+                {currentView === 'papelera' && trashedProjects.length > 0 && trashedProjects.map((project) => (
+                  <div key={project.id} className="group">
+                    <div className="aspect-square bg-gray-800/40 border border-red-500/30 hover:border-red-500/50 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px] flex flex-col relative">
+                      {/* Icono de restaurar en hover */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRestoreFromTrash(project.id);
+                        }}
+                        className="absolute top-2 right-2 w-8 h-8 bg-green-600/80 hover:bg-green-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                        title="Restaurar proyecto"
+                      >
+                        <ArrowRight className="w-4 h-4 text-white transform rotate-180" />
+                      </button>
+                      
+                      {/* Etiqueta de eliminado */}
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-600/80 rounded-full">
+                        <span className="text-xs text-white font-medium">Eliminado</span>
+                      </div>
+                      
+                      {/* Header con foto de perfil y creador */}
+                      <div className="flex items-center gap-2 mb-4 mt-6">
+                        {/* Foto de perfil del usuario que creó el proyecto */}
+                        {activeProfile?.photoUrl ? (
+                          <img 
+                            src={activeProfile.photoUrl} 
+                            alt={activeProfile.name}
+                            className="w-6 h-6 rounded-full object-cover border border-gray-600 opacity-60"
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold opacity-60">
+                            {activeProfile?.name?.charAt(0).toUpperCase() || project.responsibleUserName?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        <span className="text-xs text-gray-500 truncate flex-1">
+                          Creado por {project.responsibleUserName || activeProfile?.name || 'Usuario'}
+                        </span>
+                      </div>
+                      
+                      {/* Título del proyecto - Estilo apagado */}
+                      <div className="flex-1 flex items-center justify-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-400 text-center leading-tight tracking-wide line-through">
+                          {project.title}
+                        </h3>
+                      </div>
+                      
+                      {/* Fechas con formato completo */}
+                      <div className="space-y-1 mt-auto">
+                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                          <div className="w-1 h-1 bg-cyan-400/50 rounded-full"></div>
+                          <span>Creado: {new Date(project.createdAt).toLocaleDateString('es-ES', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric' 
+                          }).replace(/\//g, '/')}</span>
+                        </div>
+                        {project.dueDate && (
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <div className="w-1 h-1 bg-orange-400/50 rounded-full"></div>
+                            <span>Vence: {new Date(project.dueDate).toLocaleDateString('es-ES', { 
+                              day: '2-digit', 
+                              month: '2-digit', 
+                              year: 'numeric' 
+                            }).replace(/\//g, '/')}</span>
+                          </div>
+                        )}
+                        {project.priority && (
+                          <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <div className={`w-1 h-1 rounded-full opacity-50 ${
+                              project.priority === 'alto' ? 'bg-red-500' :
+                              project.priority === 'medio' ? 'bg-yellow-500' :
+                              'bg-green-500'
+                            }`}></div>
+                            <span>Prioridad: {
+                              project.priority === 'alto' ? 'Alta' :
+                              project.priority === 'medio' ? 'Media' :
+                              'Baja'
+                            }</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Estado vacío de papelera */}
+                {currentView === 'papelera' && trashedProjects.length === 0 && (
                   <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
                     <Trash2 className="w-16 h-16 text-red-400/50 mb-4" />
                     <h3 className="text-lg font-medium text-gray-300 mb-2">La papelera está vacía</h3>
