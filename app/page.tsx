@@ -216,6 +216,7 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [trashedProjects, setTrashedProjects] = useState<Project[]>([])
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [newProject, setNewProject] = useState({
     title: '',
     isCompleted: false,
@@ -1332,6 +1333,28 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       }));
     }
   };
+
+  // Función para manejar la edición de un proyecto
+  const handleEditProject = (project: Project) => {
+    // Establecer el proyecto que se está editando
+    setEditingProject(project);
+    
+    // Pre-llenar el formulario con los datos del proyecto
+    setNewProject({
+      title: project.title,
+      isCompleted: project.isCompleted,
+      responsible: activeProfile, // Usar el perfil activo actual
+      dueDate: project.dueDate || '',
+      section: project.sectionId,
+      sections: [],
+      priority: project.priority,
+      notes: project.notes,
+      collaborators: [activeProfile!] // Por ahora usar el perfil activo
+    });
+    
+    // Abrir el modal
+    setShowCreateProject(true);
+  };
   
   // Función para cerrar el modal de creación
   const handleCloseCreateProject = () => {
@@ -1339,6 +1362,8 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     // Cerrar menús desplegables
     setShowSectionsMenu(false);
     setShowPriorityMenu(false);
+    // Resetear el estado de edición
+    setEditingProject(null);
     // Resetear el formulario
     setNewProject({
       title: '',
@@ -1385,7 +1410,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }));
   };
   
-  // Función para guardar el proyecto
+  // Función para guardar el proyecto (crear o editar)
   const saveProject = async () => {
     if (!newProject.title.trim()) {
       alert('El título del proyecto es obligatorio');
@@ -1418,31 +1443,66 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         collaborators: newProject.collaborators.map(c => c.id)
       };
       
-      // Guardar en Firebase
-      const savedProject = await FirebaseProjectsManager.createProject(
-        activeProfile.id,
-        projectData
-      );
+      let savedProject;
+      let updateSuccess = false;
       
-      if (savedProject) {
-        // Agregar a la lista local
-        setProjects(prev => [savedProject, ...prev]);
+      if (editingProject) {
+        // Estamos editando un proyecto existente
+        updateSuccess = await FirebaseProjectsManager.updateProject(
+          activeProfile.id,
+          editingProject.id,
+          projectData
+        );
         
-        // Cerrar la vista de creación
-        handleCloseCreateProject();
-        
-        // Feedback al usuario
-        if (typeof speak === 'function') {
-          speak('Proyecto creado exitosamente');
+        if (updateSuccess) {
+          // Crear el objeto proyecto actualizado para la UI
+          savedProject = {
+            ...editingProject,
+            ...projectData,
+            updatedAt: new Date()
+          };
+          
+          // Actualizar en la lista local
+          setProjects(prev => prev.map(p => 
+            p.id === editingProject.id ? savedProject : p
+          ));
+          
+          // Feedback al usuario
+          if (typeof speak === 'function') {
+            speak('Proyecto actualizado exitosamente');
+          }
+          
+          console.log('✅ Proyecto actualizado en Firebase:', savedProject);
         }
-        
-        console.log('✅ Proyecto guardado en Firebase:', savedProject);
       } else {
-        throw new Error('No se pudo guardar el proyecto');
+        // Estamos creando un nuevo proyecto
+        savedProject = await FirebaseProjectsManager.createProject(
+          activeProfile.id,
+          projectData
+        );
+        
+        if (savedProject) {
+          // Agregar a la lista local
+          setProjects(prev => [savedProject, ...prev]);
+          
+          // Feedback al usuario
+          if (typeof speak === 'function') {
+            speak('Proyecto creado exitosamente');
+          }
+          
+          console.log('✅ Proyecto guardado en Firebase:', savedProject);
+        }
+      }
+      
+      if (savedProject || (editingProject && updateSuccess)) {
+        // Cerrar la vista de creación/edición
+        handleCloseCreateProject();
+      } else {
+        throw new Error(editingProject ? 'No se pudo actualizar el proyecto' : 'No se pudo guardar el proyecto');
       }
     } catch (error) {
-      console.error('❌ Error al crear proyecto:', error);
-      alert('Error al crear el proyecto. Intenta nuevamente.');
+      console.error(editingProject ? '❌ Error al actualizar proyecto:' : '❌ Error al crear proyecto:', error);
+      alert(editingProject ? 'Error al actualizar el proyecto. Intenta nuevamente.' : 'Error al crear el proyecto. Intenta nuevamente.');
     }
   };
 
@@ -3718,7 +3778,10 @@ const getCircleClasses = () => {
                 {/* Proyectos creados - Solo en inicio */}
                 {currentView === 'inicio' && !selectedSection && projects.map((project) => (
                   <div key={project.id} className="group">
-                    <div className="aspect-square bg-gray-800/60 border border-gray-700/50 hover:border-cyan-500/50 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:bg-gray-800/80 hover:scale-105 max-w-[220px] flex flex-col relative">
+                    <div 
+                      onClick={() => handleEditProject(project)}
+                      className="aspect-square bg-gray-800/60 border border-gray-700/50 hover:border-cyan-500/50 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:bg-gray-800/80 hover:scale-105 max-w-[220px] flex flex-col relative"
+                    >
                       {/* Icono de papelera en hover */}
                       <button
                         onClick={(e) => {
@@ -3941,8 +4004,12 @@ const getCircleClasses = () => {
           <div className="sticky top-0 z-20 bg-gray-900/80 backdrop-blur-sm border-b border-gray-700/50">
             <div className="flex items-center justify-between p-4">
               <div>
-                <h1 className="text-2xl font-bold text-white">Crear Nuevo Proyecto</h1>
-                <p className="text-gray-400 text-sm">Completa la información para crear tu proyecto</p>
+                <h1 className="text-2xl font-bold text-white">
+                  {editingProject ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}
+                </h1>
+                <p className="text-gray-400 text-sm">
+                  {editingProject ? 'Modifica la información del proyecto' : 'Completa la información para crear tu proyecto'}
+                </p>
               </div>
               <button
                 onClick={handleCloseCreateProject}
@@ -4264,7 +4331,7 @@ const getCircleClasses = () => {
                   disabled={!newProject.title.trim()}
                   className="w-full px-4 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm"
                 >
-                  Crear Proyecto
+                  {editingProject ? 'Guardar Cambios' : 'Crear Proyecto'}
                 </button>
               </div>
             </div>
