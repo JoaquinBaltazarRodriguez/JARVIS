@@ -52,7 +52,6 @@ import { Card } from "@/components/ui/card"
 import { LogoutModal } from "@/components/LogoutModal"
 import { useSimpleAudio, setNexusVoiceMuted, isNexusVoiceMuted } from "@/hooks/useSimpleAudio"
 import { useAutoSpeech } from "@/hooks/useAutoSpeech"
-import { useFuturisticSounds } from "@/hooks/useFuturisticSounds"
 import { ContactsManager } from "@/components/ContactsManager"
 import YouTubePlayer, { type YouTubePlayerRef } from "@/components/YoutubePlayer"
 import { searchYouTube } from "@/lib/youtubeSearch"
@@ -617,6 +616,52 @@ const handleLoginComplete = (profile: UserProfile) => {
   // Sugerencias según modo actual (no filtrar por texto, solo mostrar todas)
   const getCommandMode = () => (appState === "functional_mode" ? "functional" : "normal")
 
+  // Función para obtener el texto de estado
+  const getStatusText = () => {
+    if (appState === "sleeping") return "Presione para activar NEXUS"
+    if (!isVoiceControlEnabled) return "NEXUS desactivado - Clic para activar"
+    
+    if (appState === "waiting_password") {
+      if (isListening) return "Escuchando contraseña..."
+      if (isProcessing) return "Verificando contraseña..."
+      return "Di la contraseña (manual)"
+    }
+    if (appState === "initializing") return "Inicializando NEXUS..."
+    if (appState === "calling_confirmation") {
+      return pendingCall ? `¿Llamar a ${pendingCall.name}? (Sí/No)` : "Confirmando llamada..."
+    }
+    if (appState === "music_mode") {
+      if (isListening) return "Modo música - Escuchando..."
+      return "Modo música - Clic para hablar"
+    }
+    if (appState === "music_playing") {
+      return "Reproduciendo música - Clic para comandos"
+    }
+    if (appState === "intelligent_mode") {
+      if (isSpeaking) return "NEXUS hablando..."
+      if (isProcessing) return "Procesando con IA avanzada..."
+      if (isListening) return "Modo inteligente - Escuchando..."
+      return "Modo inteligente - Clic para hablar"
+    }
+    if (appState === "functional_mode") {
+      if (isListening) return "Modo funcional - Escuchando..."
+      return "Modo funcional - Clic para hablar"
+    }
+    if (appState === "image_download_confirmation") {
+      return "Confirmar descarga de imagen"
+    }
+    if (appState === "tutorial") {
+      return "Tutorial en progreso"
+    }
+    if (appState === "profile_selection") {
+      return "Selección de perfil"
+    }
+    if (isSpeaking) return "NEXUS hablando..."
+    if (isProcessing) return "Procesando..."
+    if (isListening) return "Escuchando..."
+    return "NEXUS activado - Clic para hablar"
+  }
+
   // Estado para abrir/cerrar el modal de settings
   const [showSettings, setShowSettings] = useState(false)
 
@@ -636,6 +681,65 @@ const handleLoginComplete = (profile: UserProfile) => {
     setCurrentText(msg)
     await speak(msg)
     setCurrentText("")
+  }
+
+  // 🧠 FUNCIONES DE OPTIMIZACIÓN DE MEMORIA
+  const performAutomaticCleanup = () => {
+    try {
+      // Limpiar arrays grandes
+      if (messages.length > 50) {
+        setMessages(prev => prev.slice(-25))
+      }
+      
+      // Limpiar localStorage si es necesario
+      const storageSize = JSON.stringify(localStorage).length
+      if (storageSize > 5000000) { // 5MB
+        localStorage.removeItem('nexus-temp-data')
+      }
+      
+      // Forzar garbage collection si está disponible
+      if (window.gc) {
+        window.gc()
+      }
+      
+      // Limpiar reproductor de YouTube si existe
+      if (youtubePlayerRef.current) {
+        try {
+          youtubePlayerRef.current.stopVideo?.()
+        } catch (e) {
+          // Silencioso
+        }
+      }
+    } catch (error) {
+      // Limpieza silenciosa
+    }
+  }
+
+  const cleanupOnMusicStop = () => {
+    try {
+      setIsPlayingMusic(false)
+      setPlaylistMode(false)
+      setCurrentPlaylist(null)
+      setCurrentPlaylistIndex(0)
+      
+      // Limpiar reproductor
+      if (youtubePlayerRef.current) {
+        try {
+          youtubePlayerRef.current.stopVideo?.()
+          youtubePlayerRef.current.pauseVideo?.()
+        } catch (e) {
+          // Silencioso
+        }
+      }
+      
+      performAutomaticCleanup()
+    } catch (error) {
+      // Limpieza silenciosa
+    }
+  }
+
+  const silentMemoryCleanup = () => {
+    performAutomaticCleanup()
   }
 
   // 📝 FUNCIONES PARA EDITOR DE TEXTO ENRIQUECIDO
@@ -1486,7 +1590,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   // useCineSound(isSpeaking)
   // useNexusStartupAnimation(startupAnim, () => setStartupAnim(false))
 
-  const { playStartupSound, playShutdownSound, playClickSound, playHoverSound } = useFuturisticSounds()
+
 
   // Hook de recordatorio de pastillas - siempre llamado para cumplir reglas de React
   const { showReminder, currentTime, dismissReminder } = usePillReminder((message: string) => {
@@ -1605,35 +1709,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }, [isVoiceControlEnabled, isListening, isSpeaking, isProcessing, appState, startAutoListening]);
 
-  // 🔊 AGREGAR SONIDOS DE CLIC GLOBALES
-  useEffect(() => {
-    if (mounted) {
-      const handleGlobalClick = (e: MouseEvent) => {
-        // Solo reproducir sonido si NEXUS está activo
-        if (appState !== "sleeping") {
-          playClickSound()
-        }
-      }
 
-      const handleGlobalMouseOver = (e: MouseEvent) => {
-        const target = e.target as HTMLElement
-        // Solo para botones y elementos interactivos
-        if (target.tagName === "BUTTON" || target.classList.contains("cursor-pointer")) {
-          if (appState !== "sleeping") {
-            playHoverSound()
-          }
-        }
-      }
-
-      document.addEventListener("click", handleGlobalClick)
-      document.addEventListener("mouseover", handleGlobalMouseOver)
-
-      return () => {
-        document.removeEventListener("click", handleGlobalClick)
-        document.removeEventListener("mouseover", handleGlobalMouseOver)
-      }
-    }
-  }, [mounted, appState, playClickSound, playHoverSound])
 
   // DESACTIVADO: No escuchar automáticamente para evitar consumo de memoria
   // useEffect(() => {
@@ -2898,41 +2974,7 @@ const getCircleClasses = () => {
   return `${baseClasses} border-cyan-500 shadow-cyan-500/30`;
 }
 
-const getStatusText = () => {
-  if (appState === "sleeping") return "Presione para activar NEXUS"
-  if (!isVoiceControlEnabled) return "NEXUS desactivado - Clic para activar"
-  
-  if (appState === "waiting_password") {
-    if (isListening) return "Escuchando contraseña..."
-    if (isProcessing) return "Verificando contraseña..."
-    return "Di la contraseña (manual)"
-  }
-  if (appState === "initializing") return "Inicializando NEXUS..."
-  if (appState === "calling_confirmation") {
-    return pendingCall ? `¿Llamar a ${pendingCall.name}? (Sí/No)` : "Confirmando llamada..."
-  }
-  if (appState === "music_mode") {
-    if (isListening) return "Modo música - Escuchando..."
-    return "Modo música - Clic para hablar"
-  }
-  if (appState === "music_playing") {
-    return "Reproduciendo música - Clic para comandos"
-  }
-  if (appState === "intelligent_mode") {
-    if (isSpeaking) return "NEXUS hablando..."
-    if (isProcessing) return "Procesando con IA avanzada..."
-    if (isListening) return "Modo inteligente - Escuchando..."
-    return "Modo inteligente - Clic para hablar"
-  }
-  if (appState === "functional_mode") {
-    if (isListening) return "Modo funcional - Escuchando..."
-    return "Modo funcional - Clic para hablar"
-  }
-  if (isSpeaking) return "NEXUS hablando..."
-  if (isProcessing) return "Procesando con ChatGPT..."
-  if (isListening) return "Escuchando..."
-  return "NEXUS activado - Clic para hablar"
-}
+
 
 // 📋 FUNCIONES PARA MANEJO DEL PANEL LATERAL
 const handleViewChange = (view: 'inicio' | 'finalizadas' | 'papelera') => {

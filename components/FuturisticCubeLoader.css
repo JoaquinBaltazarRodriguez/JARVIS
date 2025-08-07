@@ -152,8 +152,6 @@
   100% { width: 0%; opacity: 0.4; }
 }
 
-  justify-content: center;
-  overflow: hidden;
 .cube-loader-stars {
   position: absolute;
   inset: 0;
