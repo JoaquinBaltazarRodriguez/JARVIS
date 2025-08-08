@@ -8,9 +8,11 @@ import {
   query, 
   where, 
   orderBy,
-  Timestamp 
+  Timestamp,
+  getDoc 
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { FirebaseProfileManager } from './firebaseProfileManager'
 
 export interface Project {
   id: string
@@ -62,9 +64,23 @@ export class FirebaseProjectsManager {
       });
       
       await setDoc(projectRef, dataToSave)
+    
+    // Si el proyecto tiene una sección asignada, actualizar la sección
+    if (newProject.sectionId) {
+      console.log('🔗 Agregando proyecto a la sección:', newProject.sectionId);
+      const sectionUpdateSuccess = await FirebaseProfileManager.addProjectToSection(
+        userId, 
+        newProject.sectionId, 
+        newProject.id // Solo pasar el ID (estructura normalizada)
+      );
       
-      console.log('✅ Proyecto creado exitosamente:', newProject.title)
-      return newProject
+      if (!sectionUpdateSuccess) {
+        console.warn('⚠️ No se pudo actualizar la sección, pero el proyecto fue creado');
+      }
+    }
+    
+    console.log('✅ Proyecto creado exitosamente:', newProject.title)
+    return newProject
     } catch (error) {
       console.error('❌ Error al crear proyecto:', error)
       return null
@@ -113,13 +129,40 @@ export class FirebaseProjectsManager {
     updates: Partial<Omit<Project, 'id' | 'createdAt' | 'userId'>>
   ): Promise<boolean> {
     try {
+      // Primero obtenemos el proyecto actual para comparar secciones
       const projectRef = doc(db, `users/${userId}/projects/${projectId}`)
+      const currentProjectDoc = await getDoc(projectRef)
+      
+      let currentSectionId = null
+      if (currentProjectDoc && currentProjectDoc.exists()) {
+        const currentData = currentProjectDoc.data()
+        currentSectionId = currentData?.sectionId || null
+      }
+      
       const updateData = {
         ...updates,
         updatedAt: Timestamp.fromDate(new Date())
       }
       
       await updateDoc(projectRef, updateData)
+      
+      // Manejar cambios de sección
+      const newSectionId = updates.sectionId !== undefined ? updates.sectionId : currentSectionId
+      
+      if (currentSectionId !== newSectionId) {
+        console.log('🔄 Cambio de sección detectado:', { from: currentSectionId, to: newSectionId })
+        
+        // Remover de la sección anterior si existía
+        if (currentSectionId) {
+          await FirebaseProfileManager.removeProjectFromSection(userId, currentSectionId, projectId)
+        }
+        
+        // Agregar a la nueva sección si existe
+        if (newSectionId) {
+          await FirebaseProfileManager.addProjectToSection(userId, newSectionId, projectId)
+        }
+      }
+      
       console.log('✅ Proyecto actualizado exitosamente')
       return true
     } catch (error) {
@@ -131,8 +174,25 @@ export class FirebaseProjectsManager {
   // Eliminar un proyecto
   static async deleteProject(userId: string, projectId: string): Promise<boolean> {
     try {
+      // Primero obtenemos el proyecto para saber si tiene sección asignada
       const projectRef = doc(db, `users/${userId}/projects/${projectId}`)
+      const projectDoc = await getDoc(projectRef)
+      
+      let sectionId = null
+      if (projectDoc.exists()) {
+        const projectData = projectDoc.data()
+        sectionId = projectData?.sectionId || null
+      }
+      
+      // Eliminar el proyecto
       await deleteDoc(projectRef)
+      
+      // Si tenía una sección asignada, removerlo de la sección
+      if (sectionId) {
+        console.log('🗑️ Removiendo proyecto de la sección:', sectionId)
+        await FirebaseProfileManager.removeProjectFromSection(userId, sectionId, projectId)
+      }
+      
       console.log('✅ Proyecto eliminado exitosamente')
       return true
     } catch (error) {

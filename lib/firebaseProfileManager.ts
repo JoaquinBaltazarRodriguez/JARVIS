@@ -41,6 +41,7 @@ import {
     id: string;
     name: string;
     createdAt: Date;
+    projectIds: string[]; // Solo IDs de proyectos (estructura normalizada)
   }
   
   export class FirebaseProfileManager {
@@ -350,14 +351,16 @@ import {
         const sectionRef = doc(collection(db, `users/${userId}/sections`));
         const newSection = {
           name: name.trim(),
-          createdAt: new Date()
+          createdAt: new Date(),
+          projectIds: [] // Inicializar con array vacío
         };
         await setDoc(sectionRef, newSection);
         
         const completeSection: CustomSection = {
           id: sectionRef.id,
           name: newSection.name,
-          createdAt: newSection.createdAt
+          createdAt: newSection.createdAt,
+          projectIds: newSection.projectIds
         };
         
         console.log(`Sección "${name}" creada exitosamente para usuario ${userId}`);
@@ -380,7 +383,8 @@ import {
           sections.push({
             id: doc.id,
             name: sectionData.name,
-            createdAt: sectionData.createdAt.toDate ? sectionData.createdAt.toDate() : sectionData.createdAt
+            createdAt: sectionData.createdAt.toDate ? sectionData.createdAt.toDate() : sectionData.createdAt,
+            projectIds: sectionData.projectIds || [] // Manejar secciones existentes sin projectIds
           });
         });
         
@@ -409,13 +413,102 @@ import {
       try {
         await updateDoc(doc(db, `users/${userId}/sections`, section.id), {
           name: section.name.trim(),
-          createdAt: section.createdAt
+          createdAt: section.createdAt,
+          projectIds: section.projectIds
         });
         console.log(`Sección ${section.id} actualizada exitosamente`);
         return true;
       } catch (error) {
         console.error("Error al actualizar sección:", error);
         return false;
+      }
+    }
+
+    // Agregar un proyecto a una sección (solo ID - estructura normalizada)
+    static async addProjectToSection(userId: string, sectionId: string, projectId: string): Promise<boolean> {
+      try {
+        const sectionRef = doc(db, `users/${userId}/sections`, sectionId);
+        await updateDoc(sectionRef, {
+          projectIds: arrayUnion(projectId)
+        });
+        console.log(`Proyecto ${projectId} agregado a la sección ${sectionId}`);
+        return true;
+      } catch (error) {
+        console.error("Error al agregar proyecto a sección:", error);
+        return false;
+      }
+    }
+
+    // Remover un proyecto de una sección
+    static async removeProjectFromSection(userId: string, sectionId: string, projectId: string): Promise<boolean> {
+      try {
+        const sectionRef = doc(db, `users/${userId}/sections`, sectionId);
+        const sectionDoc = await getDoc(sectionRef);
+        
+        if (!sectionDoc.exists()) {
+          console.error(`Sección ${sectionId} no encontrada`);
+          return false;
+        }
+        
+        const sectionData = sectionDoc.data();
+        const currentProjectIds = sectionData.projectIds || [];
+        
+        // Filtrar el proyecto que queremos remover
+        const updatedProjectIds = currentProjectIds.filter((id: string) => id !== projectId);
+        
+        await updateDoc(sectionRef, {
+          projectIds: updatedProjectIds
+        });
+        
+        console.log(`Proyecto ${projectId} removido de la sección ${sectionId}`);
+        return true;
+      } catch (error) {
+        console.error("Error al remover proyecto de sección:", error);
+        return false;
+      }
+    }
+
+    // Obtener proyectos completos de una sección (helper function)
+    static async getProjectsFromSection(userId: string, sectionId: string): Promise<any[]> {
+      try {
+        // 1. Obtener la sección con sus projectIds
+        const sectionRef = doc(db, `users/${userId}/sections`, sectionId);
+        const sectionDoc = await getDoc(sectionRef);
+        
+        if (!sectionDoc.exists()) {
+          console.error(`Sección ${sectionId} no encontrada`);
+          return [];
+        }
+        
+        const sectionData = sectionDoc.data();
+        const projectIds = sectionData.projectIds || [];
+        
+        if (projectIds.length === 0) {
+          return [];
+        }
+        
+        // 2. Obtener los proyectos completos usando los IDs
+        const projectsRef = collection(db, `users/${userId}/projects`);
+        const projectsSnapshot = await getDocs(projectsRef);
+        
+        const projects: any[] = [];
+        projectsSnapshot.forEach((doc) => {
+          if (projectIds.includes(doc.id)) {
+            const data = doc.data();
+            projects.push({
+              id: doc.id,
+              ...data,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              updatedAt: data.updatedAt?.toDate() || new Date()
+            });
+          }
+        });
+        
+        console.log(`Se encontraron ${projects.length} proyectos en la sección ${sectionId}`);
+        return projects;
+      } catch (error) {
+        console.error("Error al obtener proyectos de sección:", error);
+        return [];
       }
     }
   }
