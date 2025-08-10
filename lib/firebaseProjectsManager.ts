@@ -389,4 +389,56 @@ export class FirebaseProjectsManager {
       return false;
     }
   }
+
+  // Obtener TODOS los proyectos del usuario (principales + de todas las secciones)
+  static async getAllUserProjects(userId: string): Promise<Project[]> {
+    try {
+      const allProjects: Project[] = [];
+      
+      // 1. Obtener proyectos sin sección (colección principal)
+      console.log('📁 Obteniendo proyectos SIN sección...');
+      const mainProjectsRef = collection(db, `users/${userId}/projects`);
+      const mainProjectsQuery = query(mainProjectsRef, orderBy('createdAt', 'desc'));
+      const mainProjectsSnapshot = await getDocs(mainProjectsQuery);
+      
+      mainProjectsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        allProjects.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date()
+        } as Project);
+      });
+      
+      // 2. Obtener proyectos de TODAS las secciones
+      console.log('📁 Obteniendo proyectos DE secciones...');
+      const sections = await FirebaseProfileManager.getUserSections(userId);
+      
+      for (const section of sections) {
+        const sectionProjectsRef = collection(db, `users/${userId}/sections/${section.id}/projects`);
+        const sectionProjectsQuery = query(sectionProjectsRef, orderBy('createdAt', 'desc'));
+        const sectionProjectsSnapshot = await getDocs(sectionProjectsQuery);
+        
+        sectionProjectsSnapshot.forEach((doc) => {
+          const data = doc.data();
+          allProjects.push({
+            id: doc.id,
+            ...data,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date()
+          } as Project);
+        });
+      }
+      
+      // 3. Ordenar todos los proyectos por fecha de creación (más recientes primero)
+      allProjects.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      
+      console.log(`✅ Total de proyectos obtenidos: ${allProjects.length}`);
+      return allProjects;
+    } catch (error) {
+      console.error('❌ Error al obtener todos los proyectos:', error);
+      return [];
+    }
+  }
 }

@@ -921,14 +921,17 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     // Cargar proyectos del usuario desde Firebase
     const loadUserProjects = async () => {
       try {
-        const userProjects = await FirebaseProjectsManager.getUserProjects(activeProfile.id);
-        console.log('🔍 DEBUG - Projects loaded from Firebase:', userProjects.map(p => ({
+        // 🎯 OBTENER TODOS LOS PROYECTOS (con y sin sección) para vista de inicio
+        const allUserProjects = await FirebaseProjectsManager.getAllUserProjects(activeProfile.id);
+        console.log('🔍 DEBUG - ALL Projects loaded from Firebase:', allUserProjects.map(p => ({
           title: p.title,
           priority: p.priority,
+          sectionId: p.sectionId,
+          sectionName: p.sectionName,
           priorityType: typeof p.priority
         })));
-        setProjects(userProjects);
-        console.log('✅ Proyectos cargados:', userProjects.length);
+        setProjects(allUserProjects);
+        console.log('✅ TODOS los proyectos cargados:', allUserProjects.length);
       } catch (error) {
         console.error('❌ Error al cargar proyectos del usuario:', error);
         setProjects([]);
@@ -3876,6 +3879,12 @@ const getCircleClasses = () => {
                             }</span>
                           </div>
                         )}
+                        {project.sectionId && project.sectionName && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
+                            <span>Sección: {project.sectionName}</span>
+                          </div>
+                        )}
                       </div>
                       
 
@@ -3993,7 +4002,107 @@ const getCircleClasses = () => {
                   </div>
                 )}
                 
-                {selectedSection && (
+                {/* Proyectos de sección específica */}
+                {selectedSection && projects
+                  .filter(project => project.sectionId === selectedSection)
+                  .map((project) => (
+                  <div key={project.id} className="group">
+                    <div 
+                      onClick={() => handleEditProject(project)}
+                      className="aspect-square bg-gray-800/60 border border-gray-700/50 hover:border-cyan-500/50 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:bg-gray-800/80 hover:scale-105 max-w-[220px] flex flex-col relative"
+                    >
+                      {/* Icono de papelera en hover */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMoveToTrash(project.id);
+                        }}
+                        className="absolute top-2 right-2 w-8 h-8 bg-red-600/80 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                        title="Mover a papelera"
+                      >
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </button>
+                      {/* Header con foto de perfil y creador */}
+                      <div className="flex items-center gap-2 mb-4">
+                        {/* Foto de perfil del usuario que creó el proyecto */}
+                        {activeProfile?.photoUrl ? (
+                          <img 
+                            src={activeProfile.photoUrl} 
+                            alt={activeProfile.name}
+                            className="w-8 h-8 rounded-full object-cover border border-gray-600"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
+                            {activeProfile?.name?.charAt(0)?.toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-400 truncate">
+                            Creado por {project.responsibleUserName || activeProfile?.name || 'Usuario'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Título del proyecto */}
+                      <h3 className="text-lg font-semibold text-white mb-2 line-clamp-2 flex-shrink-0">
+                        {project.title}
+                      </h3>
+                      
+                      {/* Descripción/Notas del proyecto */}
+                      <div className="flex-1 mb-4 overflow-hidden">
+                        <p className="text-sm text-gray-300 line-clamp-3">
+                          {project.notes || 'Sin descripción'}
+                        </p>
+                      </div>
+                      
+                      {/* Footer con información adicional */}
+                      <div className="space-y-1 mt-auto">
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
+                          <span>Creado: {new Date(project.createdAt).toLocaleDateString('es-ES', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric' 
+                          }).replace(/\//g, '/')}</span>
+                        </div>
+                        {project.dueDate && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <div className="w-1 h-1 bg-orange-400 rounded-full"></div>
+                            <span>Vence: {new Date(project.dueDate).toLocaleDateString('es-ES', { 
+                              day: '2-digit', 
+                              month: '2-digit', 
+                              year: 'numeric' 
+                            }).replace(/\//g, '/')}</span>
+                          </div>
+                        )}
+                        {shouldDisplayPriority(project.priority) && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500">
+                            <div className={`w-1 h-1 rounded-full ${
+                              project.priority === 'alto' ? 'bg-red-500' :
+                              project.priority === 'medio' ? 'bg-yellow-500' :
+                              project.priority === 'bajo' ? 'bg-green-500' :
+                              'bg-gray-500'
+                            }`}></div>
+                            <span>Prioridad: {
+                              project.priority === 'alto' ? 'Alta' :
+                              project.priority === 'medio' ? 'Media' :
+                              project.priority === 'bajo' ? 'Baja' :
+                              'Desconocida'
+                            }</span>
+                          </div>
+                        )}
+                        {/* Badge de sección para proyectos en vista de sección */}
+                        <div className="flex items-center gap-1 text-xs text-purple-400">
+                          <div className="w-1 h-1 bg-purple-400 rounded-full"></div>
+                          <span>En esta sección</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Mensaje cuando la sección está vacía */}
+                {selectedSection && projects.filter(project => project.sectionId === selectedSection).length === 0 && (
                   <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
                     <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
                       <div className="w-8 h-8 rounded-full bg-purple-400/60"></div>
