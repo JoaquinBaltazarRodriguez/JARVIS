@@ -223,7 +223,6 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
     responsible: null as UserProfile | null,
     dueDate: '',
     section: null as string | null,
-    sections: [] as string[],
     priority: null as 'bajo' | 'medio' | 'alto' | null,
     notes: '',
     collaborators: [] as UserProfile[]
@@ -1376,7 +1375,6 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       responsible: null,
       dueDate: '',
       section: null,
-      sections: [],
       priority: null,
       notes: '',
       collaborators: []
@@ -1443,6 +1441,8 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       
       // Preparar datos del proyecto para Firebase
       console.log('🔍 DEBUG - newProject.priority:', newProject.priority, typeof newProject.priority);
+      console.log('🔍 DEBUG - newProject.section:', newProject.section, typeof newProject.section);
+      console.log('🔍 DEBUG - selectedSection:', selectedSection);
       console.log('🔍 DEBUG - newProject full object:', newProject);
       console.log('🔍 DEBUG - shouldDisplayPriority result:', shouldDisplayPriority(newProject.priority));
       
@@ -1454,12 +1454,12 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         dueDate: newProject.dueDate || null,
         sectionId: newProject.section,
         sectionName: selectedSection?.name || null,
-        sections: newProject.sections || [],
         priority: newProject.priority,
         notes: newProject.notes.trim(),
         collaborators: newProject.collaborators.map(c => c.id)
       };
       
+      console.log('🔍 DEBUG - projectData.sectionId:', projectData.sectionId, typeof projectData.sectionId);
       console.log('🔍 DEBUG - projectData.priority:', projectData.priority, typeof projectData.priority);
       
       let savedProject;
@@ -4177,22 +4177,40 @@ const getCircleClasses = () => {
                   {showSectionsMenu && (
                     <div className="absolute top-full left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-10 mb-3">
                       <div className="p-2">
+                        {/* Opción "Ninguna sección" */}
+                        <button
+                          onClick={() => {
+                            updateProjectField('section', null);
+                            setShowSectionsMenu(false);
+                          }}
+                          className={`w-full text-left px-2 py-1 text-sm rounded transition-colors ${
+                            !newProject.section 
+                              ? 'bg-cyan-600 text-white' 
+                              : 'text-gray-300 hover:bg-gray-700'
+                          }`}
+                        >
+                          📂 Ninguna sección
+                        </button>
+                        
                         {/* Secciones predefinidas */}
                         {customSections.length > 0 && (
                           <>
+                            <div className="border-t border-gray-600 my-2"></div>
                             <div className="text-xs text-gray-400 mb-2 px-2">Secciones existentes:</div>
                             {customSections.map((section) => (
                               <button
                                 key={section.id}
                                 onClick={() => {
-                                  if (!newProject.sections.includes(section.name)) {
-                                    updateProjectField('sections', [...(newProject.sections || []), section.name]);
-                                  }
+                                  updateProjectField('section', section.id);
                                   setShowSectionsMenu(false);
                                 }}
-                                className="w-full text-left px-2 py-1 text-sm text-white hover:bg-gray-700 rounded transition-colors"
+                                className={`w-full text-left px-2 py-1 text-sm rounded transition-colors ${
+                                  newProject.section === section.id
+                                    ? 'bg-cyan-600 text-white'
+                                    : 'text-white hover:bg-gray-700'
+                                }`}
                               >
-                                {section.name}
+                                📁 {section.name}
                               </button>
                             ))}
                             <div className="border-t border-gray-600 my-2"></div>
@@ -4204,35 +4222,46 @@ const getCircleClasses = () => {
                           onClick={() => {
                             const sectionName = prompt('Nombre de la nueva sección:');
                             if (sectionName && sectionName.trim()) {
-                              updateProjectField('sections', [...(newProject.sections || []), sectionName.trim()]);
+                              // Crear la sección primero, luego asignarla
+                              createCustomSection(sectionName.trim()).then(() => {
+                                // Buscar la sección recién creada y asignarla
+                                const newSection = customSections.find(s => s.name === sectionName.trim());
+                                if (newSection) {
+                                  updateProjectField('section', newSection.id);
+                                }
+                              });
                             }
                             setShowSectionsMenu(false);
                           }}
                           className="w-full text-left px-2 py-1 text-sm text-cyan-400 hover:bg-gray-700 rounded transition-colors"
                         >
-                          + Crear nueva sección
+                          ➕ Crear nueva sección
                         </button>
                       </div>
                     </div>
                   )}
                   
-                  {/* Mostrar secciones agregadas */}
-                  {newProject.sections && newProject.sections.length > 0 && (
-                    <div className="space-y-2">
-                      {newProject.sections.map((section, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-800/30 rounded px-3 py-2">
-                          <span className="text-sm text-cyan-400">• {section}</span>
-                          <button
-                            onClick={() => {
-                              const updatedSections = newProject.sections.filter((_, i) => i !== index);
-                              updateProjectField('sections', updatedSections);
-                            }}
-                            className="text-gray-400 hover:text-red-400 transition-colors"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
+                  {/* Mostrar sección seleccionada */}
+                  {newProject.section && (
+                    <div className="mt-3">
+                      {(() => {
+                        const selectedSection = customSections.find(s => s.id === newProject.section);
+                        return selectedSection ? (
+                          <div className="flex items-center justify-between bg-gray-800/30 rounded px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-cyan-400">📁</span>
+                              <span className="text-sm text-cyan-400">{selectedSection.name}</span>
+                            </div>
+                            <button
+                              onClick={() => updateProjectField('section', null)}
+                              className="text-gray-400 hover:text-red-400 transition-colors"
+                              title="Quitar sección"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
                   )}
                 </div>
