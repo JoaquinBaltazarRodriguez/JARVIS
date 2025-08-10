@@ -219,6 +219,7 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [newProject, setNewProject] = useState({
     title: '',
+    description: '',
     isCompleted: false,
     responsible: null as UserProfile | null,
     dueDate: '',
@@ -241,6 +242,11 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   // 📋 ESTADOS PARA MENÚS DESPLEGABLES
   const [showSectionsMenu, setShowSectionsMenu] = useState(false)
   const [showPriorityMenu, setShowPriorityMenu] = useState(false)
+  
+  // 🔄 ESTADOS PARA DETECCIÓN DE CAMBIOS
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [originalProject, setOriginalProject] = useState<any>(null)
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false)
   
   // --- Estados para sistema de perfiles ---
   const [showLoginSystem, setShowLoginSystem] = useState(false)
@@ -1330,99 +1336,131 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   
   // Función para abrir el modal de creación de proyecto
   const handleCreateProject = () => {
-    setShowCreateProject(true);
-    // Establecer el perfil activo como responsable por defecto
-    if (activeProfile) {
-      setNewProject(prev => ({
-        ...prev,
-        responsible: activeProfile,
-        collaborators: [activeProfile] // El creador siempre es colaborador
-      }));
-    }
-  };
-
-  // Función para manejar la edición de un proyecto
-  const handleEditProject = (project: Project) => {
-    // Establecer el proyecto que se está editando
-    setEditingProject(project);
-    
-    // Pre-llenar el formulario con los datos del proyecto
-    setNewProject({
-      title: project.title,
-      isCompleted: project.isCompleted,
-      responsible: activeProfile, // Usar el perfil activo actual
-      dueDate: project.dueDate || '',
-      section: project.sectionId,
-      sections: [],
-      priority: project.priority,
-      notes: project.notes,
-      collaborators: [activeProfile!] // Por ahora usar el perfil activo
-    });
-    
-    // Abrir el modal
-    setShowCreateProject(true);
-  };
-  
-  // Función para cerrar el modal de creación
-  const handleCloseCreateProject = () => {
-    setShowCreateProject(false);
-    // Cerrar menús desplegables
-    setShowSectionsMenu(false);
-    setShowPriorityMenu(false);
-    // Resetear el estado de edición
-    setEditingProject(null);
-    // Resetear el formulario
-    setNewProject({
+    setEditingProject(null)
+    const emptyProject = {
       title: '',
+      description: '',
       isCompleted: false,
-      responsible: null,
+      responsible: activeProfile,
       dueDate: '',
       section: null,
       priority: null,
       notes: '',
       collaborators: []
-    });
-    // Resetear formato del editor
-    setEditorFormat({
-      bold: false,
-      underline: false,
-      fontSize: '14px',
-      color: '#ffffff',
-      textFormat: 'p'
-    });
+    }
+    setNewProject(emptyProject)
+    setOriginalProject(null)
+    setHasUnsavedChanges(false)
+    setShowCreateProject(true)
+  }
+
+  // Función para manejar la edición de un proyecto
+  const handleEditProject = (project: Project) => {
+    console.log(' Editando proyecto:', project)
+    setEditingProject(project)
+    
+    // Buscar la sección correspondiente
+    const projectSection = customSections.find(section => section.id === project.sectionId)
+    
+    const projectData = {
+      title: project.title,
+      description: project.description || '',
+      isCompleted: project.isCompleted,
+      responsible: {
+        id: project.responsibleUserId,
+        name: project.responsibleUserName,
+        photoUrl: activeProfile?.photoUrl || ''
+      } as UserProfile,
+      dueDate: project.dueDate || '',
+      section: project.sectionId || null,
+      priority: project.priority || null,
+      notes: project.notes || '',
+      collaborators: []
+    }
+    
+    setNewProject(projectData)
+    // Guardar estado original para detectar cambios
+    setOriginalProject(JSON.parse(JSON.stringify(projectData)))
+    setHasUnsavedChanges(false)
+    
+    setShowCreateProject(true)
   };
+
+  // Función para cerrar el modal de creación
+  const handleCloseCreateProject = () => {
+    // Si hay cambios sin guardar, mostrar modal de confirmación
+    if (hasUnsavedChanges && editingProject) {
+      setShowUnsavedModal(true)
+      return
+    }
+    
+    // Cerrar directamente si no hay cambios
+    closeProjectEditor()
+  }
   
+  const closeProjectEditor = () => {
+    setShowCreateProject(false)
+    setEditingProject(null)
+    setHasUnsavedChanges(false)
+    setOriginalProject(null)
+    setShowSectionsMenu(false)
+    setShowPriorityMenu(false)
+    setNewProject({
+      title: '',
+      description: '',
+      isCompleted: false,
+      responsible: activeProfile,
+      dueDate: '',
+      section: null,
+      priority: null,
+      notes: '',
+      collaborators: []
+    })
+  }
+
   // Función para actualizar campos del proyecto
   const updateProjectField = (field: string, value: any) => {
-    setNewProject(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setNewProject(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      }
+      
+      // Detectar cambios comparando con proyecto original
+      if (editingProject && originalProject) {
+        const hasChanges = JSON.stringify(updated) !== JSON.stringify(originalProject)
+        setHasUnsavedChanges(hasChanges)
+      }
+      
+      return updated
+    })
   };
-  
+
   // Función para agregar colaborador
   const addCollaborator = (profile: UserProfile) => {
     setNewProject(prev => ({
       ...prev,
       collaborators: [...prev.collaborators.filter(c => c.id !== profile.id), profile]
-    }));
-  };
+    }))
+  }
   
   // Función para remover colaborador
   const removeCollaborator = (profileId: string) => {
     setNewProject(prev => ({
       ...prev,
       collaborators: prev.collaborators.filter(c => c.id !== profileId)
-    }));
-  };
+    }))
+  }
   
   // Helper function to check if priority should be displayed
   const shouldDisplayPriority = (priority: any): priority is 'bajo' | 'medio' | 'alto' => {
     return priority !== null && 
            priority !== undefined && 
            priority !== '' && 
-           ['bajo', 'medio', 'alto'].includes(priority);
-  };
+           ['bajo', 'medio', 'alto'].includes(priority)
+  }
+
+  // ... Resto del código ...
 
   // Función para guardar el proyecto (crear o editar)
   const saveProject = async () => {
@@ -1443,14 +1481,9 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         : null;
       
       // Preparar datos del proyecto para Firebase
-      console.log('🔍 DEBUG - newProject.priority:', newProject.priority, typeof newProject.priority);
-      console.log('🔍 DEBUG - newProject.section:', newProject.section, typeof newProject.section);
-      console.log('🔍 DEBUG - selectedSection:', selectedSection);
-      console.log('🔍 DEBUG - newProject full object:', newProject);
-      console.log('🔍 DEBUG - shouldDisplayPriority result:', shouldDisplayPriority(newProject.priority));
-      
       const projectData = {
         title: newProject.title.trim(),
+        description: newProject.description.trim(),
         isCompleted: newProject.isCompleted,
         responsibleUserId: activeProfile.id,
         responsibleUserName: activeProfile.name,
@@ -1461,9 +1494,6 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         notes: newProject.notes.trim(),
         collaborators: newProject.collaborators.map(c => c.id)
       };
-      
-      console.log('🔍 DEBUG - projectData.sectionId:', projectData.sectionId, typeof projectData.sectionId);
-      console.log('🔍 DEBUG - projectData.priority:', projectData.priority, typeof projectData.priority);
       
       let savedProject;
       let updateSuccess = false;
@@ -1494,7 +1524,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
             speak('Proyecto actualizado exitosamente');
           }
           
-          console.log('✅ Proyecto actualizado en Firebase:', savedProject);
+          console.log(' Proyecto actualizado en Firebase:', savedProject);
         }
       } else {
         // Estamos creando un nuevo proyecto
@@ -1507,18 +1537,24 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
           // Agregar a la lista local
           setProjects(prev => [savedProject, ...prev]);
           
-          // Feedback al usuario
-          if (typeof speak === 'function') {
-            speak('Proyecto creado exitosamente');
-          }
-          
-          console.log('✅ Proyecto guardado en Firebase:', savedProject);
+          console.log('✅ Proyecto guardado exitosamente');
+          speak('Proyecto guardado exitosamente');
         }
       }
       
       if (savedProject || (editingProject && updateSuccess)) {
-        // Cerrar la vista de creación/edición
-        handleCloseCreateProject();
+        console.log('✅ Proyecto guardado exitosamente')
+        speak('Proyecto guardado exitosamente')
+        
+        if (editingProject) {
+          // Si estamos editando, solo resetear cambios sin cerrar
+          setHasUnsavedChanges(false)
+          setOriginalProject(JSON.parse(JSON.stringify(newProject)))
+          speak('Cambios guardados')
+        } else {
+          // Si estamos creando, cerrar el panel
+          closeProjectEditor()
+        }
       } else {
         throw new Error(editingProject ? 'No se pudo actualizar el proyecto' : 'No se pudo guardar el proyecto');
       }
@@ -3835,12 +3871,18 @@ const getCircleClasses = () => {
                       </div>
                       
                       {/* Título del proyecto - Estilo elegante y profesional */}
-                      <div className="flex-1 flex items-center justify-center mb-4">
+                      <div className="flex-1 flex flex-col items-center justify-center mb-4">
                         <h3 className="text-lg font-semibold text-white text-center leading-tight tracking-wide">
                           <span className="bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
                             {project.title}
                           </span>
                         </h3>
+                        {/* Descripción breve debajo del título */}
+                        {project.description && (
+                          <p className="text-xs text-gray-400 text-center mt-2 line-clamp-2 max-w-full px-2">
+                            {project.description}
+                          </p>
+                        )}
                       </div>
                       
                       {/* Fechas con formato completo */}
@@ -4048,6 +4090,13 @@ const getCircleClasses = () => {
                         {project.title}
                       </h3>
                       
+                      {/* Descripción breve debajo del título */}
+                      {project.description && (
+                        <p className="text-xs text-gray-400 mb-3 line-clamp-2">
+                          {project.description}
+                        </p>
+                      )}
+                      
                       {/* Descripción/Notas del proyecto */}
                       <div className="flex-1 mb-4 overflow-hidden">
                         <p className="text-sm text-gray-300 line-clamp-3">
@@ -4143,13 +4192,27 @@ const getCircleClasses = () => {
                   {editingProject ? 'Modifica la información del proyecto' : 'Completa la información para crear tu proyecto'}
                 </p>
               </div>
-              <button
-                onClick={handleCloseCreateProject}
-                className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors duration-200 group"
-                title="Cancelar y volver"
-              >
-                <X className="w-5 h-5 text-gray-400 group-hover:text-white" />
-              </button>
+              
+              {/* Botones de acción en el header */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={saveProject}
+                  disabled={!newProject.title.trim() || (editingProject && !hasUnsavedChanges)}
+                  className="px-6 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {editingProject ? (hasUnsavedChanges ? 'Guardar Cambios' : 'Guardado') : 'Crear Proyecto'}
+                </button>
+                <button
+                  onClick={handleCloseCreateProject}
+                  className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors duration-200 group"
+                  title="Cancelar y volver"
+                >
+                  <X className="w-5 h-5 text-gray-400 group-hover:text-white" />
+                </button>
+              </div>
             </div>
           </div>
           
@@ -4157,7 +4220,7 @@ const getCircleClasses = () => {
           <div className="flex h-[calc(100vh-80px)]">
             {/* Panel lateral izquierdo - Configuración del proyecto */}
             <div className="w-80 bg-gray-900/40 backdrop-blur-sm border-r border-gray-700/50 p-6 overflow-y-auto">
-              <div className="space-y-8">
+              <div className="space-y-6 pb-8">
                 {/* Título del proyecto */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-3">
@@ -4172,6 +4235,24 @@ const getCircleClasses = () => {
                     maxLength={100}
                     autoFocus
                   />
+                </div>
+                
+                {/* Descripción breve del proyecto */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    Descripción breve (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newProject.description}
+                    onChange={(e) => updateProjectField('description', e.target.value)}
+                    placeholder="Ej: Mejorar la experiencia del usuario y modernizar el diseño"
+                    className="w-full px-0 py-2 bg-transparent border-0 border-b border-gray-600 text-gray-300 placeholder-gray-500 focus:outline-none focus:border-cyan-500 text-xs transition-colors"
+                    maxLength={150}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {newProject.description.length}/150 caracteres
+                  </p>
                 </div>
                 
                 {/* Responsable */}
@@ -4483,17 +4564,6 @@ const getCircleClasses = () => {
                     </button>
                   </div>
                 </div>
-              </div>
-              
-              {/* Botón de guardar */}
-              <div className="mt-8 pt-6 border-t border-gray-700/50">
-                <button
-                  onClick={saveProject}
-                  disabled={!newProject.title.trim()}
-                  className="w-full px-4 py-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-sm"
-                >
-                  {editingProject ? 'Guardar Cambios' : 'Crear Proyecto'}
-                </button>
               </div>
             </div>
             
@@ -5135,7 +5205,74 @@ const getCircleClasses = () => {
         </div>
       )}
 
+      {/* 📋 MODAL DE CONFIRMACIÓN PARA CAMBIOS NO GUARDADOS */}
+      {showUnsavedModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-md mx-4">
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-4 bg-orange-500/20 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Cambios sin guardar</h3>
+              <p className="text-gray-400 mb-6">Tienes cambios sin guardar en este proyecto. ¿Qué deseas hacer?</p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowUnsavedModal(false)
+                    closeProjectEditor()
+                  }}
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all duration-200"
+                >
+                  Continuar sin guardar
+                </button>
+                <button
+                  onClick={async () => {
+                    setShowUnsavedModal(false)
+                    await saveProject()
+                  }}
+                  className="flex-1 px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-all duration-200"
+                >
+                  Guardar cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎵 REPRODUCTOR DE YOUTUBE */}
+      {appState === "music_playing" && (
+        <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
+          <div className="w-full h-full relative">
+            <div id="youtube-player" className="w-full h-full"></div>
+            
+            {/* Controles superpuestos */}
+            <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
+              <div className="bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2">
+                <p className="text-white font-medium">{currentSongTitle}</p>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMusicBackgroundMode(true)}
+                  className="bg-black/50 backdrop-blur-sm hover:bg-black/70 text-white px-4 py-2 rounded-lg transition-all duration-200"
+                >
+                  Segundo plano
+                </button>
+                <button
+                  onClick={handleMusicControl}
+                  className="bg-red-500/80 backdrop-blur-sm hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-all duration-200"
+                >
+                  Cerrar música
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-

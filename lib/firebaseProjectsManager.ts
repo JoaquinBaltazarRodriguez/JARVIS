@@ -17,6 +17,7 @@ import { FirebaseProfileManager } from './firebaseProfileManager'
 export interface Project {
   id: string
   title: string
+  description: string
   isCompleted: boolean
   responsibleUserId: string
   responsibleUserName: string
