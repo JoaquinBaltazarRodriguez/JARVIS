@@ -216,6 +216,12 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [showCreateProject, setShowCreateProject] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [trashedProjects, setTrashedProjects] = useState<Project[]>([])
+  
+  // 🗑️ ESTADOS PARA GESTIÓN DE PAPELERA
+  const [selectedTrashProjects, setSelectedTrashProjects] = useState<string[]>([])
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false)
+  const [showEmptyTrashModal, setShowEmptyTrashModal] = useState(false)
+  const [isProcessingTrash, setIsProcessingTrash] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [newProject, setNewProject] = useState({
     title: '',
@@ -247,6 +253,86 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [originalProject, setOriginalProject] = useState<any>(null)
   const [showUnsavedModal, setShowUnsavedModal] = useState(false)
+  
+  // 🗑️ FUNCIONES DE GESTIÓN DE PAPELERA
+  const toggleTrashProjectSelection = (projectId: string) => {
+    setSelectedTrashProjects(prev => 
+      prev.includes(projectId) 
+        ? prev.filter(id => id !== projectId)
+        : [...prev, projectId]
+    )
+  }
+  
+  const selectAllTrashProjects = () => {
+    setSelectedTrashProjects(trashedProjects.map(p => p.id))
+  }
+  
+  const deselectAllTrashProjects = () => {
+    setSelectedTrashProjects([])
+  }
+  
+  const handleDeleteSelectedProjects = async () => {
+    if (selectedTrashProjects.length === 0) return
+    
+    setIsProcessingTrash(true)
+    try {
+      const deletePromises = selectedTrashProjects.map(projectId => 
+        FirebaseProjectsManager.deleteProjectPermanently(activeProfile!.id, projectId)
+      )
+      
+      const results = await Promise.all(deletePromises)
+      const successCount = results.filter(Boolean).length
+      
+      if (successCount === selectedTrashProjects.length) {
+        // Actualizar estado local
+        setTrashedProjects(prev => 
+          prev.filter(p => !selectedTrashProjects.includes(p.id))
+        )
+        setSelectedTrashProjects([])
+        
+        if (typeof speak === 'function') {
+          speak(`${successCount} proyectos eliminados definitivamente`)
+        }
+        console.log(`✅ ${successCount} proyectos eliminados definitivamente`)
+      } else {
+        throw new Error(`Solo se pudieron eliminar ${successCount} de ${selectedTrashProjects.length} proyectos`)
+      }
+    } catch (error) {
+      console.error('❌ Error al eliminar proyectos seleccionados:', error)
+      alert('Error al eliminar algunos proyectos. Intenta nuevamente.')
+    } finally {
+      setIsProcessingTrash(false)
+      setShowDeleteConfirmModal(false)
+    }
+  }
+  
+  const handleEmptyTrash = async () => {
+    if (!activeProfile?.id) return
+    
+    setIsProcessingTrash(true)
+    try {
+      const success = await FirebaseProjectsManager.emptyTrash(activeProfile.id)
+      
+      if (success) {
+        setTrashedProjects([])
+        setSelectedTrashProjects([])
+        
+        if (typeof speak === 'function') {
+          speak('Papelera vaciada completamente')
+        }
+        console.log('✅ Papelera vaciada completamente')
+      } else {
+        throw new Error('No se pudo vaciar la papelera')
+      }
+    } catch (error) {
+      console.error('❌ Error al vaciar papelera:', error)
+      alert('Error al vaciar la papelera. Intenta nuevamente.')
+    } finally {
+      setIsProcessingTrash(false)
+      setShowEmptyTrashModal(false)
+    }
+  }
+
   
   // --- Estados para sistema de perfiles ---
   const [showLoginSystem, setShowLoginSystem] = useState(false)
@@ -1564,7 +1650,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   };
 
-  // Función para mover proyecto a la papelera
+  // Función para mover proyecto a la papelera (NUEVA ARQUITECTURA)
   const handleMoveToTrash = async (projectId: string) => {
     if (!activeProfile) {
       alert('No hay un perfil activo');
@@ -1572,32 +1658,32 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
     
     try {
-      // Encontrar el proyecto en la lista actual
-      const projectToTrash = projects.find(p => p.id === projectId);
-      if (!projectToTrash) {
-        console.error('Proyecto no encontrado:', projectId);
-        return;
+      // Usar el nuevo método de Firebase para mover a papelera
+      const success = await FirebaseProjectsManager.moveProjectToTrash(activeProfile.id, projectId);
+      
+      if (success) {
+        // Remover de la lista local de proyectos activos
+        setProjects(prev => prev.filter(p => p.id !== projectId));
+        
+        // Recargar proyectos de papelera
+        loadTrashProjects();
+        
+        // Feedback al usuario
+        if (typeof speak === 'function') {
+          speak('Proyecto movido a la papelera');
+        }
+        
+        console.log('🗑️ Proyecto movido a papelera exitosamente');
+      } else {
+        throw new Error('No se pudo mover el proyecto a la papelera');
       }
-      
-      // Remover de la lista de proyectos activos
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      
-      // Agregar a la lista de proyectos eliminados
-      setTrashedProjects(prev => [projectToTrash, ...prev]);
-      
-      // Feedback al usuario
-      if (typeof speak === 'function') {
-        speak('Proyecto movido a la papelera');
-      }
-      
-      console.log('🗑️ Proyecto movido a papelera:', projectToTrash.title);
     } catch (error) {
       console.error('❌ Error al mover proyecto a papelera:', error);
       alert('Error al mover el proyecto a la papelera. Intenta nuevamente.');
     }
   };
 
-  // Función para restaurar proyecto desde la papelera
+  // Función para restaurar proyecto desde la papelera (NUEVA ARQUITECTURA)
   const handleRestoreFromTrash = async (projectId: string) => {
     if (!activeProfile) {
       alert('No hay un perfil activo');
@@ -1605,28 +1691,61 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
     
     try {
-      // Encontrar el proyecto en la papelera
-      const projectToRestore = trashedProjects.find(p => p.id === projectId);
-      if (!projectToRestore) {
-        console.error('Proyecto no encontrado en papelera:', projectId);
-        return;
+      // Usar el nuevo método de Firebase para restaurar desde papelera
+      const success = await FirebaseProjectsManager.restoreProjectFromTrash(activeProfile.id, projectId);
+      
+      if (success) {
+        // Remover de la lista local de papelera
+        setTrashedProjects(prev => prev.filter(p => p.id !== projectId));
+        
+        // Recargar proyectos activos
+        loadUserProjects();
+        
+        // Feedback al usuario
+        if (typeof speak === 'function') {
+          speak('Proyecto restaurado exitosamente');
+        }
+        
+        console.log('♻️ Proyecto restaurado exitosamente');
+      } else {
+        throw new Error('No se pudo restaurar el proyecto');
       }
-      
-      // Remover de la papelera
-      setTrashedProjects(prev => prev.filter(p => p.id !== projectId));
-      
-      // Restaurar a la lista de proyectos activos
-      setProjects(prev => [projectToRestore, ...prev]);
-      
-      // Feedback al usuario
-      if (typeof speak === 'function') {
-        speak('Proyecto restaurado exitosamente');
-      }
-      
-      console.log('♾️ Proyecto restaurado:', projectToRestore.title);
     } catch (error) {
       console.error('❌ Error al restaurar proyecto:', error);
       alert('Error al restaurar el proyecto. Intenta nuevamente.');
+    }
+  };
+
+  // Función para cargar proyectos de la papelera desde Firebase
+  const loadTrashProjects = async () => {
+    if (!activeProfile?.id) return;
+    
+    try {
+      const trashProjects = await FirebaseProjectsManager.getTrashProjects(activeProfile.id);
+      setTrashedProjects(trashProjects);
+      console.log(`🗑️ Proyectos de papelera cargados: ${trashProjects.length}`);
+    } catch (error) {
+      console.error('❌ Error al cargar proyectos de papelera:', error);
+    }
+  };
+
+  // Función para cargar proyectos del usuario activo
+  const loadUserProjects = async () => {
+    if (!activeProfile?.id) return;
+    
+    try {
+      // Usar getAllUserProjects para obtener TODOS los proyectos
+      const userProjects = await FirebaseProjectsManager.getAllUserProjects(activeProfile.id);
+      console.log(`📋 Proyectos cargados: ${userProjects.length}`);
+      
+      setProjects(userProjects);
+      
+      // También cargar proyectos de papelera si estamos en esa vista
+      if (currentView === 'papelera') {
+        loadTrashProjects();
+      }
+    } catch (error) {
+      console.error('❌ Error al cargar proyectos:', error);
     }
   };
 
@@ -1634,6 +1753,11 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
   const handleViewChange = (view: 'inicio' | 'finalizadas' | 'papelera') => {
     setCurrentView(view);
     setSelectedSection(null);
+    
+    // Si cambiamos a papelera, cargar proyectos de papelera
+    if (view === 'papelera') {
+      loadTrashProjects();
+    }
   };
 
   const handleSectionSelect = (sectionId: string) => {
@@ -3945,10 +4069,86 @@ const getCircleClasses = () => {
                   </div>
                 )}
                 
+                {/* Barra de herramientas de papelera */}
+                {currentView === 'papelera' && trashedProjects.length > 0 && (
+                  <div className="col-span-full mb-6">
+                    <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
+                        {/* Información de selección */}
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-gray-300">
+                            {selectedTrashProjects.length > 0 
+                              ? `${selectedTrashProjects.length} de ${trashedProjects.length} seleccionados`
+                              : `${trashedProjects.length} proyectos en papelera`
+                            }
+                          </span>
+                        </div>
+                        
+                        {/* Botones de acción */}
+                        <div className="flex items-center gap-2">
+                          {/* Botón Seleccionar todo / Deseleccionar todo */}
+                          <button
+                            onClick={selectedTrashProjects.length === trashedProjects.length ? deselectAllTrashProjects : selectAllTrashProjects}
+                            className="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-blue-300 text-sm font-medium transition-all duration-200 flex items-center gap-2"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            {selectedTrashProjects.length === trashedProjects.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                          </button>
+                          
+                          {/* Botón Eliminar seleccionados */}
+                          {selectedTrashProjects.length > 0 && (
+                            <button
+                              onClick={() => setShowDeleteConfirmModal(true)}
+                              disabled={isProcessingTrash}
+                              className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-300 text-sm font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isProcessingTrash ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                              Eliminar definitivamente ({selectedTrashProjects.length})
+                            </button>
+                          )}
+                          
+                          {/* Botón Vaciar papelera */}
+                          <button
+                            onClick={() => setShowEmptyTrashModal(true)}
+                            disabled={isProcessingTrash}
+                            className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-300 text-sm font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isProcessingTrash ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                            Vaciar papelera
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Proyectos en papelera */}
                 {currentView === 'papelera' && trashedProjects.length > 0 && trashedProjects.map((project) => (
                   <div key={project.id} className="group">
-                    <div className="aspect-square bg-gray-800/40 border border-red-500/30 hover:border-red-500/50 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px] flex flex-col relative">
+                    <div className={`aspect-square bg-gray-800/40 border transition-all duration-300 hover:bg-gray-800/60 hover:scale-105 max-w-[220px] flex flex-col relative rounded-xl p-4 ${
+                      selectedTrashProjects.includes(project.id) 
+                        ? 'border-blue-500/50 bg-blue-600/10' 
+                        : 'border-red-500/30 hover:border-red-500/50'
+                    }`}>
+                      {/* Checkbox de selección */}
+                      <div className="absolute top-2 left-2 z-20">
+                        <input
+                          type="checkbox"
+                          checked={selectedTrashProjects.includes(project.id)}
+                          onChange={() => toggleTrashProjectSelection(project.id)}
+                          className="w-5 h-5 rounded border-2 border-gray-600 bg-gray-800 checked:bg-blue-600 checked:border-blue-600 focus:ring-2 focus:ring-blue-500/50 transition-all duration-200"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      
                       {/* Icono de restaurar en hover */}
                       <button
                         onClick={(e) => {
@@ -3962,7 +4162,7 @@ const getCircleClasses = () => {
                       </button>
                       
                       {/* Etiqueta de eliminado */}
-                      <div className="absolute top-2 left-2 px-2 py-1 bg-red-600/80 rounded-full">
+                      <div className="absolute top-2 right-12 px-2 py-1 bg-red-600/80 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200">
                         <span className="text-xs text-white font-medium">Eliminado</span>
                       </div>
                       
@@ -5124,6 +5324,106 @@ const getCircleClasses = () => {
         onConfirm={confirmLogout}
         onCancel={() => setShowLogoutModal(false)} 
       />
+      
+      {/* 🗑️ MODAL DE CONFIRMACIÓN PARA ELIMINAR PROYECTOS SELECCIONADOS */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-600/20 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Eliminar definitivamente</h3>
+                <p className="text-sm text-gray-400">Esta acción no se puede deshacer</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-300 mb-6">
+              ¿Estás seguro de que quieres eliminar definitivamente {selectedTrashProjects.length} proyecto{selectedTrashProjects.length !== 1 ? 's' : ''}? 
+              Esta acción es permanente y no se puede revertir.
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteConfirmModal(false)}
+                disabled={isProcessingTrash}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors duration-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteSelectedProjects}
+                disabled={isProcessingTrash}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProcessingTrash ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar definitivamente
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 🗑️ MODAL DE CONFIRMACIÓN PARA VACIAR PAPELERA */}
+      {showEmptyTrashModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-600/20 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Vaciar papelera</h3>
+                <p className="text-sm text-gray-400">Eliminar todos los proyectos</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-300 mb-6">
+              ¿Estás seguro de que quieres vaciar completamente la papelera? 
+              Se eliminarán definitivamente <strong className="text-white">{trashedProjects.length} proyecto{trashedProjects.length !== 1 ? 's' : ''}</strong>.
+              <br /><br />
+              <span className="text-red-400 font-medium">Esta acción es permanente y no se puede revertir.</span>
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowEmptyTrashModal(false)}
+                disabled={isProcessingTrash}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors duration-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEmptyTrash}
+                disabled={isProcessingTrash}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProcessingTrash ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Vaciando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Vaciar papelera
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 🔄 PANTALLA DE CARGA NEXUS - Ahora con z-index mayor para garantizar que está por encima */}
       <LoadingScreen isVisible={showLoadingScreen} onComplete={handleSystemLoadingComplete} />

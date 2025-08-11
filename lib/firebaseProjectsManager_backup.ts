@@ -114,7 +114,6 @@ export class FirebaseProjectsManager {
         projects.push({
           id: doc.id,
           title: data.title,
-          description: data.description || '',
           isCompleted: data.isCompleted,
           responsibleUserId: data.responsibleUserId,
           responsibleUserName: data.responsibleUserName,
@@ -145,18 +144,23 @@ export class FirebaseProjectsManager {
     updates: Partial<Omit<Project, 'id' | 'createdAt' | 'userId'>>
   ): Promise<boolean> {
     try {
-      console.log('🔍 DEBUG - updateProject received priority:', updates.priority, typeof updates.priority);
-      
       // 🔍 Buscar el proyecto en ambas ubicaciones
       let projectRef;
       let projectDoc;
+      let currentData;
+      let currentSectionId = null;
       
       // Primero buscar en proyectos sin sección
       projectRef = doc(db, `users/${userId}/projects/${projectId}`);
       projectDoc = await getDoc(projectRef);
       
-      if (!projectDoc.exists()) {
+      if (projectDoc.exists()) {
+        currentData = projectDoc.data();
+        currentSectionId = currentData?.sectionId || null;
+        console.log('📁 Proyecto encontrado SIN sección');
+      } else {
         // Si no está en proyectos principales, buscar en secciones
+        // Necesitamos obtener todas las secciones para buscar el proyecto
         const sections = await FirebaseProfileManager.getUserSections(userId);
         let found = false;
         
@@ -167,35 +171,69 @@ export class FirebaseProjectsManager {
           if (sectionProjectDoc.exists()) {
             projectRef = sectionProjectRef;
             projectDoc = sectionProjectDoc;
+            currentData = sectionProjectDoc.data();
+            currentSectionId = section.id;
             found = true;
-            console.log('📁 Proyecto a actualizar encontrado EN sección:', section.id);
+            console.log('📁 Proyecto encontrado EN sección:', section.id);
             break;
           }
         }
         
         if (!found) {
-          console.error('❌ Proyecto no encontrado para actualizar');
+          console.error('❌ Proyecto no encontrado en ninguna ubicación');
           return false;
         }
-      } else {
-        console.log('📁 Proyecto a actualizar encontrado SIN sección');
       }
       
-      // Preparar datos de actualización
       const updateData = {
         ...updates,
         updatedAt: Timestamp.fromDate(new Date())
-      };
+      }
       
-      console.log('🔍 DEBUG - Data being updated in Firebase:', {
-        projectId,
-        priority: updateData.priority,
-        priorityType: typeof updateData.priority,
-        location: projectRef.path
-      });
+      // Manejar cambios de sección (mover proyecto físicamente)
+      const newSectionId = updates.sectionId !== undefined ? updates.sectionId : currentSectionId;
       
-      await updateDoc(projectRef, updateData);
-      console.log('✅ Proyecto actualizado exitosamente');
+      if (currentSectionId !== newSectionId) {
+        console.log('🔄 Cambio de sección detectado:', { from: currentSectionId, to: newSectionId });
+        
+        // Crear el proyecto en la nueva ubicación
+        let newProjectRef;
+        if (newSectionId) {
+          // Mover A sección
+          newProjectRef = doc(db, `users/${userId}/sections/${newSectionId}/projects/${projectId}`);
+        } else {
+          // Mover A proyectos principales (sin sección)
+          newProjectRef = doc(db, `users/${userId}/projects/${projectId}`);
+        }
+        
+        // Crear en nueva ubicación con datos actualizados
+        const completeData = {
+          ...currentData,
+          ...updateData,
+          sectionId: newSectionId,
+          sectionName: updates.sectionName || (newSectionId ? currentData?.sectionName : null)
+        };
+        
+        await setDoc(newProjectRef, completeData);
+        
+        // Eliminar de ubicación anterior
+        await deleteDoc(projectRef);
+        
+        // Actualizar referencias en secciones
+        if (currentSectionId) {
+          await FirebaseProfileManager.removeProjectFromSection(userId, currentSectionId, projectId);
+        }
+        if (newSectionId) {
+          await FirebaseProfileManager.addProjectToSection(userId, newSectionId, projectId);
+        }
+        
+        console.log('✅ Proyecto movido exitosamente');
+      } else {
+        // Solo actualizar en la ubicación actual
+        await updateDoc(projectRef, updateData);
+        console.log('✅ Proyecto actualizado exitosamente');
+      }
+      
       return true;
     } catch (error) {
       console.error('❌ Error al actualizar proyecto:', error);
@@ -203,9 +241,13 @@ export class FirebaseProjectsManager {
     }
   }
 
+
+
   // Obtener proyectos por sección (desde la subcoleción de la sección)
   static async getProjectsBySection(userId: string, sectionId: string): Promise<Project[]> {
     try {
+      // 🎯 Obtener proyectos desde users/{userId}/sections/{sectionId}/projects
+      console.log('📁 Obteniendo proyectos de la sección:', sectionId);
       const projectsRef = collection(db, `users/${userId}/sections/${sectionId}/projects`)
       const q = query(projectsRef, orderBy('createdAt', 'desc'))
       const snapshot = await getDocs(q)
@@ -216,7 +258,6 @@ export class FirebaseProjectsManager {
         projects.push({
           id: doc.id,
           title: data.title,
-          description: data.description || '',
           isCompleted: data.isCompleted,
           responsibleUserId: data.responsibleUserId,
           responsibleUserName: data.responsibleUserName,
@@ -255,7 +296,9 @@ export class FirebaseProjectsManager {
       projectRef = doc(db, `users/${userId}/projects/${projectId}`);
       projectDoc = await getDoc(projectRef);
       
-      if (!projectDoc.exists()) {
+      if (projectDoc.exists()) {
+        console.log('📁 Proyecto encontrado SIN sección para toggle completion');
+      } else {
         // Si no está en proyectos principales, buscar en secciones
         const sections = await FirebaseProfileManager.getUserSections(userId);
         let found = false;
@@ -268,17 +311,15 @@ export class FirebaseProjectsManager {
             projectRef = sectionProjectRef;
             projectDoc = sectionProjectDoc;
             found = true;
-            console.log('📁 Proyecto a completar encontrado EN sección:', section.id);
+            console.log('📁 Proyecto encontrado EN sección para toggle completion:', section.id);
             break;
           }
         }
         
         if (!found) {
-          console.error('❌ Proyecto no encontrado para completar');
+          console.error('❌ Proyecto no encontrado para cambiar estado');
           return false;
         }
-      } else {
-        console.log('📁 Proyecto a completar encontrado SIN sección');
       }
       
       await updateDoc(projectRef, {
@@ -286,7 +327,7 @@ export class FirebaseProjectsManager {
         updatedAt: Timestamp.fromDate(new Date())
       });
       
-      console.log(`✅ Proyecto ${isCompleted ? 'completado' : 'marcado como pendiente'} exitosamente`);
+      console.log(`✅ Proyecto ${isCompleted ? 'completado' : 'marcado como pendiente'}`);
       return true;
     } catch (error) {
       console.error('❌ Error al cambiar estado del proyecto:', error);
@@ -316,24 +357,11 @@ export class FirebaseProjectsManager {
         const data = doc.data();
         allProjects.push({
           id: doc.id,
-          title: data.title,
-          description: data.description || '',
-          isCompleted: data.isCompleted,
-          responsibleUserId: data.responsibleUserId,
-          responsibleUserName: data.responsibleUserName,
-          dueDate: data.dueDate,
-          sectionId: data.sectionId,
-          sectionName: data.sectionName,
-          priority: data.priority,
-          notes: data.notes,
-          collaborators: data.collaborators || [],
+          ...data,
           createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
-          userId: data.userId
-        });
+          updatedAt: data.updatedAt?.toDate() || new Date()
+        } as Project);
       });
-      
-      console.log(`📋 Proyectos SIN sección: ${mainProjectsSnapshot.size}`);
       
       // 2. Obtener proyectos de TODAS las secciones
       console.log('📁 Obteniendo proyectos DE secciones...');
@@ -348,34 +376,26 @@ export class FirebaseProjectsManager {
           const data = doc.data();
           allProjects.push({
             id: doc.id,
-            title: data.title,
-            description: data.description || '',
-            isCompleted: data.isCompleted,
-            responsibleUserId: data.responsibleUserId,
-            responsibleUserName: data.responsibleUserName,
-            dueDate: data.dueDate,
-            sectionId: data.sectionId,
-            sectionName: data.sectionName,
-            priority: data.priority,
-            notes: data.notes,
-            collaborators: data.collaborators || [],
+            ...data,
             createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-            userId: data.userId
-          });
+            updatedAt: data.updatedAt?.toDate() || new Date()
+          } as Project);
         });
-        
-        console.log(`📋 Proyectos en sección "${section.name}": ${sectionProjectsSnapshot.size}`);
       }
       
-      console.log(`📋 TOTAL de proyectos obtenidos: ${allProjects.length}`);
+      // 3. Ordenar todos los proyectos por fecha de creación (más recientes primero)
+      allProjects.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      
+      console.log(`✅ Total de proyectos obtenidos: ${allProjects.length}`);
       return allProjects;
     } catch (error) {
-      console.error('❌ Error al obtener todos los proyectos del usuario:', error);
+      console.error('❌ Error al obtener todos los proyectos:', error);
       return [];
     }
   }
 
+  // ===== GESTIÓN DE PAPELERA =====
+  
   // Mover proyecto a la papelera (desde cualquier ubicación)
   static async moveProjectToTrash(userId: string, projectId: string): Promise<boolean> {
     try {
