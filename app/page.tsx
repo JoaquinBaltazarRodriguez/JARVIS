@@ -1428,6 +1428,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     const emptyProject = {
       title: '',
       description: '',
+      content: '',
       isCompleted: false,
       responsible: activeProfile,
       dueDate: '',
@@ -1453,6 +1454,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     const projectData = {
       title: project.title,
       description: project.description || '',
+      content: project.content || '',
       isCompleted: project.isCompleted,
       responsible: {
         id: project.responsibleUserId,
@@ -1466,9 +1468,9 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       collaborators: []
     }
     
-    setNewProject(projectData)
+    setNewProject({...projectData, content: project.content || ''})
     // Guardar estado original para detectar cambios
-    setOriginalProject(JSON.parse(JSON.stringify(projectData)))
+    setOriginalProject({...projectData, content: project.content || ''})
     setHasUnsavedChanges(false)
     
     setShowCreateProject(true)
@@ -1486,6 +1488,34 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     closeProjectEditor()
   }
   
+  const openProjectEditor = (project: Project) => {
+    setEditingProject(project)
+    setNewProject({
+      title: project.title,
+      description: project.description || '',
+      content: project.content || '',
+      isCompleted: project.isCompleted,
+      responsible: null,
+      dueDate: project.dueDate || '',
+      section: project.sectionId,
+      priority: project.priority,
+      notes: project.notes || '',
+      collaborators: []
+    })
+    setOriginalProject({
+      title: project.title,
+      description: project.description || '',
+      content: project.content || '',
+      isCompleted: project.isCompleted,
+      dueDate: project.dueDate || '',
+      section: project.sectionId,
+      priority: project.priority,
+      notes: project.notes || ''
+    })
+    setHasUnsavedChanges(false)
+    setShowCreateProject(true)
+  }
+
   const closeProjectEditor = () => {
     setShowCreateProject(false)
     setEditingProject(null)
@@ -1496,6 +1526,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     setNewProject({
       title: '',
       description: '',
+      content: '',
       isCompleted: false,
       responsible: activeProfile,
       dueDate: '',
@@ -1572,6 +1603,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
       const projectData = {
         title: newProject.title.trim(),
         description: newProject.description.trim(),
+        content: newProject.content || '',
         isCompleted: newProject.isCompleted,
         responsibleUserId: activeProfile.id,
         responsibleUserName: activeProfile.name,
@@ -1595,24 +1627,18 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         );
         
         if (updateSuccess) {
-          // Crear el objeto proyecto actualizado para la UI
-          savedProject = {
-            ...editingProject,
-            ...projectData,
-            updatedAt: new Date()
-          };
-          
-          // Actualizar en la lista local
-          setProjects(prev => prev.map(p => 
-            p.id === editingProject.id ? savedProject : p
-          ));
-          
-          // Feedback al usuario
-          if (typeof speak === 'function') {
-            speak('Proyecto actualizado exitosamente');
-          }
-          
-          console.log(' Proyecto actualizado en Firebase:', savedProject);
+          savedProject = { ...editingProject, ...projectData, updatedAt: new Date() };
+          setOriginalProject({
+            title: newProject.title,
+            description: newProject.description,
+            content: newProject.content,
+            isCompleted: newProject.isCompleted,
+            dueDate: newProject.dueDate,
+            section: newProject.section,
+            priority: newProject.priority,
+            notes: newProject.notes
+          })
+          setHasUnsavedChanges(false)
         }
       } else {
         // Estamos creando un nuevo proyecto
@@ -1622,23 +1648,28 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
         );
         
         if (savedProject) {
-          // Agregar a la lista local
-          setProjects(prev => [savedProject, ...prev]);
-          
-          console.log('✅ Proyecto guardado exitosamente');
-          speak('Proyecto guardado exitosamente');
+          updateSuccess = true;
         }
       }
       
-      if (savedProject || (editingProject && updateSuccess)) {
-        console.log('✅ Proyecto guardado exitosamente')
-        speak('Proyecto guardado exitosamente')
+      if (updateSuccess) {
+        // Recargar todos los proyectos para reflejar cambios
+        const updatedProjects = await FirebaseProjectsManager.getAllUserProjects(activeProfile.id);
+        setProjects(updatedProjects);
         
         if (editingProject) {
           // Si estamos editando, solo resetear cambios sin cerrar
           setHasUnsavedChanges(false)
-          setOriginalProject(JSON.parse(JSON.stringify(newProject)))
-          speak('Cambios guardados')
+          setOriginalProject({
+            title: newProject.title,
+            description: newProject.description,
+            content: newProject.content,
+            isCompleted: newProject.isCompleted,
+            dueDate: newProject.dueDate,
+            section: newProject.section,
+            priority: newProject.priority,
+            notes: newProject.notes
+          })
         } else {
           // Si estamos creando, cerrar el panel
           closeProjectEditor()
@@ -2047,7 +2078,7 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
           setProjects(userProjects || []);
           
           // Cargar proyectos en papelera
-          const trashedProjects = await FirebaseProjectsManager.getTrashedProjects(activeProfile.id);
+          const trashedProjects = await FirebaseProjectsManager.getTrashProjects(activeProfile.id);
           setTrashedProjects(trashedProjects || []);
           
           // Cargar secciones personalizadas

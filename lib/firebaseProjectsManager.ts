@@ -18,6 +18,7 @@ export interface Project {
   id: string
   title: string
   description: string
+  content: string
   isCompleted: boolean
   responsibleUserId: string
   responsibleUserName: string
@@ -115,6 +116,7 @@ export class FirebaseProjectsManager {
           id: doc.id,
           title: data.title,
           description: data.description || '',
+          content: data.content || '',
           isCompleted: data.isCompleted,
           responsibleUserId: data.responsibleUserId,
           responsibleUserName: data.responsibleUserName,
@@ -217,6 +219,7 @@ export class FirebaseProjectsManager {
           id: doc.id,
           title: data.title,
           description: data.description || '',
+          content: data.content || '',
           isCompleted: data.isCompleted,
           responsibleUserId: data.responsibleUserId,
           responsibleUserName: data.responsibleUserName,
@@ -318,6 +321,7 @@ export class FirebaseProjectsManager {
           id: doc.id,
           title: data.title,
           description: data.description || '',
+          content: data.content || '',
           isCompleted: data.isCompleted,
           responsibleUserId: data.responsibleUserId,
           responsibleUserName: data.responsibleUserName,
@@ -350,6 +354,7 @@ export class FirebaseProjectsManager {
             id: doc.id,
             title: data.title,
             description: data.description || '',
+            content: data.content || '',
             isCompleted: data.isCompleted,
             responsibleUserId: data.responsibleUserId,
             responsibleUserName: data.responsibleUserName,
@@ -460,6 +465,7 @@ export class FirebaseProjectsManager {
           id: doc.id,
           title: data.title,
           description: data.description || '',
+          content: data.content || '',
           isCompleted: data.isCompleted,
           responsibleUserId: data.responsibleUserId,
           responsibleUserName: data.responsibleUserName,
