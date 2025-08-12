@@ -2035,7 +2035,43 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   }, [isVoiceControlEnabled, isListening, isSpeaking, isProcessing, appState, startAutoListening]);
 
-
+  // 📋 useEffect para cargar proyectos cuando hay un perfil activo
+  useEffect(() => {
+    const loadProjectsAndSections = async () => {
+      if (activeProfile) {
+        try {
+          console.log('🔄 Cargando proyectos y secciones para:', activeProfile.name);
+          
+          // Cargar TODOS los proyectos (principales + de secciones)
+          const userProjects = await FirebaseProjectsManager.getAllUserProjects(activeProfile.id);
+          setProjects(userProjects || []);
+          
+          // Cargar proyectos en papelera
+          const trashedProjects = await FirebaseProjectsManager.getTrashedProjects(activeProfile.id);
+          setTrashedProjects(trashedProjects || []);
+          
+          // Cargar secciones personalizadas
+          const userSections = await FirebaseProfileManager.getUserSections(activeProfile.id);
+          setCustomSections(userSections || []);
+          
+          console.log('✅ Proyectos y secciones cargados:', {
+            projects: userProjects?.length || 0,
+            trashedProjects: trashedProjects?.length || 0,
+            sections: userSections?.length || 0
+          });
+        } catch (error) {
+          console.error('❌ Error al cargar proyectos y secciones:', error);
+        }
+      } else {
+        // Limpiar datos cuando no hay perfil activo
+        setProjects([]);
+        setTrashedProjects([]);
+        setCustomSections([]);
+      }
+    };
+    
+    loadProjectsAndSections();
+  }, [activeProfile]);
 
   // DESACTIVADO: No escuchar automáticamente para evitar consumo de memoria
   // useEffect(() => {
@@ -4882,19 +4918,7 @@ const getCircleClasses = () => {
         </div>
       )}
 
-      {/* BOTÓN TEMPORAL PARA PROBAR MODAL DE CREACIÓN DE PROYECTOS */}
-      {appState === "active" && (
-        <div className="fixed top-20 right-4 z-40">
-          <button
-            onClick={() => setShowCreateProject(true)}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Crear Proyecto
-          </button>
-        </div>
-      )}
-
+     
       {/* INTERFAZ ORIGINAL PARA OTROS MODOS */}
       {(appState === "intelligent_mode" || appState === "functional_mode") && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
@@ -5552,33 +5576,76 @@ const getCircleClasses = () => {
 
       {/* 📝 INTERFAZ PARA CREAR NUEVO PROYECTO CON EDITOR RICO */}
       {showCreateProject && (
-        <div className="fixed top-16 left-0 right-0 bottom-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 z-40 flex flex-col">
+        <div className="fixed top-20 left-0 right-0 bottom-0 bg-gray-800 z-40 flex flex-col">
           {/* Header interno con título y botones */}
-          <div className="flex items-center justify-between p-4 bg-gray-900/40 backdrop-blur-sm border-b border-gray-700/50">
+          <div className="flex items-center justify-between px-6 py-8 bg-gray-900/40 backdrop-blur-sm border-b border-gray-700/50">
             <div>
               <h2 className="text-xl font-bold text-cyan-400">Crear Nuevo Proyecto</h2>
               <p className="text-gray-400 text-sm">Completa la información para crear tu proyecto</p>
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  // Lógica para crear/guardar proyecto
-                  console.log('Creando proyecto:', newProject);
-                  setShowCreateProject(false);
-                  setNewProject({
-                    title: '',
-                    description: '',
-                    content: '',
-                    isCompleted: false,
-                    responsible: null,
-                    priority: null,
-                    dueDate: '',
-                    section: null,
-                    collaborators: [],
-                    notes: '',
-                  });
+                onClick={async () => {
+                  if (!activeProfile) {
+                    console.error('No hay perfil activo');
+                    return;
+                  }
+                  
+                  try {
+                    // Crear el objeto del proyecto
+                    const projectData = {
+                      title: newProject.title.trim(),
+                      description: newProject.description || '',
+                      content: newProject.content || '',
+                      isCompleted: false,
+                      responsibleUserId: activeProfile.id,
+                      responsibleUserName: activeProfile.name,
+                      priority: newProject.priority,
+                      dueDate: newProject.dueDate || null,
+                      sectionId: newProject.section,
+                      sectionName: newProject.section ? customSections.find(s => s.id === newProject.section)?.name : null,
+                      notes: newProject.notes || '',
+                      collaborators: [],
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString()
+                    };
+                    
+                    console.log('Creando proyecto:', projectData);
+                    
+                    // Guardar en Firebase
+                    const success = await FirebaseProjectsManager.createProject(activeProfile.id, projectData);
+                    
+                    if (success) {
+                      console.log('✅ Proyecto creado exitosamente');
+                      
+                      // Recargar TODOS los proyectos (principales + de secciones)
+                      const updatedProjects = await FirebaseProjectsManager.getAllUserProjects(activeProfile.id);
+                      setProjects(updatedProjects);
+                      
+                      // Cerrar modal y limpiar formulario
+                      setShowCreateProject(false);
+                      setNewProject({
+                        title: '',
+                        description: '',
+                        content: '',
+                        isCompleted: false,
+                        responsible: null,
+                        priority: null,
+                        dueDate: '',
+                        section: null,
+                        collaborators: [],
+                        notes: '',
+                      });
+                    } else {
+                      console.error('❌ Error al crear el proyecto');
+                      alert('Error al crear el proyecto. Por favor, inténtalo de nuevo.');
+                    }
+                  } catch (error) {
+                    console.error('Error al crear proyecto:', error);
+                    alert('Error al crear el proyecto. Por favor, inténtalo de nuevo.');
+                  }
                 }}
-                disabled={!newProject.title.trim()}
+                disabled={!newProject.title.trim() || !activeProfile}
                 className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5611,7 +5678,7 @@ const getCircleClasses = () => {
           </div>
           
           {/* Contenido principal - Layout de dos columnas */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden pr-6 bg-gray-800/30">
             {/* Panel izquierdo - Formulario del proyecto */}
             <div className="w-80 border-r-2 border-gray-600/70 p-6 overflow-y-auto bg-gray-900/60 shadow-xl">
               <div className="space-y-6">
@@ -5716,11 +5783,6 @@ const getCircleClasses = () => {
 
             {/* Panel derecho - Editor de texto rico */}
             <div className="flex-1 flex flex-col bg-gray-800/30">
-              <div className="p-6 border-b border-gray-600/50 bg-gray-800/50">
-                <h3 className="text-lg font-semibold text-cyan-400 mb-2">Contenido del proyecto</h3>
-                <p className="text-sm text-gray-400">Utiliza el editor para crear el contenido de tu proyecto con formato profesional</p>
-              </div>
-              
               <div className="flex-1 overflow-hidden">
                 <AdvancedRichTextEditor
                   value={newProject.content}

@@ -100,7 +100,7 @@ export function AdvancedRichTextEditor({
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-invert max-w-none focus:outline-none min-h-[400px] p-4',
+        class: 'prose prose-invert max-w-full focus:outline-none min-h-[400px] p-4 break-words overflow-wrap-anywhere word-break-break-all',
       },
     },
   });
@@ -484,26 +484,33 @@ export function AdvancedRichTextEditor({
 
       {/* Editor de contenido */}
       <div className="relative">
-        <EditorContent 
-          editor={editor} 
-          className="min-h-[400px] text-white bg-gray-900 rounded-b-lg
-            [&_.ProseMirror]:outline-none
-            [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:text-cyan-400 [&_.ProseMirror_h1]:mb-4
-            [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:text-cyan-300 [&_.ProseMirror_h2]:mb-3
-            [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-medium [&_.ProseMirror_h3]:text-cyan-200 [&_.ProseMirror_h3]:mb-2
-            [&_.ProseMirror_p]:mb-3 [&_.ProseMirror_p]:leading-relaxed
-            [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:mb-3
-            [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:mb-3
-            [&_.ProseMirror_li]:mb-1
-            [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-cyan-500 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-gray-300
-            [&_.ProseMirror_code]:bg-gray-800 [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:text-cyan-300
-            [&_.ProseMirror_pre]:bg-gray-800 [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto
-            [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:table-auto [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:mb-4
-            [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-600 [&_.ProseMirror_td]:p-2
-            [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-600 [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-gray-800 [&_.ProseMirror_th]:font-semibold
-            [&_.ProseMirror_hr]:border-gray-600 [&_.ProseMirror_hr]:my-6
-          "
-        />
+        <div className="w-full overflow-hidden">
+          <EditorContent 
+            editor={editor} 
+            className="min-h-[400px] text-white bg-gray-900 rounded-b-lg w-full
+              [&_.ProseMirror]:outline-none [&_.ProseMirror]:w-full [&_.ProseMirror]:max-w-full [&_.ProseMirror]:overflow-hidden [&_.ProseMirror]:break-all [&_.ProseMirror]:whitespace-pre-wrap
+              [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold [&_.ProseMirror_h1]:text-cyan-400 [&_.ProseMirror_h1]:mb-4 [&_.ProseMirror_h1]:break-all [&_.ProseMirror_h1]:whitespace-pre-wrap
+              [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:text-cyan-300 [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:break-all [&_.ProseMirror_h2]:whitespace-pre-wrap
+              [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-medium [&_.ProseMirror_h3]:text-cyan-200 [&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:break-all [&_.ProseMirror_h3]:whitespace-pre-wrap
+              [&_.ProseMirror_p]:mb-3 [&_.ProseMirror_p]:leading-relaxed [&_.ProseMirror_p]:break-all [&_.ProseMirror_p]:whitespace-pre-wrap
+              [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:mb-3
+              [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:mb-3
+              [&_.ProseMirror_li]:mb-1 [&_.ProseMirror_li]:break-all [&_.ProseMirror_li]:whitespace-pre-wrap
+              [&_.ProseMirror_blockquote]:border-l-4 [&_.ProseMirror_blockquote]:border-cyan-500 [&_.ProseMirror_blockquote]:pl-4 [&_.ProseMirror_blockquote]:italic [&_.ProseMirror_blockquote]:text-gray-300 [&_.ProseMirror_blockquote]:break-all [&_.ProseMirror_blockquote]:whitespace-pre-wrap
+              [&_.ProseMirror_code]:bg-gray-800 [&_.ProseMirror_code]:px-1 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:text-cyan-300 [&_.ProseMirror_code]:break-all
+              [&_.ProseMirror_pre]:bg-gray-800 [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_pre]:rounded [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_pre]:break-all
+              [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:table-auto [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:mb-4
+              [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-gray-600 [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:break-all [&_.ProseMirror_td]:max-w-0
+              [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-gray-600 [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-gray-800 [&_.ProseMirror_th]:font-semibold [&_.ProseMirror_th]:break-all [&_.ProseMirror_th]:max-w-0
+              [&_.ProseMirror_hr]:border-gray-600 [&_.ProseMirror_hr]:my-6
+            "
+            style={{
+              wordBreak: 'break-all',
+              overflowWrap: 'anywhere',
+              whiteSpace: 'pre-wrap'
+            }}
+          />
+        </div>
         
         {/* Placeholder cuando está vacío */}
         {editor.isEmpty && (
