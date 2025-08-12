@@ -3910,16 +3910,71 @@ const getCircleClasses = () => {
             <div className="p-8">
               {/* Header del área de proyectos - Dinámico según vista */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  {selectedSection 
-                    ? customSections.find(s => s.id === selectedSection)?.name || 'Sección'
-                    : currentView === 'inicio' 
-                      ? 'Proyectos'
-                      : currentView === 'finalizadas'
-                        ? 'Tareas Finalizadas'
-                        : 'Papelera'
-                  }
-                </h2>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-bold text-white">
+                    {selectedSection 
+                      ? customSections.find(s => s.id === selectedSection)?.name || 'Sección'
+                      : currentView === 'inicio' 
+                        ? 'Proyectos'
+                        : currentView === 'finalizadas'
+                          ? 'Tareas Finalizadas'
+                          : 'Papelera'
+                    }
+                  </h2>
+                  
+                  {/* Barra de herramientas de papelera - Movida al header */}
+                  {currentView === 'papelera' && trashedProjects.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      {/* Información de selección */}
+                      <span className="text-sm text-gray-400 mr-4">
+                        {selectedTrashProjects.length > 0 
+                          ? `${selectedTrashProjects.length} de ${trashedProjects.length} seleccionados`
+                          : `${trashedProjects.length} proyectos`
+                        }
+                      </span>
+                      
+                      {/* Botón Seleccionar todo / Deseleccionar todo */}
+                      <button
+                        onClick={selectedTrashProjects.length === trashedProjects.length ? deselectAllTrashProjects : selectAllTrashProjects}
+                        className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-blue-300 text-xs font-medium transition-all duration-200 flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        {selectedTrashProjects.length === trashedProjects.length ? 'Deseleccionar' : 'Seleccionar todo'}
+                      </button>
+                      
+                      {/* Botón Eliminar seleccionados */}
+                      {selectedTrashProjects.length > 0 && (
+                        <button
+                          onClick={() => setShowDeleteConfirmModal(true)}
+                          disabled={isProcessingTrash}
+                          className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-300 text-xs font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isProcessingTrash ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                          Eliminar ({selectedTrashProjects.length})
+                        </button>
+                      )}
+                      
+                      {/* Botón Vaciar papelera */}
+                      <button
+                        onClick={() => setShowEmptyTrashModal(true)}
+                        disabled={isProcessingTrash}
+                        className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-300 text-xs font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isProcessingTrash ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                        Vaciar papelera
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
                 <p className="text-gray-400 text-sm">
                   {selectedSection 
                     ? 'Proyectos organizados en esta sección personalizada'
@@ -4069,66 +4124,7 @@ const getCircleClasses = () => {
                   </div>
                 )}
                 
-                {/* Barra de herramientas de papelera */}
-                {currentView === 'papelera' && trashedProjects.length > 0 && (
-                  <div className="col-span-full mb-6">
-                    <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-4">
-                      <div className="flex items-center justify-between flex-wrap gap-4">
-                        {/* Información de selección */}
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-gray-300">
-                            {selectedTrashProjects.length > 0 
-                              ? `${selectedTrashProjects.length} de ${trashedProjects.length} seleccionados`
-                              : `${trashedProjects.length} proyectos en papelera`
-                            }
-                          </span>
-                        </div>
-                        
-                        {/* Botones de acción */}
-                        <div className="flex items-center gap-2">
-                          {/* Botón Seleccionar todo / Deseleccionar todo */}
-                          <button
-                            onClick={selectedTrashProjects.length === trashedProjects.length ? deselectAllTrashProjects : selectAllTrashProjects}
-                            className="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 hover:border-blue-500/50 rounded-lg text-blue-300 text-sm font-medium transition-all duration-200 flex items-center gap-2"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            {selectedTrashProjects.length === trashedProjects.length ? 'Deseleccionar todo' : 'Seleccionar todo'}
-                          </button>
-                          
-                          {/* Botón Eliminar seleccionados */}
-                          {selectedTrashProjects.length > 0 && (
-                            <button
-                              onClick={() => setShowDeleteConfirmModal(true)}
-                              disabled={isProcessingTrash}
-                              className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-300 text-sm font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {isProcessingTrash ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
-                              Eliminar definitivamente ({selectedTrashProjects.length})
-                            </button>
-                          )}
-                          
-                          {/* Botón Vaciar papelera */}
-                          <button
-                            onClick={() => setShowEmptyTrashModal(true)}
-                            disabled={isProcessingTrash}
-                            className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 hover:border-red-500/50 rounded-lg text-red-300 text-sm font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isProcessingTrash ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                            Vaciar papelera
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Barra de herramientas de papelera removida - Ahora está en el header */}
                 
                 {/* Proyectos en papelera */}
                 {currentView === 'papelera' && trashedProjects.length > 0 && trashedProjects.map((project) => (

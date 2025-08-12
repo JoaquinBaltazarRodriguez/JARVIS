@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import type { UserProfile } from "./ProfileSelector";
 import Starfield from "@/components/Starfield";
 
@@ -15,6 +15,7 @@ interface PasswordScreenProps {
 export function PasswordScreen({ profile, error: propError, onPasswordVerified, onBack }: PasswordScreenProps) {
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Inicializar el foco en el campo de contraseña al montar el componente
@@ -28,10 +29,16 @@ export function PasswordScreen({ profile, error: propError, onPasswordVerified, 
 
   const error = propError || localError;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password) {
-      onPasswordVerified(password);
+      setIsLoading(true);
+      try {
+        await onPasswordVerified(password);
+      } finally {
+        // El loading se mantendrá hasta que el componente se desmonte
+        // o se complete la autenticación
+      }
     } else {
       setLocalError("Por favor, ingresa tu contraseña");
     }
@@ -102,9 +109,14 @@ export function PasswordScreen({ profile, error: propError, onPasswordVerified, 
             
             <Button 
               type="submit" 
-              className="bg-cyan-600 hover:bg-cyan-700 px-4 py-6 rounded-r-md"
+              disabled={isLoading}
+              className="bg-cyan-600 hover:bg-cyan-700 px-4 py-6 rounded-r-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ArrowRight className="h-5 w-5" />
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ArrowRight className="h-5 w-5" />
+              )}
             </Button>
           </div>
           
@@ -119,9 +131,26 @@ export function PasswordScreen({ profile, error: propError, onPasswordVerified, 
               type="button"
               variant="ghost"
               onClick={onBack}
-              className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-900/30 border border-cyan-800/30 px-4"
+              disabled={isLoading}
+              className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-900/30 border border-cyan-800/30 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Volver
+              {isLoading ? 'Iniciando sesión...' : 'Volver'}
+            </Button>
+            
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isLoading}
+              className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-900/30 border border-cyan-800/30 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Recuperando...
+                </>
+              ) : (
+                'Recuperar contraseña'
+              )}
             </Button>
           </div>
         </form>

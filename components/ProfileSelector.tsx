@@ -8,6 +8,7 @@ import { ProfilesManager } from "@/lib/profilesManager"; // Mantenemos para comp
 import { FirebaseProfileManager } from "@/lib/firebaseProfileManager"; // Nuevo gestor con Firebase
 import { motion, AnimatePresence } from "framer-motion";
 import { Slider } from "@/components/ui/slider";
+import { Loader2 } from "lucide-react";
 
 export interface UserProfile {
   id: string;
@@ -53,6 +54,9 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   const [notificationMessage, setNotificationMessage] = useState("");
   const [profileToHide, setProfileToHide] = useState<UserProfile | null>(null);
   const [localProfiles, setLocalProfiles] = useState<UserProfile[]>(profiles);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isRecoveringProfile, setIsRecoveringProfile] = useState(false);
   
   // Estados para creación de perfil
   const [newProfile, setNewProfile] = useState<Partial<UserProfile>>({
@@ -360,6 +364,8 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   const confirmHideProfile = async () => {
     if (!profileToHide) return;
     
+    setIsDeletingProfile(true);
+    
     try {
       // Marcar como oculto en Firebase
       await FirebaseProfileManager.hideProfile(profileToHide.id);
@@ -373,20 +379,22 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
       setShowHideConfirmation(false);
       setProfileToHide(null);
       
-      setNotificationMessage("Perfil ocultado correctamente");
+      setNotificationMessage("Perfil eliminado correctamente");
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
       
       // Anunciar para lectores de pantalla
       const announcement = document.getElementById("screen-reader-announcement");
       if (announcement) {
-        announcement.textContent = "Perfil ocultado correctamente. Ya no aparecerá en la lista de perfiles, pero puedes recuperarlo más tarde.";
+        announcement.textContent = "Perfil eliminado correctamente. Ya no aparecerá en la lista de perfiles, pero puedes recuperarlo más tarde.";
       }
     } catch (error) {
-      console.error("Error al ocultar perfil:", error);
-      setNotificationMessage("Error al ocultar el perfil");
+      console.error("Error al eliminar perfil:", error);
+      setNotificationMessage("Error al eliminar el perfil");
       setShowNotification(true);
       setTimeout(() => setShowNotification(false), 3000);
+    } finally {
+      setIsDeletingProfile(false);
     }
   };
   
@@ -396,6 +404,8 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
       setRecoverError("Debes proporcionar email y contraseña");
       return;
     }
+    
+    setIsRecoveringProfile(true);
     
     try {
       // Intentar recuperar el perfil con Firebase
@@ -429,7 +439,9 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
       }
     } catch (error) {
       console.error("Error al recuperar perfil:", error);
-      setRecoverError("Error al recuperar el perfil. Inténtalo de nuevo.");
+      setRecoverError("Error al recuperar el perfil. Verifica tus credenciales.");
+    } finally {
+      setIsRecoveringProfile(false);
     }
   };
 
@@ -444,6 +456,8 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
   // Función para manejar el envío del formulario de login
   const handleLoginSubmit = async () => {
     if (!selectedProfile) return;
+    
+    setIsLoggingIn(true);
     
     try {
       // Iniciar sesión con Firebase
@@ -471,6 +485,8 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
     } catch (error) {
       console.error("Error al iniciar sesión:", error);
       setPasswordError("Error al iniciar sesión. Inténtalo de nuevo.");
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -891,15 +907,24 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
               <Button 
                 variant="ghost" 
                 onClick={() => setShowHideConfirmation(false)}
-                className="border border-gray-800/50 hover:bg-gray-900/20"
+                disabled={isDeletingProfile}
+                className="border border-gray-800/50 hover:bg-gray-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar
               </Button>
               <Button 
                 onClick={confirmHideProfile}
-                className="bg-red-600 hover:bg-red-700 text-white"
+                disabled={isDeletingProfile}
+                className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Eliminar perfil
+                {isDeletingProfile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  'Eliminar perfil'
+                )}
               </Button>
             </div>
           </div>
@@ -972,9 +997,17 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
                     
                     <Button 
                       onClick={handleLoginSubmit}
-                      className="bg-cyan-700 hover:bg-cyan-600 text-white px-8 py-5"
+                      disabled={isLoggingIn}
+                      className="bg-cyan-700 hover:bg-cyan-600 text-white px-8 py-5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
-                      Continuar
+                      {isLoggingIn ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Iniciando sesión...
+                        </>
+                      ) : (
+                        'Continuar'
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -1036,15 +1069,24 @@ export function ProfileSelector({ profiles, onProfileSelected, onProfileCreated 
               <Button 
                 variant="ghost" 
                 onClick={() => setShowRecoverProfile(false)}
-                className="border border-cyan-800/50 hover:bg-cyan-900/20"
+                disabled={isRecoveringProfile}
+                className="border border-cyan-800/50 hover:bg-cyan-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancelar
               </Button>
               <Button 
                 onClick={handleRecoverProfile}
-                className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                disabled={isRecoveringProfile}
+                className="bg-cyan-600 hover:bg-cyan-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Recuperar
+                {isRecoveringProfile ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Recuperando...
+                  </>
+                ) : (
+                  'Recuperar'
+                )}
               </Button>
             </div>
           </div>
