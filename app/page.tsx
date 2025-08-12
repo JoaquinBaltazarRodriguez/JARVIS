@@ -48,6 +48,7 @@ import {
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { AdvancedRichTextEditor } from "@/components/AdvancedRichTextEditor"
 import { Card } from "@/components/ui/card"
 import { LogoutModal } from "@/components/LogoutModal"
 import { useSimpleAudio, setNexusVoiceMuted, isNexusVoiceMuted } from "@/hooks/useSimpleAudio"
@@ -226,6 +227,7 @@ const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspa
   const [newProject, setNewProject] = useState({
     title: '',
     description: '',
+    content: '', // Contenido del editor de texto rico
     isCompleted: false,
     responsible: null as UserProfile | null,
     dueDate: '',
@@ -426,7 +428,7 @@ const handleLoginComplete = (profile: UserProfile) => {
   setAppState("active");
   
   // Reproducir solo el sonido de inicio en todos los casos
-  playStartupSound();
+  // playStartupSound(); // Comentado temporalmente hasta implementar la función
   
   // Verificamos si es un nuevo usuario para mostrar el tutorial
   const tutorialKey = `nexus_tutorial_shown_${profile.id}`;
@@ -4402,7 +4404,7 @@ const getCircleClasses = () => {
                   {editingProject ? (hasUnsavedChanges ? 'Guardar Cambios' : 'Guardado') : 'Crear Proyecto'}
                 </button>
                 <button
-                  onClick={handleCloseCreateProject}
+                  onClick={() => setShowCreateProject(false)}
                   className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors duration-200 group"
                   title="Cancelar y volver"
                 >
@@ -4410,13 +4412,10 @@ const getCircleClasses = () => {
                 </button>
               </div>
             </div>
-          </div>
-          
-          {/* Contenido principal */}
-          <div className="flex h-[calc(100vh-80px)]">
-            {/* Panel lateral izquierdo - Configuración del proyecto */}
-            <div className="w-80 bg-gray-900/40 backdrop-blur-sm border-r border-gray-700/50 p-6 overflow-y-auto">
-              <div className="space-y-6 pb-8">
+            
+            {/* Panel izquierdo - Formulario del proyecto */}
+            <div className="w-1/3 border-r border-gray-700/50 p-6 overflow-y-auto bg-gray-900/50">
+              <div className="space-y-6">
                 {/* Título del proyecto */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-3">
@@ -4883,7 +4882,19 @@ const getCircleClasses = () => {
         </div>
       )}
 
-      
+      {/* BOTÓN TEMPORAL PARA PROBAR MODAL DE CREACIÓN DE PROYECTOS */}
+      {appState === "active" && (
+        <div className="fixed top-20 right-4 z-40">
+          <button
+            onClick={() => setShowCreateProject(true)}
+            className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Crear Proyecto
+          </button>
+        </div>
+      )}
+
       {/* INTERFAZ ORIGINAL PARA OTROS MODOS */}
       {(appState === "intelligent_mode" || appState === "functional_mode") && (
         <div className="flex-1 flex flex-col items-center justify-center min-h-screen p-8 relative z-10">
@@ -5533,6 +5544,189 @@ const getCircleClasses = () => {
                 >
                   Guardar cambios
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📝 INTERFAZ PARA CREAR NUEVO PROYECTO CON EDITOR RICO */}
+      {showCreateProject && (
+        <div className="fixed top-16 left-0 right-0 bottom-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 z-40 flex flex-col">
+          {/* Header interno con título y botones */}
+          <div className="flex items-center justify-between p-4 bg-gray-900/40 backdrop-blur-sm border-b border-gray-700/50">
+            <div>
+              <h2 className="text-xl font-bold text-cyan-400">Crear Nuevo Proyecto</h2>
+              <p className="text-gray-400 text-sm">Completa la información para crear tu proyecto</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  // Lógica para crear/guardar proyecto
+                  console.log('Creando proyecto:', newProject);
+                  setShowCreateProject(false);
+                  setNewProject({
+                    title: '',
+                    description: '',
+                    content: '',
+                    isCompleted: false,
+                    responsible: null,
+                    priority: null,
+                    dueDate: '',
+                    section: null,
+                    collaborators: [],
+                    notes: '',
+                  });
+                }}
+                disabled={!newProject.title.trim()}
+                className="bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Crear Proyecto
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateProject(false);
+                  setNewProject({
+                    title: '',
+                    description: '',
+                    content: '',
+                    isCompleted: false,
+                    responsible: null,
+                    priority: null,
+                    dueDate: '',
+                    section: null,
+                    collaborators: [],
+                    notes: '',
+                  });
+                }}
+                className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors duration-200 group"
+                title="Cancelar y volver"
+              >
+                <X className="w-5 h-5 text-gray-400 group-hover:text-white" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Contenido principal - Layout de dos columnas */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Panel izquierdo - Formulario del proyecto */}
+            <div className="w-80 border-r-2 border-gray-600/70 p-6 overflow-y-auto bg-gray-900/60 shadow-xl">
+              <div className="space-y-6">
+                {/* Título del proyecto */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Nombre del proyecto *
+                  </label>
+                  <input
+                    type="text"
+                    value={newProject.title}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Ej: Desarrollo de aplicación web"
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    maxLength={100}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {newProject.title.length}/100 caracteres
+                  </p>
+                </div>
+
+                {/* Descripción breve */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Descripción breve (opcional)
+                  </label>
+                  <textarea
+                    value={newProject.description}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Breve descripción del proyecto..."
+                    className="w-full px-3 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                    rows={5}
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {newProject.description.length}/200 caracteres
+                  </p>
+                </div>
+
+                {/* Sección */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Sección
+                  </label>
+                  <select
+                    value={newProject.section || ''}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, section: e.target.value || null }))}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  >
+                    <option value="">Seleccionar sección</option>
+                    {customSections.map(section => (
+                      <option key={section.id} value={section.id}>
+                        {section.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Prioridad */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Prioridad
+                  </label>
+                  <div className="flex gap-2">
+                    {(['bajo', 'medio', 'alto'] as const).map((priority) => (
+                      <button
+                        key={priority}
+                        onClick={() => setNewProject(prev => ({ 
+                          ...prev, 
+                          priority: prev.priority === priority ? null : priority 
+                        }))}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          newProject.priority === priority
+                            ? priority === 'alto' 
+                              ? 'bg-red-600 text-white' 
+                              : priority === 'medio'
+                              ? 'bg-yellow-600 text-white'
+                              : 'bg-green-600 text-white'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                        }`}
+                      >
+                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Fecha de vencimiento */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Fecha de vencimiento (opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={newProject.dueDate}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, dueDate: e.target.value }))}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Panel derecho - Editor de texto rico */}
+            <div className="flex-1 flex flex-col bg-gray-800/30">
+              <div className="p-6 border-b border-gray-600/50 bg-gray-800/50">
+                <h3 className="text-lg font-semibold text-cyan-400 mb-2">Contenido del proyecto</h3>
+                <p className="text-sm text-gray-400">Utiliza el editor para crear el contenido de tu proyecto con formato profesional</p>
+              </div>
+              
+              <div className="flex-1 overflow-hidden">
+                <AdvancedRichTextEditor
+                  value={newProject.content}
+                  onChange={(content) => setNewProject(prev => ({ ...prev, content }))}
+                  placeholder="Escribe aquí el contenido detallado de tu proyecto..."
+                />
               </div>
             </div>
           </div>
