@@ -68,9 +68,7 @@ import { getGenderTreatment } from "@/lib/utils"
 // UserProfile type imported from firebaseProfileManager below
 import { usePillReminder } from "@/hooks/usePillReminder"
 // importación eliminada para limpiar la UI
-import { TokenManager } from "@/lib/tokenManager"
 import { LocalCommands } from "@/lib/localCommands"
-import { NexusMemory } from "@/lib/jarvisMemory"
 import Starfield from "@/components/Starfield"
 
 // import { useNexusStartupAnimation } from "@/hooks/useNexusStartupAnimation" // Comentado temporalmente para optimización de memoria
