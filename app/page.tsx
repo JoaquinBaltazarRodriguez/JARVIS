@@ -76,8 +76,9 @@ import { SettingsModal } from "@/components/SettingsModal"
 import { LoadingScreen } from "@/components/LoadingScreen"
 import TutorialModal from "@/components/TutorialModal"
 import TutorialGuide from "@/components/TutorialGuide"
-import { FirebaseProfileManager, type UserProfile } from "@/lib/firebaseProfileManager"
+import { FirebaseProfileManager, Playlist, Song, type UserProfile } from "@/lib/firebaseProfileManager"
 import { FirebaseProjectsManager, type Project } from "@/lib/firebaseProjectsManager"
+import { Message } from "postcss";
 
 // --- CONFIGURACIÓN DE CIUDAD Y API WEATHER ---
 
@@ -171,17 +172,40 @@ type FileType = {
   file?: File
 }
 
-type Message = {
-  text: string
-  type: "user" | "nexus"
-  imageUrl?: string
-  imagePrompt?: string
-  files?: FileType[]
-  source?: "memory" | "ollama" | "wikipedia" | "none"
-}
-
 export default function AdvancedJarvis() {
+
+// Dentro de AdvancedJarvis(), arriba del return (o junto a getStatusText)
+const getStatusColor = (s: AppState): string => {
+  switch (s) {
+    case "sleeping":
+      return "text-gray-400";
+    case "waiting_password":
+      return "text-yellow-400";
+    case "initializing":
+      return "text-cyan-400";
+    case "calling_confirmation":
+      return "text-green-400";
+    case "music_mode":
+    case "music_playing":
+      return "text-green-400";
+    case "intelligent_mode":
+      return "text-purple-400";
+    case "functional_mode":
+      return "text-orange-400";
+    case "image_download_confirmation":
+    case "profile_selection":
+    case "tutorial":
+    case "active":
+      return "text-cyan-400";
+    default: {
+      const _exhaustive: never = s;
+      return "text-cyan-400";
+    }
+  }
+};
+
   // ...otros estados
+
   const [backgroundSubtitle, setBackgroundSubtitle] = useState<string>("");
   // Componentes cargados dinámicamente
 const FunctionalWorkspace = dynamic(() => import("@/components/FunctionalWorkspace"), { ssr: false });
@@ -370,20 +394,6 @@ const handleTutorialDeclined = () => {
   setShowTutorialModal(false);
   setShowTutorialGuide(false); // No mostramos la guía del tutorial
   setAppState("active");
-  
-  // Guardar en localStorage que ya se mostró el tutorial y el mensaje de bienvenida
-  if (activeProfile) {
-    const tutorialKey = `nexus_tutorial_shown_${activeProfile.id}`;
-    localStorage.setItem(tutorialKey, "true");
-    
-    // Mostrar mensaje de bienvenida después de rechazar el tutorial
-    const welcomeMessage = getWelcomeMessage(activeProfile);
-    setCurrentText(welcomeMessage);
-    speak(welcomeMessage);
-    
-    // Marcar que ya se mostró el mensaje de bienvenida
-    localStorage.setItem(`nexus_welcome_shown_${activeProfile.id}`, "true");
-  }
 };
 
 // Función para manejar la finalización del tutorial
@@ -398,16 +408,7 @@ const handleTutorialCompleted = () => {
     
     // Verificar si ya se ha mostrado el mensaje de bienvenida
     const welcomeShown = localStorage.getItem(`nexus_welcome_shown_${activeProfile.id}`);
-    
-    if (welcomeShown !== "true") {
-      // Mostrar mensaje de bienvenida después de completar el tutorial
-      const welcomeMessage = getWelcomeMessage(activeProfile);
-      setCurrentText(welcomeMessage);
-      speak(welcomeMessage);
-      
-      // Marcar que ya se mostró el mensaje de bienvenida
-      localStorage.setItem(`nexus_welcome_shown_${activeProfile.id}`, "true");
-    }
+
   }
 };
 
@@ -550,161 +551,6 @@ const handleLoginComplete = (profile: UserProfile) => {
     }
   }, [showSectionsMenu, showPriorityMenu])
 
-  // --- Estados para input y sugerencias de comandos ---
-  const startupAudioRef = useRef<HTMLAudioElement | null>(null)
-  const [userInput, setUserInput] = useState("")
-  const [isUploading, setIsUploading] = useState(false)
-  const [selectedFiles, setSelectedFiles] = useState<FileType[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Manejar la selección de archivos
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-    setIsUploading(true)
-
-    // Procesar cada archivo
-    const filePromises = Array.from(files).map((file) => {
-      return new Promise<FileType>((resolve) => {
-        const reader = new FileReader()
-        reader.onload = (e) => {
-          const fileType = getFileType(file.type)
-          resolve({
-            name: file.name,
-            url: URL.createObjectURL(file),
-            type: fileType,
-            size: file.size,
-            file: file, // Guardamos la referencia al archivo original
-          })
-        }
-        reader.readAsDataURL(file)
-      })
-    })
-
-    // Cuando todos los archivos estén procesados
-    Promise.all(filePromises).then((filesData) => {
-      setSelectedFiles((prev) => [...prev, ...filesData])
-      setIsUploading(false)
-
-      // Resetear el input de archivo
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
-    })
-  }
-
-  // Eliminar un archivo seleccionado
-  const removeSelectedFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  // Manejar el envío del mensaje con archivos
-  const handleSendMessage = async () => {
-    if ((!userInput || userInput.trim() === "") && selectedFiles.length === 0) return
-
-    const messageText = userInput.trim() || `He subido ${selectedFiles.length} archivo(s)`
-
-    // Crear el mensaje con los archivos
-    const newMessage: Message = {
-      text: messageText,
-      type: "user",
-      files: [...selectedFiles],
-    }
-
-    // Agregar el mensaje al chat
-    setMessages((prev) => [...prev, newMessage])
-    saveMessageToConversation(messageText, "user")
-
-    // Si hay archivos, prepararlos para enviar a la API
-    if (selectedFiles.length > 0) {
-      try {
-        setIsProcessing(true)
-
-        // Aquí iría la lógica para enviar los archivos a la API de Ollama
-        // Por ahora, simulamos una respuesta de NEXUS
-        const responseText =
-          `He recibido ${selectedFiles.length} archivo(s) para analizar. ` +
-          `Contenido: ${selectedFiles.map((f) => f.name).join(", ")}`
-
-        // Agregar la respuesta de NEXUS
-        setMessages((prev) => [
-          ...prev,
-          {
-            text: responseText,
-            type: "nexus",
-          },
-        ])
-        saveMessageToConversation(responseText, "nexus")
-
-        // Leer el contenido de los archivos y enviarlo a la API
-        for (const file of selectedFiles) {
-          if (file.type === "document" || file.type === "text") {
-            // Para archivos de texto, leer su contenido
-            const text = await readFileAsText(file.file)
-            console.log("Contenido del archivo:", text)
-            // Aquí enviarías el contenido a la API de Ollama
-          } else if (file.type === "image") {
-            // Para imágenes, podrías usar la API de visión de Ollama si es compatible
-            console.log("Procesando imagen:", file.name)
-            // Aquí enviarías la imagen a la API de visión de Ollama
-          }
-        }
-      } catch (error) {
-        console.error("Error al procesar archivos:", error)
-        const errorMsg = "Lo siento, hubo un error al procesar los archivos."
-        setMessages((prev) => [...prev, { text: errorMsg, type: "nexus" }])
-        saveMessageToConversation(errorMsg, "nexus")
-      } finally {
-        setIsProcessing(false)
-        setSelectedFiles([])
-      }
-    } else {
-      // Si no hay archivos, enviar el mensaje normal
-      handleUserMessage(messageText)
-    }
-
-    // Limpiar el input
-    setUserInput("")
-  }
-
-  // Función auxiliar para leer archivos de texto
-  const readFileAsText = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (e) => resolve((e.target?.result as string) || "")
-      reader.onerror = (e) => reject(reader.error)
-      reader.readAsText(file)
-    })
-  }
-
-  // Función para activar el input de archivo
-  const triggerFileInput = () => {
-    // Si ya hay archivos seleccionados, limpiar la selección
-    if (selectedFiles.length > 0) {
-      setSelectedFiles([])
-    } else {
-      fileInputRef.current?.click()
-    }
-  }
-
-  // Obtener el tipo de archivo basado en el MIME type
-  const getFileType = (mimeType: string): "image" | "document" | "audio" | "video" | "other" => {
-    if (!mimeType) return "other"
-    if (mimeType.startsWith("image/")) return "image"
-    if (mimeType.startsWith("video/")) return "video"
-    if (mimeType.startsWith("audio/")) return "audio"
-    if (
-      [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "text/plain",
-      ].includes(mimeType)
-    ) {
-      return "document"
-    }
-    return "other"
-  }
 
   // Sugerencias según modo actual (no filtrar por texto, solo mostrar todas)
   const getCommandMode = () => (appState === "functional_mode" ? "functional" : "normal")
@@ -1956,33 +1802,6 @@ const [musicBackgroundMode, setMusicBackgroundMode] = useState(false)
     }
   })
 
-  // 🚨 OPTIMIZACIÓN DE MEMORIA: Limitar arrays para evitar acumulación
-  useEffect(() => {
-    // Limitar mensajes a máximo 50 para evitar acumulación de memoria
-    if (messages.length > 50) {
-      setMessages(prev => prev.slice(-50))
-    }
-    
-    // Limitar archivos seleccionados
-    if (selectedFiles.length > 10) {
-      setSelectedFiles(prev => prev.slice(-10))
-    }
-  }, [messages.length, selectedFiles.length])
-  
-  // 🚨 LIMPIEZA DE MEMORIA: Limpiar recursos no utilizados
-  useEffect(() => {
-    const cleanup = () => {
-      // Limpiar URLs de objetos que ya no se usan
-      selectedFiles.forEach(file => {
-        if (file.url && file.url.startsWith('blob:')) {
-          URL.revokeObjectURL(file.url)
-        }
-      })
-    }
-    
-    return cleanup
-  }, [selectedFiles])
-  
   // 🚨 MONITOR DE MEMORIA AUTOMÁTICO: Ejecutar cada 30 segundos
   useEffect(() => {
     const memoryMonitor = setInterval(() => {
@@ -2668,7 +2487,6 @@ const confirmLogout = async () => {
     const welcomeMsg = "Bienvenido. NEXUS está ahora completamente operativo. ¿En qué puedo asistirle hoy?"
     setMessages((prev) => [...prev, { text: welcomeMsg, type: "nexus" }])
     setCurrentText(welcomeMsg)
-    playStartupSound()
 
     await speak(welcomeMsg)
     setCurrentText("")
@@ -2716,7 +2534,6 @@ const confirmLogout = async () => {
     setIsProcessing(true)
     const goodbye = "Desactivando NEXUS. Hasta luego."
     setCurrentText(goodbye)
-    playShutdownSound()
     await speak(goodbye)
     setAppState("sleeping")
     setMessages([])
@@ -2896,9 +2713,6 @@ const confirmLogout = async () => {
     // 💬 GUARDAR EN CONVERSACIÓN
     saveMessageToConversation(message, "user")
 
-    // 🧠 GUARDAR EN MEMORIA DE NEXUS
-    NexusMemory.saveMemory("context", message, ["user_input"])
-
     try {
       // 🔧 PROCESAR COMANDOS LOCALES EN MODO NORMAL Y FUNCIONAL
       if (appState === "active" || appState === "functional_mode") {
@@ -2952,18 +2766,6 @@ const confirmLogout = async () => {
         return
       }
 
-      // 🚫 VERIFICAR LÍMITES DE TOKENS
-      const tokenCheck = TokenManager.canUseTokens()
-      if (!tokenCheck.allowed) {
-        const limitMsg = `${tokenCheck.reason} Por favor, revise su panel de OpenAI.`
-        setMessages((prev) => [...prev, { text: limitMsg, type: "nexus" }])
-        saveMessageToConversation(limitMsg, "nexus")
-        setCurrentText(limitMsg)
-        await speak(limitMsg)
-        setCurrentText("")
-        setIsProcessing(false)
-        return
-      }
 
       // Resto del código para llamar a la API...
       console.log("🧠 CALLING CHAT API - INTELLIGENT MODE ONLY...")
@@ -2985,71 +2787,6 @@ const confirmLogout = async () => {
 
       const data = await response.json()
 
-      if (data.success) {
-        // 🧠 REGISTRAR INTERACCIÓN EN MEMORIA
-        NexusMemory.recordInteraction(message, data.response)
-
-        // 🖼️ PROCESAR RESPUESTA CON IMAGEN
-        if (data.hasImage && data.imageUrl) {
-          setCurrentImage({
-            url: data.imageUrl,
-            prompt: data.imagePrompt || message,
-          })
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              text: data.response,
-              type: "nexus",
-              imageUrl: data.imageUrl,
-              imagePrompt: data.imagePrompt || message,
-              source: data.source || undefined,
-            },
-          ])
-
-          saveMessageToConversation(data.response, "nexus", data.imageUrl, data.imagePrompt || message)
-          setCurrentText(data.response)
-          await speak(data.response)
-          setCurrentText("")
-
-          // 🖼️ PREGUNTAR SI QUIERE DESCARGAR LA IMAGEN
-          setTimeout(async () => {
-            const downloadQuestion = "¿Desea descargar esta imagen?"
-            setCurrentText(downloadQuestion)
-            await speak(downloadQuestion)
-            setCurrentText("")
-            setPendingImageDownload({
-              url: data.imageUrl,
-              prompt: data.imagePrompt || message,
-            })
-            setWaitingImageDownloadConfirmation(true)
-            setAppState("image_download_confirmation")
-          }, 2000)
-        } else {
-          setMessages((prev) => [
-            ...prev,
-            {
-              text: data.response,
-              type: "nexus",
-              source: data.source || undefined,
-            },
-          ])
-
-          saveMessageToConversation(data.response, "nexus")
-          setCurrentText(data.response)
-          await speak(data.response)
-          setCurrentText("")
-        }
-
-        if (data.source === "none") {
-          const noInfoMsg = "No se pudo obtener información precisa."
-          setMessages((prev) => [...prev, { text: noInfoMsg, type: "nexus" }])
-          saveMessageToConversation(noInfoMsg, "nexus")
-          setCurrentText(noInfoMsg)
-          await speak(noInfoMsg)
-          setCurrentText("")
-        }
-      }
     } catch (error) {
       console.error("❌ ERROR:", error)
       const errorMsg = "Lo siento tuve un problema técnico. Inténtelo de nuevo."
@@ -3824,23 +3561,14 @@ const getCircleClasses = () => {
                     </div>
                   </button>
                 </div>
+
+                
                 
                 {/* Status Text compacto */}
                 <div className="text-center">
-                  <p className={`text-xs font-medium ${
-                    appState === "sleeping" ? "text-gray-400" :
-                    appState === "waiting_password" ? "text-yellow-400" :
-                    appState === "initializing" ? "text-cyan-400" :
-                    appState === "calling_confirmation" ? "text-green-400" :
-                    appState === "music_mode" ? "text-green-400" :
-                    appState === "music_playing" ? "text-green-400" :
-                    appState === "intelligent_mode" ? "text-purple-400" :
-                    appState === "functional_mode" ? "text-orange-400" :
-                    appState === "image_download_confirmation" ? "text-cyan-400" :
-                    "text-cyan-400"
-                  }`}>
-                    {getStatusText()}
-                  </p>
+                  <p className={`text-xs font-medium ${getStatusColor(appState)}`}>
+  {getStatusText()}
+</p>
                 </div>
               </div>
             </div>
@@ -5147,8 +4875,8 @@ const getCircleClasses = () => {
                   setMusicBackgroundMode(false);
                   
                   // Mantener el modo actual si estamos en modo funcional o inteligente
-                  if (appState !== ("functional_mode" as AppState) && appState !== "intelligent_mode") {
-                    setAppState("active");
+                  if (appState !== "functional_mode" && appState !== "intelligent_mode") {
+                    setAppState("active")
                   }
                 }
               }}
